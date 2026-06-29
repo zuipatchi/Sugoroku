@@ -1,0 +1,7 @@
+@import url("unity-theme://default");
+
+/* ゲーム全体の既定フォント: NotoSansJP Bold (SDF)。
+   .unity-text-element は Label / Button など全テキスト要素の基底クラス。 */
+.unity-text-element {
+    -unity-font-definition: url("project://database/Assets/Font/NotoSansJP-Bold SDF.asset?fileID=11400000&guid=c5fa8dfb52dde944d80dcae3823f0b4c&type=2#NotoSansJP-Bold SDF");
+}

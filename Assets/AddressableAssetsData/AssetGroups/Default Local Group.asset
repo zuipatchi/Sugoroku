@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Default Local Group
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Default Local Group
+  m_GUID: 2296e1af91e62c84eb2f51cf913da5c3
+  m_SerializeEntries:
+  - m_GUID: 0ac14884a55a36147a6b23dc7ab6f88b
+    m_Address: Sound/BGM/Title
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7069e5405f74953428aab1c2dae935a4
+    m_Address: Sound/BGM/CatInPalmBeach
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bf6f1160940837d468bd8c176cc85503
+    m_Address: Modal/OptionModal
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c3f2df3e1af35084e844d2d4d9af305d
+    m_Address: Icon/align-justify-solid
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ff539d642a1a86d4aac70aba745fb6cb
+    m_Address: Icon/sliders
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 343fbb90d9576674c9df0431d71e47f6
+    m_Address: Sound/SE/Cancel1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e2da3b54201021a4ca0b48b4e7ed0105
+    m_Address: Sound/SE/Enter1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 359575458dcc592418653f81d23a0c4d
+    m_Address: Sound/SE/Enter2
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: af5c947c29d2130448eca04fbe4b1f5f
+    m_Address: Sound/SE/Result
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 581cd34c163354e4ca689f417e9ec42a, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 90b47321da60d0244a971989aed7ce62, type: 2}
+    - {fileID: 11400000, guid: 6ced02f640856f544b74202c417e2d47, type: 2}

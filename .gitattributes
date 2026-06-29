@@ -1,0 +1,45 @@
+# 改行コードを正規化（リポジトリ内は LF、チェックアウト時はプラットフォーム依存）
+* text=auto
+
+# ソース・テキスト
+*.cs        text diff=csharp
+*.shader    text
+*.cginc     text
+*.hlsl      text
+*.uss       text
+*.uxml      text
+*.json      text
+*.md        text
+*.txt       text
+*.xml       text
+*.rsp       text
+*.asmdef    text
+*.asmref    text
+
+# Unity YAML（テキスト扱いだが手編集しないため diff は抑制）
+*.meta       text
+*.unity      text
+*.prefab     text
+*.asset      text
+*.mat        text
+*.anim       text
+*.controller text
+*.physicMaterial text
+*.playerprefs    text
+
+# バイナリ（正規化しない）
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.psd   binary
+*.tga   binary
+*.wav   binary
+*.mp3   binary
+*.ogg   binary
+*.ttf   binary
+*.otf   binary
+*.fbx   binary
+*.dll   binary
+*.bytes binary
+*.unitypackage binary
