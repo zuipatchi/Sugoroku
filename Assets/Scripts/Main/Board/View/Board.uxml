@@ -1,0 +1,9 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="Board.uss" />
+    <!-- 全画面を覆うが picking-mode=Ignore で下層（ルーレット）のクリックを通す -->
+    <ui:VisualElement name="BoardRoot" class="board-root" picking-mode="Ignore">
+        <!-- 外周マスとコマを絶対配置するリング領域。中央寄せ＆マージンで右上アイコンを避ける -->
+        <ui:VisualElement name="BoardArea" class="board-area" picking-mode="Ignore" />
+        <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

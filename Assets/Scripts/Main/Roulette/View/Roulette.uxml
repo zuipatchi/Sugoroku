@@ -3,8 +3,9 @@
     <ui:VisualElement name="RouletteRoot" class="roulette-root">
         <ui:Label text="ルーレット" name="Title" class="roulette-title" />
         <ui:VisualElement name="WheelArea" class="wheel-area">
-            <ui:Label text="▼" name="Pointer" class="roulette-pointer" />
             <ui:VisualElement name="Wheel" class="roulette-wheel" />
+            <!-- Wheel より後に置き、円盤の上へ描画する（前に置くと円盤に覆われて隠れる） -->
+            <ui:Label text="▼" name="Pointer" class="roulette-pointer" />
         </ui:VisualElement>
         <ui:Label text="" name="ResultLabel" class="roulette-result" />
         <ui:Button text="回す" name="SpinButton" class="btn-accent roulette-spin" />

@@ -1,3 +1,4 @@
+using Main.Board;
 using Main.Roulette;
 using VContainer;
 using VContainer.Unity;
@@ -15,6 +16,9 @@ namespace Main.Injector
 
             builder.Register<RouletteModel>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<RoulettePresenter>().AsSelf();
+
+            builder.Register<BoardModel>(Lifetime.Scoped);
+            builder.RegisterComponentInHierarchy<BoardPresenter>().AsSelf();
         }
     }
 }

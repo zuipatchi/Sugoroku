@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Common.SoundManagement;
 using Common.Store;
 using DG.Tweening;
+using Main.Board;
 using R3;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -25,6 +26,7 @@ namespace Main.Roulette
         [SerializeField] private float _spinDuration = 3f;
 
         private RouletteModel _model;
+        private BoardModel _board;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
 
@@ -40,15 +42,19 @@ namespace Main.Roulette
         private bool _wheelBuilt;
 
         [Inject]
-        public void Construct(RouletteModel model, SoundStore soundStore, SoundPlayer soundPlayer)
+        public void Construct(RouletteModel model, BoardModel board, SoundStore soundStore, SoundPlayer soundPlayer)
         {
             _model = model;
+            _board = board;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
 
             // OnEnable で UI 構築済みのため、ここで購読してよい（injection は OnEnable の後）。
             // DOTween.dll の AddTo 拡張と衝突するため、ここでは CompositeDisposable.Add で購読を管理する。
-            _disposables.Add(_model.State.Subscribe(ApplyState));
+            // 回転中・コマ移動中・クリア後はいずれも回せないため、3 つの状態を購読してボタンを更新する。
+            _disposables.Add(_model.State.Subscribe(_ => UpdateSpinEnabled()));
+            _disposables.Add(_board.IsMoving.Subscribe(_ => UpdateSpinEnabled()));
+            _disposables.Add(_board.IsCleared.Subscribe(_ => UpdateSpinEnabled()));
             _disposables.Add(_model.Result.Subscribe(value =>
             {
                 if (_resultLabel != null && value > 0)
@@ -210,6 +216,10 @@ namespace Main.Roulette
             {
                 return;
             }
+            if (_board != null && (_board.IsMoving.CurrentValue || _board.IsCleared.CurrentValue))
+            {
+                return;
+            }
 
             int value = _model.BeginSpin(_sectorCount);
             PlaySe(_soundStore?.Enter1SE);
@@ -236,9 +246,17 @@ namespace Main.Roulette
                 });
         }
 
-        private void ApplyState(RouletteState state)
+        private void UpdateSpinEnabled()
         {
-            _spinButton?.SetEnabled(state != RouletteState.Spinning);
+            if (_spinButton == null || _model == null || _board == null)
+            {
+                return;
+            }
+
+            bool canSpin = _model.State.CurrentValue != RouletteState.Spinning
+                           && !_board.IsMoving.CurrentValue
+                           && !_board.IsCleared.CurrentValue;
+            _spinButton.SetEnabled(canSpin);
         }
 
         private void PlaySe(AudioClip clip)
