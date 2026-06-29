@@ -22,13 +22,18 @@ Common (常駐)
   ├── GameSessionModel
   └── Store 群（SoundStore / ModalStore ← AssetStoreBase を継承）
 
-Title (アディティブ)   →   Home (アディティブ)   →   Matching (アディティブ)   →   Main (アディティブ)
+Title → Home ┬─（一人用モード）───────────────→ Main
+             └─（オンライン）→ Matching ───────→ Main
 ```
+
+（すべて `Common` の上にアディティブでロード）
 
 - `Common` シーンは起動時にロードされ、以降アンロードされない
 - 他シーンは `Common` の上にアディティブでロード・アンロードされる
 - シーン遷移は `SceneTransitioner.Transit(Scenes next)` を呼ぶだけでよい
 - 遷移時は `TransitionPresenter` が画面をフェードアウト→ロード→フェードインの演出を行う
+- **Home で2モードを分岐**する。「一人用モード」は `GameSessionModel.SetSinglePlayer()` を呼んで `Main` へ直接遷移し、「オンラインプレイ」は `Matching` を経由する
+- `Main` の `NetworkSessionStartup` は `GameSessionModel.Mode == SinglePlayer` のとき NGO を起動せず即 `Connected` 扱いにする（一人用モードはネットワーク非依存）
 
 ### なぜアディティブか
 
@@ -173,7 +178,7 @@ Assets/Scripts/<Scene>/<Feature>/
 | `Title` | `Assets/Scripts/Title/` | VContainer / UniTask / Common |
 | `Home` | `Assets/Scripts/Home/` | VContainer / UniTask / Common |
 | `Matching` | `Assets/Scripts/Matching/` | VContainer / R3 / UniTask / Common / Unity.Services.Multiplayer / Unity.Netcode |
-| `Main` | `Assets/Scripts/Main/` | VContainer / R3 / UniTask / Common / Unity.Netcode |
+| `Main` | `Assets/Scripts/Main/` | VContainer / R3 / UniTask / Common / Unity.Netcode / DOTween |
 
 - `Title` / `Home` / `Matching` / `Main` は `Common` に依存し、逆方向の依存は禁止
 - `autoReferenced: true` のため既存コードへの影響なし

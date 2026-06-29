@@ -142,6 +142,43 @@ public sealed class YourPresenter : IAsyncStartable, ISceneReady
 
 ---
 
+## 5. DOTween と R3 を同じファイルで使うと `.AddTo(CancellationToken)` が壊れる
+
+`using DG.Tweening;` と `using R3;` を**同じファイルで併用**すると、`.AddTo(destroyCancellationToken)` が
+`error CS1620: Argument 2 must be passed with the 'ref' keyword` でコンパイル失敗する。
+DOTween.dll がグローバルな `AddTo<T>(this T, ...)` 拡張メソッドを公開していて、R3 の
+`AddTo(this IDisposable, CancellationToken)` よりそちらに解決されてしまうため（DOTween を import しない
+ファイルでは正常に通る）。
+
+### 対処：`CompositeDisposable` のインスタンスメソッド `Add()` で購読を管理する
+
+```csharp
+private readonly CompositeDisposable _disposables = new();
+
+// 拡張メソッドではなくインスタンスメソッドなので衝突しない
+_disposables.Add(_model.State.Subscribe(ApplyState));
+
+private void OnDestroy() => _disposables.Dispose();
+```
+
+インスタンスメソッドは拡張メソッドより優先される。`SoundPlayer` と同じ方式。実例は
+[RoulettePresenter.cs](../Assets/Scripts/Main/Roulette/RoulettePresenter.cs)。
+
+---
+
+## 6. `RegisterComponentInHierarchy<T>` はシーン内に有効な GameObject が必須
+
+`builder.RegisterComponentInHierarchy<T>()` は LifetimeScope 構築時にシーン内を検索し、
+**対象が無い／GameObject が無効だと `VContainerException: T is not in this scene` で構築ごと失敗する**
+（`AsSelf()` だけでもビルド時に解決されるため、依存元が無くても例外になる）。
+
+- 新しい MonoBehaviour Presenter を `RegisterComponentInHierarchy` で登録したら、**対象シーンに
+  その component を持つ有効な GameObject を必ず配置**する（UI Toolkit なら UIDocument に
+  Panel Settings と Source Asset(uxml) を割り当てた GameObject）
+- 配置先が `Common` ではなく対象シーン直下であること、GameObject が有効（チェック ON）であることを確認する
+
+---
+
 ## 共通ルール（抜粋）
 
 - `var` は使わない。型を明示する
