@@ -2,6 +2,9 @@
     <Style src="Home.uss" />
     <ui:VisualElement name="HomeRoot" class="home-root">
         <ui:Label text="Sugoroku" name="TitleLogo" class="title-logo" />
-        <ui:Label text="画面をタップしてはじめる" name="TapToStart" class="tap-hint" />
+        <ui:VisualElement name="ModeButtons" class="mode-buttons">
+            <ui:Button text="一人用モード" name="SinglePlayerButton" class="btn-accent mode-button" />
+            <ui:Button text="オンラインプレイ" name="OnlineButton" class="btn-secondary mode-button" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

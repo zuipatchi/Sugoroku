@@ -43,5 +43,20 @@ namespace Tests.EditMode
         {
             Assert.DoesNotThrow(() => _model.LeaveCurrentSessionAsync().GetAwaiter().GetResult());
         }
+
+        [Test]
+        public void 既定のModeはOnline()
+        {
+            Assert.AreEqual(GameMode.Online, _model.Mode);
+        }
+
+        [Test]
+        public void SetSinglePlayerでModeがSinglePlayerになりSessionは持たない()
+        {
+            _model.SetSinglePlayer();
+            Assert.AreEqual(GameMode.SinglePlayer, _model.Mode);
+            Assert.IsNull(_model.Session);
+            Assert.IsFalse(_model.HasSession);
+        }
     }
 }

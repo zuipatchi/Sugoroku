@@ -1,3 +1,4 @@
+using Main.Roulette;
 using VContainer;
 using VContainer.Unity;
 
@@ -11,6 +12,9 @@ namespace Main.Injector
             builder.Register<NetworkModel>(Lifetime.Scoped);
             builder.Register<NgoMessenger>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkSessionStartup>();
+
+            builder.Register<RouletteModel>(Lifetime.Scoped);
+            builder.RegisterComponentInHierarchy<RoulettePresenter>().AsSelf();
         }
     }
 }

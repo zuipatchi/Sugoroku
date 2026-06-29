@@ -1,0 +1,92 @@
+.roulette-root {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.roulette-title {
+    font-size: 28px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+    margin-bottom: 16px;
+}
+
+/* 円盤＋針をまとめる領域。針は円盤上端に絶対配置で重ねる。 */
+.wheel-area {
+    width: 300px;
+    height: 300px;
+    align-items: center;
+    justify-content: center;
+}
+
+.roulette-wheel {
+    width: 300px;
+    height: 300px;
+}
+
+.roulette-pointer {
+    position: absolute;
+    top: -18px;
+    font-size: 28px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+}
+
+/* 円盤上の数字（コードで left/top に中心座標を設定し、translate で自身の中心に合わせる） */
+.roulette-number {
+    position: absolute;
+    font-size: 22px;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-center;
+    translate: -50% -50%;
+}
+
+.roulette-result {
+    font-size: 20px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+    min-height: 28px;
+    margin-top: 20px;
+}
+
+.roulette-spin {
+    width: 160px;
+    margin-top: 16px;
+}
+
+/* アクセントボタン（design-system.md 準拠） */
+.btn-accent {
+    background-color: rgb(70, 90, 180);
+    color: rgb(255, 255, 255);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    padding-top: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    font-size: 14px;
+    -unity-text-align: middle-center;
+}
+
+.btn-accent:hover {
+    background-color: rgb(85, 105, 198);
+}
+
+.btn-accent:focus {
+    background-color: rgb(95, 115, 210);
+}
+
+.btn-accent:active {
+    background-color: rgb(50, 65, 145);
+    scale: 0.96 0.96;
+}
+
+.btn-accent:disabled {
+    background-color: rgba(70, 90, 180, 0.4);
+}

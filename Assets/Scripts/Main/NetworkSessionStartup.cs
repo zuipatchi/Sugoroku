@@ -21,6 +21,13 @@ namespace Main
 
         public async UniTask StartAsync(CancellationToken ct)
         {
+            // 一人用モードでは NGO を起動せず、即接続済み扱いにする。
+            if (_gameSessionModel.Mode == GameMode.SinglePlayer)
+            {
+                _networkModel.State.Value = NetworkState.Connected;
+                return;
+            }
+
             while (NetworkManager.Singleton == null)
             {
                 await UniTask.NextFrame(cancellationToken: ct);

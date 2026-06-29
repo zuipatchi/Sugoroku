@@ -11,8 +11,82 @@
     margin-bottom: 24px;
 }
 
-.tap-hint {
-    font-size: 18px;
-    color: rgb(180, 180, 210);
+.mode-buttons {
+    align-items: center;
+}
+
+.mode-button {
+    width: 240px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+/* アクセントボタン（design-system.md 準拠） */
+.btn-accent {
+    background-color: rgb(70, 90, 180);
+    color: rgb(255, 255, 255);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    padding-top: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    font-size: 14px;
     -unity-text-align: middle-center;
+}
+
+.btn-accent:hover {
+    background-color: rgb(85, 105, 198);
+}
+
+.btn-accent:focus {
+    background-color: rgb(95, 115, 210);
+}
+
+.btn-accent:active {
+    background-color: rgb(50, 65, 145);
+    scale: 0.96 0.96;
+}
+
+/* セカンダリボタン（design-system.md 準拠） */
+.btn-secondary {
+    background-color: rgba(255, 255, 255, 0.07);
+    color: rgb(230, 230, 245);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.15);
+    border-right-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+    padding-top: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    font-size: 14px;
+    -unity-text-align: middle-center;
+}
+
+.btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.13);
+}
+
+.btn-secondary:focus {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.btn-secondary:active {
+    background-color: rgba(255, 255, 255, 0.03);
+    scale: 0.96 0.96;
 }

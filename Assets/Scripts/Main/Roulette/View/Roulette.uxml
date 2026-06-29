@@ -1,0 +1,12 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="Roulette.uss" />
+    <ui:VisualElement name="RouletteRoot" class="roulette-root">
+        <ui:Label text="ルーレット" name="Title" class="roulette-title" />
+        <ui:VisualElement name="WheelArea" class="wheel-area">
+            <ui:Label text="▼" name="Pointer" class="roulette-pointer" />
+            <ui:VisualElement name="Wheel" class="roulette-wheel" />
+        </ui:VisualElement>
+        <ui:Label text="" name="ResultLabel" class="roulette-result" />
+        <ui:Button text="回す" name="SpinButton" class="btn-accent roulette-spin" />
+    </ui:VisualElement>
+</ui:UXML>
