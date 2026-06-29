@@ -8,14 +8,15 @@
   <Project Path="Unity.Services.Authentication.PlayerAccounts.csproj" />
   <Project Path="Unity.Services.Core.Internal.csproj" />
   <Project Path="Unity.ShaderGraph.Editor.csproj" />
+  <Project Path="Unity.InputSystem.csproj" />
   <Project Path="Unity.RenderPipelines.Core.Runtime.csproj" />
   <Project Path="Unity.ScriptableBuildPipeline.Editor.csproj" />
   <Project Path="Unity.Mathematics.csproj" />
-  <Project Path="Unity.Timeline.Editor.csproj" />
   <Project Path="Unity.Cinemachine.Editor.csproj" />
+  <Project Path="Unity.Timeline.Editor.csproj" />
   <Project Path="Unity.Multiplayer.Center.Editor.csproj" />
-  <Project Path="Unity.RenderPipelines.Core.Editor.csproj" />
   <Project Path="UnityEngine.UI.csproj" />
+  <Project Path="Unity.RenderPipelines.Core.Editor.csproj" />
   <Project Path="Unity.Addressables.Editor.csproj" />
   <Project Path="Unity.Collections.csproj" />
   <Project Path="Unity.VisualScripting.Core.Editor.csproj" />
@@ -31,7 +32,6 @@
   <Project Path="VContainer.csproj" />
   <Project Path="Unity.Networking.Transport.csproj" />
   <Project Path="Unity.Services.Authentication.csproj" />
-  <Project Path="Unity.InputSystem.csproj" />
   <Project Path="Unity.VisualStudio.Editor.csproj" />
   <Project Path="PPv2URPConverters.csproj" />
   <Project Path="Unity.Services.QoS.csproj" />
