@@ -1,0 +1,7 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="Home.uss" />
+    <ui:VisualElement name="HomeRoot" class="home-root">
+        <ui:Label text="Sugoroku" name="TitleLogo" class="title-logo" />
+        <ui:Label text="画面をタップしてはじめる" name="TapToStart" class="tap-hint" />
+    </ui:VisualElement>
+</ui:UXML>

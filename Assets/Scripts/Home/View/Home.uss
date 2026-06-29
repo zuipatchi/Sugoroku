@@ -1,0 +1,18 @@
+.home-root {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.title-logo {
+    font-size: 72px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+    margin-bottom: 24px;
+}
+
+.tap-hint {
+    font-size: 18px;
+    color: rgb(180, 180, 210);
+    -unity-text-align: middle-center;
+}

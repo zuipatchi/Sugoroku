@@ -14,7 +14,8 @@ namespace Common.SceneManagement
         Common = 0,
         Title = 1,
         Matching = 2,
-        Main = 3
+        Main = 3,
+        Home = 4
     }
     /// <summary>
     /// アクティブシーンを変更するクラス

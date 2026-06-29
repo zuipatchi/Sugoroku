@@ -196,7 +196,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -332,11 +332,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
   m_PanelSettings: {fileID: 11400000, guid: 96303a23c24e6a142bd4e0ed13382015, type: 2}
   m_ParentUI: {fileID: 0}
-  sourceAsset: {fileID: 9197481963319205126, guid: f3e8db44c596a274a9d8e217c6bc10c6, type: 3}
+  sourceAsset: {fileID: 9197481963319205126, guid: 88e551db11e7491f4c2e86cb4e63971b, type: 3}
   m_SortingOrder: 0
   m_Position: 0
   m_WorldSpaceSizeMode: 1
@@ -354,10 +354,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1158252076}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6757b0ec9fd9fa34b93e92c9ce408715, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Title.GameStartButton.GameStartButtonViewModel
-  _nextScene: 4
+  m_Script: {fileID: 11500000, guid: 5b8476a0f905e5b3102b7ee73afe22d4, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Home.Presenter.HomePresenter
+  _nextScene: 2
 --- !u!1 &1472985658
 GameObject:
   m_ObjectHideFlags: 0
@@ -468,9 +468,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2140557686}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ca9a002a2bdd51e4eb6c54973384786c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TitleLifetimeScope
+  m_Script: {fileID: 11500000, guid: 8c8602cb20b8b92e87ef4ff8a83d59b4, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::HomeLifetimeScope
   parentReference:
     TypeName: Common.Injector.CommonLifetimeScope
   autoRun: 0

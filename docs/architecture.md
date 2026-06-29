@@ -22,7 +22,7 @@ Common (常駐)
   ├── GameSessionModel
   └── Store 群（SoundStore / ModalStore ← AssetStoreBase を継承）
 
-Title (アディティブ)   →   Matching (アディティブ)   →   Main (アディティブ)
+Title (アディティブ)   →   Home (アディティブ)   →   Matching (アディティブ)   →   Main (アディティブ)
 ```
 
 - `Common` シーンは起動時にロードされ、以降アンロードされない
@@ -51,6 +51,7 @@ CommonLifetimeScope   全シーン共通のシングルトンを登録
   └── SceneTransitioner
 
 TitleLifetimeScope    Title シーン固有のサービスを登録
+HomeLifetimeScope     Home シーン固有のサービスを登録
 MainLifetimeScope     Main シーン固有のサービスを登録
 ```
 
@@ -170,10 +171,11 @@ Assets/Scripts/<Scene>/<Feature>/
 |---|---|---|
 | `Common` | `Assets/Scripts/Common/` | VContainer / R3 / UniTask / DOTween |
 | `Title` | `Assets/Scripts/Title/` | VContainer / UniTask / Common |
+| `Home` | `Assets/Scripts/Home/` | VContainer / UniTask / Common |
 | `Matching` | `Assets/Scripts/Matching/` | VContainer / R3 / UniTask / Common / Unity.Services.Multiplayer / Unity.Netcode |
 | `Main` | `Assets/Scripts/Main/` | VContainer / R3 / UniTask / Common / Unity.Netcode |
 
-- `Title` / `Matching` / `Main` は `Common` に依存し、逆方向の依存は禁止
+- `Title` / `Home` / `Matching` / `Main` は `Common` に依存し、逆方向の依存は禁止
 - `autoReferenced: true` のため既存コードへの影響なし
 
 ---
