@@ -13,7 +13,10 @@
       "Bash(Unity:*)",
       "Bash(gh:*)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "WebFetch(domain:console.anthropic.com)",
+      "WebFetch(domain:codersloth.medium.com)",
+      "WebFetch(domain:blog.laozhang.ai)"
     ],
     "deny": [
       "Bash(rm:*)",
