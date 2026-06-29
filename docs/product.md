@@ -23,6 +23,7 @@
 
 - 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存で Main へ直行）→ [architecture.md](architecture.md)「シーン構成」
 - 円盤ルーレット（回して止まった出目で移動マス数を決定。Painter2D で描画・DOTween で回転）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
+- すごろくのループ盤面（外周にマスを並べたループ盤。ルーレットの出目ぶんコマを1マスずつ移動し、1周してゴール＝スタートに到達するとクリア。1コマ・普通マスのみ）→ [Assets/Scripts/Main/Board/](../Assets/Scripts/Main/Board/)
 
 ## 未実装（今後の課題）
 
