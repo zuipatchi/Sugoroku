@@ -4,11 +4,11 @@
 
 ## プロジェクト概要
 
-オンライン対戦すごろく。Unity 6 (6000.3.12f1) 製。BGM/SE 再生機能と、Commonシーンをベースとしたアディティブシーン管理、UGS Multiplayer Services によるオンラインマッチングを備える。
+オンライン対戦すごろく。Unity 6 (6000.3.18f1) 製。BGM/SE 再生機能と、Commonシーンをベースとしたアディティブシーン管理、UGS Multiplayer Services によるオンラインマッチングを備える。
 
 ## Unity 開発
 
-ビルドと実行は Unity Editor (Unity 6000.3.12f1) を通じて行う。独立したビルドスクリプトは存在しない。
+ビルドと実行は Unity Editor (Unity 6000.3.18f1) を通じて行う。独立したビルドスクリプトは存在しない。
 
 - **テスト実行 (EditMode)**: Unity Editor → Window → General → Test Runner → EditMode タブ → Run All
 - **テスト実行 (PlayMode)**: Unity Editor → Window → General → Test Runner → PlayMode タブ → Run All
