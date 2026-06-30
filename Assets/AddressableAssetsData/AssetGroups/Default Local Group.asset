@@ -26,6 +26,21 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9bb0693a3eb2c524b9bc4ee38c45234b
+    m_Address: Character/Character2/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 06a5d2d177f57294681da74219dde6a4
+    m_Address: Character/Character3/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9511aa62b2fc3e44da0cb7962ba93bc8
+    m_Address: Character/Character4/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1abf842a8d3a7644f8ecf8f0fb0a5c07
     m_Address: Character/Character4/Icon
     m_ReadOnly: 0
