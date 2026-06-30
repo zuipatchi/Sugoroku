@@ -23,6 +23,9 @@ namespace Home.Presenter
         private VisualElement _root;
         private Button _singlePlayerButton;
         private Button _onlineButton;
+        private Button _creditButton;
+        private Button _creditCloseButton;
+        private VisualElement _creditOverlay;
         private bool _transiting;
 
         [Inject]
@@ -54,22 +57,33 @@ namespace Home.Presenter
 
             _singlePlayerButton = _root.Q<Button>("SinglePlayerButton");
             _onlineButton = _root.Q<Button>("OnlineButton");
-            if (_singlePlayerButton == null || _onlineButton == null)
+            _creditButton = _root.Q<Button>("CreditButton");
+            _creditCloseButton = _root.Q<Button>("CreditCloseButton");
+            _creditOverlay = _root.Q<VisualElement>("CreditOverlay");
+            if (_singlePlayerButton == null || _onlineButton == null
+                || _creditButton == null || _creditCloseButton == null || _creditOverlay == null)
             {
-                Debug.LogError("Home のモードボタンが見つかりませんでした。");
+                Debug.LogError("Home のボタン・クレジットモーダルが見つかりませんでした。");
                 return;
             }
 
             _singlePlayerButton.clicked += OnSinglePlayerClicked;
             _onlineButton.clicked += OnOnlineClicked;
+            _creditButton.clicked += OnCreditClicked;
+            _creditCloseButton.clicked += OnCreditCloseClicked;
         }
 
         private void OnDisable()
         {
             if (_singlePlayerButton != null) _singlePlayerButton.clicked -= OnSinglePlayerClicked;
             if (_onlineButton != null) _onlineButton.clicked -= OnOnlineClicked;
+            if (_creditButton != null) _creditButton.clicked -= OnCreditClicked;
+            if (_creditCloseButton != null) _creditCloseButton.clicked -= OnCreditCloseClicked;
             _singlePlayerButton = null;
             _onlineButton = null;
+            _creditButton = null;
+            _creditCloseButton = null;
+            _creditOverlay = null;
             _root = null;
         }
 
@@ -88,6 +102,19 @@ namespace Home.Presenter
             _transiting = true;
             _soundPlayer.PlaySE(_soundStore.Enter1SE);
             _sceneTransitioner.Transit(Scenes.Matching).Forget();
+        }
+
+        private void OnCreditClicked()
+        {
+            if (_transiting) return;
+            _soundPlayer.PlaySE(_soundStore.Enter2SE);
+            _creditOverlay.style.display = DisplayStyle.Flex;
+        }
+
+        private void OnCreditCloseClicked()
+        {
+            _soundPlayer.PlaySE(_soundStore.Cancel1SE);
+            _creditOverlay.style.display = DisplayStyle.None;
         }
     }
 }

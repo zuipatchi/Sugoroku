@@ -5,6 +5,36 @@
         <ui:VisualElement name="ModeButtons" class="mode-buttons">
             <ui:Button text="一人用モード" name="SinglePlayerButton" class="btn-accent mode-button" />
             <ui:Button text="オンラインプレイ" name="OnlineButton" class="btn-secondary mode-button" />
+            <ui:Button text="クレジット" name="CreditButton" class="btn-secondary mode-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <!-- クレジットモーダル。既定は非表示で、CreditButton 押下でコードから display を切り替える -->
+    <ui:VisualElement name="CreditOverlay" class="credit-overlay">
+        <ui:VisualElement name="CreditCard" class="credit-card">
+            <ui:Label text="クレジット" class="credit-title" />
+            <ui:VisualElement class="divider" />
+            <ui:VisualElement class="credit-row">
+                <ui:Label text="企画・デザイン" class="credit-key" />
+                <ui:Label text="深田 光晴" class="credit-value" />
+            </ui:VisualElement>
+            <ui:VisualElement class="credit-row">
+                <ui:Label text="プログラミング" class="credit-key" />
+                <ui:Label text="Claude Ops" class="credit-value" />
+            </ui:VisualElement>
+            <ui:VisualElement class="credit-row">
+                <ui:Label text="イラスト" class="credit-key" />
+                <ui:Label text="nijijourney / Nano Banana2" class="credit-value" />
+            </ui:VisualElement>
+            <ui:VisualElement class="credit-row">
+                <ui:Label text="使用技術" class="credit-key" />
+                <ui:Label text="Unity 6 / VContainer / R3 / UniTask / DOTween / Live2D Cubism SDK / Unity Gaming Services" class="credit-value" />
+            </ui:VisualElement>
+            <ui:VisualElement class="credit-row">
+                <ui:Label text="フォント" class="credit-key" />
+                <ui:Label text="Noto Sans JP" class="credit-value" />
+            </ui:VisualElement>
+            <ui:Label text="© 2026 Dragon Family" class="credit-copyright" />
+            <ui:Button text="閉じる" name="CreditCloseButton" class="btn-accent credit-close-button" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
