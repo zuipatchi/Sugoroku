@@ -11,7 +11,7 @@
     margin-bottom: 16px;
 }
 
-/* 円盤＋針をまとめる領域。針は円盤上端に絶対配置で重ねる。 */
+/* 円盤＋針＋影をまとめる領域。影は背面、針は円盤上端に絶対配置で重ねる。 */
 .wheel-area {
     width: 300px;
     height: 300px;
@@ -19,33 +19,52 @@
     justify-content: center;
 }
 
+/* 円盤の落ち影（回転しない背面要素。ひと回り大きい暗色の円を少し下にずらして浮かせる） */
+.wheel-shadow {
+    position: absolute;
+    width: 312px;
+    height: 312px;
+    border-top-left-radius: 156px;
+    border-top-right-radius: 156px;
+    border-bottom-left-radius: 156px;
+    border-bottom-right-radius: 156px;
+    background-color: rgba(0, 0, 0, 0.35);
+    translate: 0 10px;
+}
+
 .roulette-wheel {
     width: 300px;
     height: 300px;
 }
 
+/* 針：すごろくのコマと同じゴールド。太い白縁取りでどのセクター色の上でも視認できる。 */
 .roulette-pointer {
     position: absolute;
-    top: -18px;
-    font-size: 28px;
-    color: rgb(240, 240, 255);
+    top: -14px;
+    font-size: 40px;
+    color: rgb(235, 200, 90);
     -unity-text-align: middle-center;
+    -unity-text-outline-width: 1.4px;
+    -unity-text-outline-color: rgba(35, 30, 15, 0.9);
 }
 
-/* 円盤上の数字（コードで left/top に中心座標を設定し、translate で自身の中心に合わせる） */
+/* 円盤上の数字（コードで left/top に中心座標を設定し、translate で自身の中心に合わせる）。
+   明るいセクター色の上でも読めるよう白文字＋暗い縁取り。 */
 .roulette-number {
     position: absolute;
-    font-size: 22px;
+    font-size: 24px;
     color: rgb(255, 255, 255);
     -unity-text-align: middle-center;
+    -unity-text-outline-width: 1.2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.55);
     translate: -50% -50%;
 }
 
 .roulette-result {
-    font-size: 20px;
-    color: rgb(240, 240, 255);
+    font-size: 24px;
+    color: rgb(235, 200, 90);
     -unity-text-align: middle-center;
-    min-height: 28px;
+    min-height: 32px;
     margin-top: 20px;
 }
 
