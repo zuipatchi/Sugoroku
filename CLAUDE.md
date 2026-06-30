@@ -4,7 +4,7 @@
 
 ## プロジェクト概要
 
-オンライン対戦すごろく。Unity 6 (6000.3.18f1) 製。BGM/SE 再生機能と、Commonシーンをベースとしたアディティブシーン管理、UGS Multiplayer Services によるオンラインマッチングを備える。Home で「一人用モード」「オンラインプレイ」を選択でき、一人用モードはネットワーク非依存で Main へ直行する。移動マス数は円盤ルーレットで決定し、外周マスを並べたループ盤面のコマが出目ぶん進む（1周してゴール到達でクリア）。
+オンライン対戦すごろく。Unity 6 (6000.3.18f1) 製。BGM/SE 再生機能と、Commonシーンをベースとしたアディティブシーン管理、UGS Multiplayer Services によるオンラインマッチングを備える。Home で「一人用モード」「オンラインプレイ」を選択でき、一人用モードはネットワーク非依存で Main へ直行する。移動マス数は円盤ルーレットで決定し、外周マスを並べたループ盤面のコマが出目ぶん進む（1周してゴール到達でクリア）。ミニゲーム（タップ連打）は Main を残したまま MiniGame シーンを Additive で重ねて起動し、結果を盤面に反映する（中身は Addressables 差し替え式で将来最大5種類。現状はローカル完結・テスト用ボタン起動）。
 
 ## Unity 開発
 
@@ -77,7 +77,12 @@
 | ルーレット UI（Painter2D 描画・DOTween 回転） | [Assets/Scripts/Main/Roulette/RoulettePresenter.cs](Assets/Scripts/Main/Roulette/RoulettePresenter.cs) |
 | 盤面ロジック（位置前進・周回判定・リング→グリッド座標の純粋関数） | [Assets/Scripts/Main/Board/BoardMath.cs](Assets/Scripts/Main/Board/BoardMath.cs) |
 | 盤面状態（コマ位置・移動中・クリア） | [Assets/Scripts/Main/Board/BoardModel.cs](Assets/Scripts/Main/Board/BoardModel.cs) |
-| 盤面 UI（外周マス描画・コマ移動演出。ルーレット出目を購読） | [Assets/Scripts/Main/Board/BoardPresenter.cs](Assets/Scripts/Main/Board/BoardPresenter.cs) |
+| 盤面 UI（外周マス描画・コマ移動演出。ルーレット出目とミニゲームのボーナスを共用する `AdvanceAsync`） | [Assets/Scripts/Main/Board/BoardPresenter.cs](Assets/Scripts/Main/Board/BoardPresenter.cs) |
+| ミニゲーム起動（Main を残して MiniGame シーンを Additive で重ね・終了後に単独アンロード。Transit は使わない） | [Assets/Scripts/Common/MiniGame/MiniGameLauncher.cs](Assets/Scripts/Common/MiniGame/MiniGameLauncher.cs) |
+| ミニゲーム種別・結果・起動側↔ホストの仲介 | [Assets/Scripts/Common/MiniGame/MiniGameId.cs](Assets/Scripts/Common/MiniGame/MiniGameId.cs) / [MiniGameResult.cs](Assets/Scripts/Common/MiniGame/MiniGameResult.cs) / [MiniGameSessionModel.cs](Assets/Scripts/Common/MiniGame/MiniGameSessionModel.cs) |
+| ミニゲームホスト（CurrentGame に応じた UXML を Addressables ロードして進行） | [Assets/Scripts/MiniGame/MiniGameHostPresenter.cs](Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) |
+| タップ連打ロジック（フェーズ・タップ数・残り時間の純粋ロジック） | [Assets/Scripts/MiniGame/TapGame/TapGameModel.cs](Assets/Scripts/MiniGame/TapGame/TapGameModel.cs) |
+| ミニゲーム起動トリガー（テスト用ボタン・しきい値判定で盤面にボーナス） | [Assets/Scripts/Main/MiniGameTriggerPresenter.cs](Assets/Scripts/Main/MiniGameTriggerPresenter.cs) |
 | 日本語フォント（アセット） | [Assets/Font/](Assets/Font/) |
 | 既定フォント設定（全 UI へ NotoSansJP Bold を適用） | [Assets/UI Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss](Assets/UI%20Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss) |
 

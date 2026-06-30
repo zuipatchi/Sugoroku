@@ -179,6 +179,30 @@ private void OnDestroy() => _disposables.Dispose();
 
 ---
 
+## 7. 同一シーンに複数の UIDocument を重ねるときは Sorting Order でイベントを整理する
+
+UI Toolkit のポインタイベントは **Sorting Order が最も高いパネルから順に**ヒットテストされる。フルスクリーンの UIDocument を複数重ねると、上のパネルのルートが全面を覆ってイベントを奪い、下のパネルのボタンが**ホバーもクリックも反応しなくなる**（描画は見えているのに無反応）。
+
+- 上に乗せたいパネル（例: ミニゲーム起動ボタン）の UIDocument の **Sorting Order を、奪っている側より大きく**する（Main では Board=0 / Roulette=10 なので、トリガーは 20 にした）
+- そのパネルのルート要素は `picking-mode="Ignore"` にし、**ボタン等の操作要素だけがイベントを拾う**ようにする。これで「ボタン以外は下のパネルへ素通り」になり、共存できる
+- 参考の Sorting Order: Transition=2000 / Option=1000 / MiniGame シーン=100。新しい前面 UI はこれらと衝突しない値にする
+
+---
+
+## 8. 新しいミニゲームを追加する
+
+ミニゲームは `MiniGame` シーンを Main の上に Additive で重ねて動かす（`Transit` は使わない。詳細は [architecture.md](architecture.md)「シーン構成」）。新しい種類を足す手順:
+
+1. [MiniGameId.cs](../Assets/Scripts/Common/MiniGame/MiniGameId.cs) に種別を追加する（最大5種類想定）
+2. その種別の UI を `Assets/AddressableAssets/MiniGame/` に `.uxml` / `.uss` で作り、**Addressable アドレスを `MiniGame/<名前>`** に設定する
+3. [MiniGameHostPresenter.cs](../Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) の `AddressFor` に分岐を足し、進行ロジック（カウントダウン→計測→結果）を実装する。状態は純粋ロジックの Model（[TapGameModel.cs](../Assets/Scripts/MiniGame/TapGame/TapGameModel.cs) に倣う）に分け、EditMode テストを書く
+4. 起動は `MiniGameLauncher.PlayAsync(MiniGameId.<種別>, ct)`。結果は `MiniGameResult.Score` で受け取り、呼び出し側（例: [MiniGameTriggerPresenter.cs](../Assets/Scripts/Main/MiniGameTriggerPresenter.cs)）で盤面反映などを行う
+5. ホストは表示前に UXML をロードするため `ISceneReady` を実装している（ロード完了まで暗幕を維持）。`Report` で結果を返すとランチャーがシーンをアンロードする
+
+> ローカル完結のため、現状「勝者」はしきい値で暫定判定している。全員同時プレイのスコア同期は今後の課題（[networking.md](networking.md) の永続ハンドラ方式に乗せる）。
+
+---
+
 ## 共通ルール（抜粋）
 
 - `var` は使わない。型を明示する

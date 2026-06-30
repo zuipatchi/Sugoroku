@@ -24,7 +24,10 @@
 - 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存で Main へ直行）→ [architecture.md](architecture.md)「シーン構成」
 - 円盤ルーレット（回して止まった出目で移動マス数を決定。Painter2D で描画・DOTween で回転）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
 - すごろくのループ盤面（外周にマスを並べたループ盤。ルーレットの出目ぶんコマを1マスずつ移動し、1周してゴール＝スタートに到達するとクリア。1コマ・普通マスのみ）→ [Assets/Scripts/Main/Board/](../Assets/Scripts/Main/Board/)
+- ミニゲーム（タップ連打。5秒間のタップ数を競う。Main を残したまま MiniGame シーンを Additive で重ねて起動し、勝利なら盤面にボーナス前進。中身は `MiniGameId` に応じて Addressables で差し替え、将来最大5種類）→ [architecture.md](architecture.md)「シーン構成」・[Assets/Scripts/MiniGame/](../Assets/Scripts/MiniGame/)
 
 ## 未実装（今後の課題）
 
-- （プロジェクトごとに記載）
+- ミニゲームのネットワーク同期（現状はローカル完結。ホスト権威での開始合図・全員のスコア集約による順位判定は未実装。勝者判定は暫定的にローカルのしきい値で代用）
+- ミニゲームの起動トリガー（現状は Main のテスト用ボタン。盤面の特殊マスやターン連携は未実装）
+- タップ連打以外のミニゲーム（最大5種類を想定。`MiniGameId` への追加と対応 UXML・進行ロジックの実装で増やす）
