@@ -197,6 +197,8 @@ Assets/Scripts/<Scene>/<Feature>/
 ```
 Assets/AddressableAssets/
   ├── Icon/        SVG アイコン
+  ├── Image/       キャラのアイコン/立ち絵（Character/<名前>/Icon・/Portrait）
+  ├── MiniGame/    ミニゲームの UXML / USS
   ├── Modal/       Modal.uxml / Modal.uss
   └── Sound/       AudioClip
 ```
