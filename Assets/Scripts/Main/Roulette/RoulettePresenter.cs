@@ -111,8 +111,11 @@ namespace Main.Roulette
 
             BuildWheel();
             // 押し続けで回す方式のため clicked ではなく PointerDown/Up を使う。
-            _spinButton.RegisterCallback<PointerDownEvent>(OnPointerDown);
-            _spinButton.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            // Button 内部の Clickable は PointerDown を処理後に StopImmediatePropagation するため、
+            // バブリング段階に後から登録したハンドラは呼ばれない。Clickable より先に走るよう
+            // トリクルダウン（キャプチャ）段階で登録する。ポインタ捕捉は Clickable に任せる。
+            _spinButton.RegisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
+            _spinButton.RegisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
             _spinButton.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
         }
 
@@ -128,8 +131,8 @@ namespace Main.Roulette
             _resultTween = null;
             if (_spinButton != null)
             {
-                _spinButton.UnregisterCallback<PointerDownEvent>(OnPointerDown);
-                _spinButton.UnregisterCallback<PointerUpEvent>(OnPointerUp);
+                _spinButton.UnregisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
+                _spinButton.UnregisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
                 _spinButton.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
             }
         }
@@ -363,17 +366,11 @@ namespace Main.Roulette
             _lastAngle = _currentRotation;
             _model.BeginSpin();
             PlaySe(_soundStore?.Enter1SE);
-
-            // 指が離れたとき（ボタン外でのリリース含む）に確実に受け取れるようポインタを捕捉する。
-            _spinButton.CapturePointer(evt.pointerId);
+            // ポインタ捕捉は Button の Clickable が行うため、ボタン外でリリースしても PointerUp は届く。
         }
 
         private void OnPointerUp(PointerUpEvent evt)
         {
-            if (_spinButton.HasPointerCapture(evt.pointerId))
-            {
-                _spinButton.ReleasePointer(evt.pointerId);
-            }
             // 押下を解除すると Update 側で減速が始まる。
             _isHolding = false;
         }
