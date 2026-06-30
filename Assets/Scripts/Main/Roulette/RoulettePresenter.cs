@@ -11,8 +11,9 @@ using VContainer;
 namespace Main.Roulette
 {
     /// <summary>
-    /// 円盤ルーレットの UI。Painter2D で円盤を描画し、DOTween で回転させて出目を表示する。
-    /// 出目の決定・状態管理は <see cref="RouletteModel"/> が担い、ここは演出と入出力に専念する。
+    /// 円盤ルーレットの UI。Painter2D で円盤を描画し、<see cref="Update"/> で角速度を加減速して回転させる。
+    /// ボタンを押し続けている間は加速、離すと減速して自然に停止し、針の真下のセクターが出目になる。
+    /// 状態遷移は <see cref="RouletteModel"/> が担い、出目の算出（停止角度 → セクター）はここで行う。
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public sealed class RoulettePresenter : MonoBehaviour
@@ -29,8 +30,14 @@ namespace Main.Roulette
         private const float TickSeSpeedThreshold = 9f;
 
         [SerializeField] private int _sectorCount = 6;
-        [SerializeField] private int _spinTurns = 5;
-        [SerializeField] private float _spinDuration = 3f;
+        [Tooltip("押し始めの初速（度/秒）。一瞬のタップでも最低これだけ回る。")]
+        [SerializeField] private float _minSpinSpeed = 360f;
+        [Tooltip("押し続けたときの最高速（度/秒）。")]
+        [SerializeField] private float _maxSpinSpeed = 1200f;
+        [Tooltip("押下中の加速度（度/秒^2）。")]
+        [SerializeField] private float _spinAcceleration = 2400f;
+        [Tooltip("離した後の減速度（度/秒^2）。大きいほど早く止まる。")]
+        [SerializeField] private float _spinDeceleration = 720f;
 
         private RouletteModel _model;
         private BoardModel _board;
@@ -47,7 +54,8 @@ namespace Main.Roulette
 
         private float _currentRotation;
         private float _lastAngle;
-        private Tween _spinTween;
+        private float _angularVelocity;
+        private bool _isHolding;
         private Tween _pointerBounceTween;
         private Tween _wheelPulseTween;
         private Tween _resultTween;
@@ -64,8 +72,7 @@ namespace Main.Roulette
 
             // OnEnable で UI 構築済みのため、ここで購読してよい（injection は OnEnable の後）。
             // DOTween.dll の AddTo 拡張と衝突するため、ここでは CompositeDisposable.Add で購読を管理する。
-            // 回転中・コマ移動中・クリア後はいずれも回せないため、3 つの状態を購読してボタンを更新する。
-            _disposables.Add(_model.State.Subscribe(_ => UpdateSpinEnabled()));
+            // コマ移動中・クリア後は回せないため、その 2 状態を購読してボタンを更新する。
             _disposables.Add(_board.IsMoving.Subscribe(_ => UpdateSpinEnabled()));
             _disposables.Add(_board.IsCleared.Subscribe(_ => UpdateSpinEnabled()));
             _disposables.Add(_model.Result.Subscribe(value =>
@@ -103,13 +110,16 @@ namespace Main.Roulette
             }
 
             BuildWheel();
-            _spinButton.clicked += OnSpinClicked;
+            // 押し続けで回す方式のため clicked ではなく PointerDown/Up を使う。
+            _spinButton.RegisterCallback<PointerDownEvent>(OnPointerDown);
+            _spinButton.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            _spinButton.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
         }
 
         private void OnDisable()
         {
-            _spinTween?.Kill();
-            _spinTween = null;
+            _isHolding = false;
+            _angularVelocity = 0f;
             _pointerBounceTween?.Kill();
             _pointerBounceTween = null;
             _wheelPulseTween?.Kill();
@@ -118,13 +128,41 @@ namespace Main.Roulette
             _resultTween = null;
             if (_spinButton != null)
             {
-                _spinButton.clicked -= OnSpinClicked;
+                _spinButton.UnregisterCallback<PointerDownEvent>(OnPointerDown);
+                _spinButton.UnregisterCallback<PointerUpEvent>(OnPointerUp);
+                _spinButton.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
             }
         }
 
         private void OnDestroy()
         {
             _disposables.Dispose();
+        }
+
+        private void Update()
+        {
+            // 回転中（押下中＋減速中）のみ角度を更新する。
+            if (_model == null || _wheel == null || _model.State.CurrentValue != RouletteState.Spinning)
+            {
+                return;
+            }
+
+            float dt = Time.deltaTime;
+            _angularVelocity = _isHolding
+                ? Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * dt)
+                : Mathf.MoveTowards(_angularVelocity, 0f, _spinDeceleration * dt);
+
+            if (_angularVelocity > 0f)
+            {
+                _currentRotation += _angularVelocity * dt;
+                ApplyAngle(_currentRotation);
+            }
+
+            // 離した後に速度が尽きたら停止して出目を確定する。
+            if (!_isHolding && Mathf.Approximately(_angularVelocity, 0f))
+            {
+                FinalizeSpin();
+            }
         }
 
         private void BuildWheel()
@@ -308,13 +346,9 @@ namespace Main.Roulette
             painter.Fill();
         }
 
-        private void OnSpinClicked()
+        private void OnPointerDown(PointerDownEvent evt)
         {
-            if (_model == null || _model.State.CurrentValue == RouletteState.Spinning)
-            {
-                return;
-            }
-            if (_board != null && (_board.IsMoving.CurrentValue || _board.IsCleared.CurrentValue))
+            if (!CanStartSpin())
             {
                 return;
             }
@@ -324,25 +358,48 @@ namespace Main.Roulette
             _wheelPulseTween?.Kill();
             _wheel.style.scale = new Scale(Vector3.one);
 
-            int value = _model.BeginSpin(_sectorCount);
+            _isHolding = true;
+            _angularVelocity = _minSpinSpeed;
+            _lastAngle = _currentRotation;
+            _model.BeginSpin();
             PlaySe(_soundStore?.Enter1SE);
 
-            float target = RouletteMath.NextRotation(_currentRotation, value - 1, _sectorCount, _spinTurns);
+            // 指が離れたとき（ボタン外でのリリース含む）に確実に受け取れるようポインタを捕捉する。
+            _spinButton.CapturePointer(evt.pointerId);
+        }
 
-            _spinTween?.Kill();
-            _lastAngle = _currentRotation;
-            float angle = _currentRotation;
+        private void OnPointerUp(PointerUpEvent evt)
+        {
+            if (_spinButton.HasPointerCapture(evt.pointerId))
+            {
+                _spinButton.ReleasePointer(evt.pointerId);
+            }
+            // 押下を解除すると Update 側で減速が始まる。
+            _isHolding = false;
+        }
 
-            // 本回転（強い減速）でぴたりと止める。
-            _spinTween = DOTween.To(() => angle, v => { angle = v; ApplyAngle(v); }, target, _spinDuration)
-                .SetEase(Ease.OutQuint)
-                .OnComplete(() =>
-                {
-                    _currentRotation = target;
-                    _model.CompleteSpin(value);
-                    PlaySe(_soundStore?.ResultSE);
-                    ShowWinHighlight(value - 1);
-                });
+        private void OnPointerCaptureOut(PointerCaptureOutEvent evt)
+        {
+            // 何らかの理由で捕捉が外れた場合の保険。押下中なら減速へ移す。
+            _isHolding = false;
+        }
+
+        private bool CanStartSpin()
+        {
+            return _model != null
+                   && _board != null
+                   && _model.State.CurrentValue != RouletteState.Spinning
+                   && !_board.IsMoving.CurrentValue
+                   && !_board.IsCleared.CurrentValue;
+        }
+
+        private void FinalizeSpin()
+        {
+            _angularVelocity = 0f;
+            int value = RouletteMath.ResultFromRotation(_currentRotation, _sectorCount) + 1;
+            _model.CompleteSpin(value);
+            PlaySe(_soundStore?.ResultSE);
+            ShowWinHighlight(value - 1);
         }
 
         /// <summary>円盤の回転を反映しつつ、針の真下を境界が通過したらティック演出を出す。</summary>
@@ -441,15 +498,15 @@ namespace Main.Roulette
 
         private void UpdateSpinEnabled()
         {
-            if (_spinButton == null || _model == null || _board == null)
+            if (_spinButton == null || _board == null)
             {
                 return;
             }
 
-            bool canSpin = _model.State.CurrentValue != RouletteState.Spinning
-                           && !_board.IsMoving.CurrentValue
-                           && !_board.IsCleared.CurrentValue;
-            _spinButton.SetEnabled(canSpin);
+            // 回転中（Spinning）はボタンを押下したまま離す操作を受け取る必要があるため無効化しない。
+            // 再回転のガードは OnPointerDown 側の状態チェックで行う。
+            bool canPress = !_board.IsMoving.CurrentValue && !_board.IsCleared.CurrentValue;
+            _spinButton.SetEnabled(canPress);
         }
 
         private void PlaySe(AudioClip clip)

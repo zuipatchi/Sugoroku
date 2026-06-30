@@ -5,13 +5,13 @@ namespace Main.Roulette
 {
     /// <summary>
     /// ルーレットの状態と出目を保持する Model。
-    /// 出目の決定はここで行い（ローカル乱数）、回転演出は Presenter が担当する。
+    /// 出目は「円盤が自然に止まった位置のセクター」で決まるため、ここでは状態遷移のみを担い、
+    /// 回転演出・出目の算出（停止角度 → セクター）は Presenter が担当する。
     /// </summary>
     public sealed class RouletteModel : IDisposable
     {
         private readonly ReactiveProperty<RouletteState> _state = new(RouletteState.Idle);
         private readonly ReactiveProperty<int> _result = new(0);
-        private readonly Random _random = new();
 
         /// <summary>現在の状態。</summary>
         public ReadOnlyReactiveProperty<RouletteState> State => _state;
@@ -20,13 +20,12 @@ namespace Main.Roulette
         public ReadOnlyReactiveProperty<int> Result => _result;
 
         /// <summary>
-        /// 出目を決めて回転を開始する。状態を <see cref="RouletteState.Spinning"/> にし、決定した出目（1〜<paramref name="count"/>）を返す。
+        /// 回転を開始する。状態を <see cref="RouletteState.Spinning"/> にする。
+        /// 出目は停止時に <see cref="CompleteSpin"/> で確定する。
         /// </summary>
-        public int BeginSpin(int count)
+        public void BeginSpin()
         {
-            int value = _random.Next(1, count + 1);
             _state.Value = RouletteState.Spinning;
-            return value;
         }
 
         /// <summary>

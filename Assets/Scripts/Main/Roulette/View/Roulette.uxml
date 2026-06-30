@@ -8,6 +8,6 @@
             <ui:Label text="▼" name="Pointer" class="roulette-pointer" />
         </ui:VisualElement>
         <ui:Label text="" name="ResultLabel" class="roulette-result" />
-        <ui:Button text="回す" name="SpinButton" class="btn-accent roulette-spin" />
+        <ui:Button text="長押しで回す" name="SpinButton" class="btn-accent roulette-spin" />
     </ui:VisualElement>
 </ui:UXML>
