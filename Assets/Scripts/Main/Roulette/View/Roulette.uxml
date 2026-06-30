@@ -3,8 +3,6 @@
     <ui:VisualElement name="RouletteRoot" class="roulette-root">
         <ui:Label text="ルーレット" name="Title" class="roulette-title" />
         <ui:VisualElement name="WheelArea" class="wheel-area">
-            <!-- 円盤の背面に置く落ち影。回転しない。 -->
-            <ui:VisualElement name="WheelShadow" class="wheel-shadow" />
             <ui:VisualElement name="Wheel" class="roulette-wheel" />
             <!-- Wheel より後に置き、円盤の上へ描画する（前に置くと円盤に覆われて隠れる） -->
             <ui:Label text="▼" name="Pointer" class="roulette-pointer" />
