@@ -4,7 +4,7 @@
 
 ## プロジェクト概要
 
-オンライン対戦すごろく。Unity 6 (6000.3.18f1) 製。BGM/SE 再生機能と、Commonシーンをベースとしたアディティブシーン管理、UGS Multiplayer Services によるオンラインマッチングを備える。Home で「一人用モード」「オンラインプレイ」を選択でき、一人用モードはネットワーク非依存で Main へ直行する。移動マス数は円盤ルーレットで決定し、外周マスを並べたループ盤面のコマが出目ぶん進む（1周してゴール到達でクリア）。ミニゲーム（タップ連打）は Main を残したまま MiniGame シーンを Additive で重ねて起動し、結果を盤面に反映する（中身は Addressables 差し替え式で将来最大5種類。現状はローカル完結・テスト用ボタン起動）。
+オンライン対戦すごろく。Unity 6 (6000.3.18f1) 製。BGM/SE 再生機能と、Commonシーンをベースとしたアディティブシーン管理、UGS Multiplayer Services によるオンラインマッチングを備える。Home で「一人用モード」「オンラインプレイ」を選択でき、一人用モードはネットワーク非依存で Main へ直行する。移動マス数は円盤ルーレットで決定する（ボタンを長押し中は回転し、離すと減速して止まった位置のセクターが出目）。外周マスを並べたループ盤面のコマが出目ぶん進む（1周してゴール到達でクリア）。ミニゲーム（タップ連打）は Main を残したまま MiniGame シーンを Additive で重ねて起動し、結果を盤面に反映する（中身は Addressables 差し替え式で将来最大5種類。現状はローカル完結・テスト用ボタン起動）。
 
 ## Unity 開発
 
@@ -73,8 +73,8 @@
 | マッチング DI 登録 | [Assets/Scripts/Matching/Injector/MatchingLifetimeScope.cs](Assets/Scripts/Matching/Injector/MatchingLifetimeScope.cs) |
 | NGO 起動・接続待機 | [Assets/Scripts/Main/NetworkSessionStartup.cs](Assets/Scripts/Main/NetworkSessionStartup.cs) |
 | NGO メッセージ送受信 | [Assets/Scripts/Main/NgoMessenger.cs](Assets/Scripts/Main/NgoMessenger.cs) |
-| ルーレット出目ロジック（出目↔角度変換・状態） | [Assets/Scripts/Main/Roulette/RouletteMath.cs](Assets/Scripts/Main/Roulette/RouletteMath.cs) / [RouletteModel.cs](Assets/Scripts/Main/Roulette/RouletteModel.cs) |
-| ルーレット UI（Painter2D で虹色円盤・区切り線・中心ハブを描画、DOTween で回転。針のカチカチ反応・当たりセクター強調・結果ポップなどの演出） | [Assets/Scripts/Main/Roulette/RoulettePresenter.cs](Assets/Scripts/Main/Roulette/RoulettePresenter.cs) |
+| ルーレットの停止角度→セクター変換・状態（出目は止まった位置で決まる） | [Assets/Scripts/Main/Roulette/RouletteMath.cs](Assets/Scripts/Main/Roulette/RouletteMath.cs) / [RouletteModel.cs](Assets/Scripts/Main/Roulette/RouletteModel.cs) |
+| ルーレット UI（Painter2D で虹色円盤・区切り線・中心ハブを描画。長押し中は加速・離すと減速する角速度回転を `Update` で駆動。針のカチカチ反応・当たりセクター強調・結果ポップなどの演出） | [Assets/Scripts/Main/Roulette/RoulettePresenter.cs](Assets/Scripts/Main/Roulette/RoulettePresenter.cs) |
 | 盤面ロジック（位置前進・周回判定・リング→グリッド座標の純粋関数） | [Assets/Scripts/Main/Board/BoardMath.cs](Assets/Scripts/Main/Board/BoardMath.cs) |
 | 盤面状態（コマ位置・移動中・クリア） | [Assets/Scripts/Main/Board/BoardModel.cs](Assets/Scripts/Main/Board/BoardModel.cs) |
 | 盤面 UI（外周マス描画・コマ移動演出。ルーレット出目とミニゲームのボーナスを共用する `AdvanceAsync`） | [Assets/Scripts/Main/Board/BoardPresenter.cs](Assets/Scripts/Main/Board/BoardPresenter.cs) |
