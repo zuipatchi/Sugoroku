@@ -140,6 +140,26 @@ public sealed class YourPresenter : IAsyncStartable, ISceneReady
 
 > `ReadyAsync` がキャンセル以外の例外を投げても、`SceneTransitioner` 側でログ出力して握りつぶしフェードインは継続する（暗幕が残らない）。初期化失敗の扱いは `ReadyAsync` 内で完結させること。
 
+> **落とし穴: 直接起動されるシーンでは `ReadyAsync` が呼ばれない。** `ReadyAsync` を呼ぶのは `SceneTransitioner.Transit` だけ。`Title` のように `BootLoader` の素の `LoadSceneAsync`（やエディタで直接 Play）で開かれるシーンは「遷移」が発生しないため `ReadyAsync` が一度も呼ばれず、`ReadyAsync` 内だけで初期化していると**初回だけ動かない**（他シーンから戻ると `Transit` 経由で動く）。直接起動もあり得るシーンでは、`Start` でも初期化を起動し、`ReadyAsync` ではその完了を待つだけにする（初期化はフラグで一度きり）。`TitleVideoPresenter` がこの形:
+
+```csharp
+private UniTask _initTask;
+private bool _initStarted;
+
+private void Start() => EnsureInitStarted();                 // 直接起動でも初期化する
+public async UniTask ReadyAsync(CancellationToken ct)         // 遷移時は完了を待ってフェードイン
+{
+    EnsureInitStarted();
+    await _initTask.AttachExternalCancellation(ct);
+}
+private void EnsureInitStarted()
+{
+    if (_initStarted) { return; }
+    _initStarted = true;
+    _initTask = InitializeAsync(destroyCancellationToken).Preserve();  // fire-and-forget でも await でも安全
+}
+```
+
 ---
 
 ## 5. DOTween と R3 を同じファイルで使うと `.AddTo(CancellationToken)` が壊れる

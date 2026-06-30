@@ -41,7 +41,7 @@
 - `Common` シーンが常駐し、他シーンはアディティブでロード
 - DI は VContainer（`Find()` / static 禁止）
 - 状態管理は R3 の `ReactiveProperty<T>`（Model → Presenter の単方向フロー）
-- アセットは Addressables（`Resources.Load` 禁止）
+- アセットは Addressables（`Resources.Load` 禁止）。例外として**動画は StreamingAssets に置き `VideoPlayer` の URL で再生する**（WebGL は `VideoClip` アセット非対応のため。タイトル動画がこの方式）
 - UI は UI Toolkit / UXML + USS（uGUI 禁止）。スタイルはインラインでなく USS ファイルに定義してクラスで適用する
 
   - 新しいシーンを作成するときは右上エリアに UI 要素を配置しない（Common シーンのオプションアイコンが `right:2% / top:2%` に重なるため）。詳細は [docs/design-system.md](docs/design-system.md) を参照
@@ -85,6 +85,8 @@
 | ミニゲームホスト（CurrentGame に応じた UXML を Addressables ロードして進行） | [Assets/Scripts/MiniGame/MiniGameHostPresenter.cs](Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) |
 | タップ連打ロジック（フェーズ・タップ数・残り時間の純粋ロジック） | [Assets/Scripts/MiniGame/TapGame/TapGameModel.cs](Assets/Scripts/MiniGame/TapGame/TapGameModel.cs) |
 | ミニゲーム起動トリガー（テスト用ボタン・しきい値判定で盤面にボーナス） | [Assets/Scripts/Main/MiniGameTriggerPresenter.cs](Assets/Scripts/Main/MiniGameTriggerPresenter.cs) |
+| タイトル背景動画＋タイトル文言演出（StreamingAssets の動画を `VideoPlayer`→`RenderTexture` で全画面背景に1回再生し、終了後に「ドラゴンファミリー/すごろく」を3行・1文字ずつ上から降らせる。直接起動でも初回再生されるよう `Start` と `ReadyAsync` の両方で初期化。準備タイムアウト・再生エラー時は文言のみ表示） | [Assets/Scripts/Title/Video/Presenter/TitleVideoPresenter.cs](Assets/Scripts/Title/Video/Presenter/TitleVideoPresenter.cs) |
+| タイトル動画ファイル（StreamingAssets。H.264 baseline / BT.709 タグ付き mp4） | [Assets/StreamingAssets/Video/TitleMovie.mp4](Assets/StreamingAssets/Video/TitleMovie.mp4) |
 | 日本語フォント（アセット） | [Assets/Font/](Assets/Font/) |
 | 既定フォント設定（全 UI へ NotoSansJP Bold を適用） | [Assets/UI Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss](Assets/UI%20Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss) |
 
