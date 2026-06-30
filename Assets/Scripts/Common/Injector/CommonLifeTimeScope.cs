@@ -1,4 +1,5 @@
 using Common.GameSession;
+using Common.MiniGame;
 using Common.Option;
 using Common.SceneManagement;
 using Common.SoundManagement;
@@ -21,6 +22,8 @@ namespace Common.Injector
             builder.RegisterEntryPoint<SoundStore>(Lifetime.Singleton).AsSelf();
             builder.RegisterComponentInHierarchy<TransitionPresenter>().AsSelf();
             builder.RegisterComponentInHierarchy<SceneTransitioner>().AsSelf();
+            builder.Register<MiniGameSessionModel>(Lifetime.Singleton).AsSelf();
+            builder.Register<MiniGameLauncher>(Lifetime.Singleton).AsSelf();
         }
     }
 }

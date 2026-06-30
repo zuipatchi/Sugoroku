@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="TapGame.uss" />
+    <ui:VisualElement name="TapRoot" class="tap-root">
+        <ui:Label text="タップ連打！" name="TitleLabel" class="tap-title" />
+        <ui:Label text="0" name="CountLabel" class="tap-count" />
+        <ui:Label text="5.0" name="TimerLabel" class="tap-timer" />
+        <ui:VisualElement name="PlayArea" class="tap-play-area">
+            <ui:Button name="TapButton" text="TAP!" class="tap-button" />
+            <ui:Label text="準備…" name="CenterLabel" class="tap-center" />
+        </ui:VisualElement>
+        <ui:VisualElement name="ResultPanel" class="tap-result">
+            <ui:Label text="結果" name="ResultLabel" class="tap-result-label" />
+            <ui:Button name="CloseButton" text="結果を反映" class="tap-close-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

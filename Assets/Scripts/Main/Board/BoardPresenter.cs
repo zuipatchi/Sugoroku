@@ -51,7 +51,7 @@ namespace Main.Board
             {
                 if (state == RouletteState.Stopped)
                 {
-                    MoveByRouletteResultAsync().Forget();
+                    AdvanceAsync(_roulette.Result.CurrentValue).Forget();
                 }
             }));
 
@@ -145,20 +145,26 @@ namespace Main.Board
             element.style.top = Length.Percent(top);
         }
 
-        private async UniTaskVoid MoveByRouletteResultAsync()
+        /// <summary>
+        /// コマを <paramref name="steps"/> マス進める。ルーレットの出目とミニゲームのボーナスの
+        /// 両方から呼ばれる共通の移動演出。移動中・クリア後や 0 以下の歩数は無視する。
+        /// <paramref name="externalCt"/> は呼び出し元のキャンセル（Destroy 等）を連結するためのもの。
+        /// </summary>
+        public async UniTask AdvanceAsync(int steps, CancellationToken externalCt = default)
         {
             if (_model.IsMoving.CurrentValue || _model.IsCleared.CurrentValue)
             {
                 return;
             }
 
-            int steps = _roulette.Result.CurrentValue;
             if (steps <= 0 || _piece == null)
             {
                 return;
             }
 
-            CancellationToken ct = _destroyCt;
+            using CancellationTokenSource linked =
+                CancellationTokenSource.CreateLinkedTokenSource(_destroyCt, externalCt);
+            CancellationToken ct = linked.Token;
             _model.BeginMove();
 
             int start = _model.Position.CurrentValue;

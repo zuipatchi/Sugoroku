@@ -21,8 +21,26 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 343fbb90d9576674c9df0431d71e47f6
+    m_Address: Sound/SE/Cancel1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 359575458dcc592418653f81d23a0c4d
+    m_Address: Sound/SE/Enter2
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7069e5405f74953428aab1c2dae935a4
     m_Address: Sound/BGM/CatInPalmBeach
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: af5c947c29d2130448eca04fbe4b1f5f
+    m_Address: Sound/SE/Result
     m_ReadOnly: 0
     m_SerializedLabels:
     - default
@@ -39,17 +57,10 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ff539d642a1a86d4aac70aba745fb6cb
-    m_Address: Icon/sliders
+  - m_GUID: d8e5f08abe1899d43b5746649159fb4f
+    m_Address: MiniGame/TapGame
     m_ReadOnly: 0
-    m_SerializedLabels:
-    - default
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 343fbb90d9576674c9df0431d71e47f6
-    m_Address: Sound/SE/Cancel1
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - default
+    m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e2da3b54201021a4ca0b48b4e7ed0105
     m_Address: Sound/SE/Enter1
@@ -57,14 +68,8 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 359575458dcc592418653f81d23a0c4d
-    m_Address: Sound/SE/Enter2
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - default
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: af5c947c29d2130448eca04fbe4b1f5f
-    m_Address: Sound/SE/Result
+  - m_GUID: ff539d642a1a86d4aac70aba745fb6cb
+    m_Address: Icon/sliders
     m_ReadOnly: 0
     m_SerializedLabels:
     - default

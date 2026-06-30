@@ -15,7 +15,8 @@ namespace Common.SceneManagement
         Title = 1,
         Matching = 2,
         Main = 3,
-        Home = 4
+        Home = 4,
+        MiniGame = 5
     }
     /// <summary>
     /// アクティブシーンを変更するクラス
@@ -95,18 +96,7 @@ namespace Common.SceneManagement
 
                 // 新シーンが非同期初期化を持つ場合は完了を待ってからフェードインする。
                 // ISceneReady を実装したコンポーネントを全て待機（無ければ素通り）。
-                List<UniTask> readyTasks = new();
-                foreach (GameObject rootGo in nextScene.GetRootGameObjects())
-                {
-                    foreach (ISceneReady sceneReady in rootGo.GetComponentsInChildren<ISceneReady>(true))
-                    {
-                        readyTasks.Add(WaitReadySafelyAsync(sceneReady, ct));
-                    }
-                }
-                if (readyTasks.Count > 0)
-                {
-                    await UniTask.WhenAll(readyTasks);
-                }
+                await nextScene.WaitSceneReadyAsync(ct);
 
                 await _transitionPresenter.RevealAsync();
 
@@ -118,24 +108,6 @@ namespace Common.SceneManagement
             finally
             {
                 _gate.Release();
-            }
-        }
-
-        // ReadyAsync 内の例外で暗幕が残り続けないよう、キャンセル以外は握りつぶしてフェードインを継続する。
-        // キャンセルは正常系（連打・Destroy）なので呼び出し元の catch に委ねるため再送出する。
-        private static async UniTask WaitReadySafelyAsync(ISceneReady sceneReady, CancellationToken ct)
-        {
-            try
-            {
-                await sceneReady.ReadyAsync(ct);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
             }
         }
 

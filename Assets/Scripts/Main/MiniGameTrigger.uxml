@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="MiniGameTrigger.uss" />
+    <ui:VisualElement name="TriggerRoot" class="trigger-root" picking-mode="Ignore">
+        <ui:Button name="MiniGameButton" text="ミニゲーム" class="trigger-button" />
+    </ui:VisualElement>
+</ui:UXML>
