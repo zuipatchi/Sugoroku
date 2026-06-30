@@ -35,10 +35,10 @@ namespace Common.Character
     {
         public static readonly IReadOnlyList<CharacterDefinition> All = new[]
         {
-            new CharacterDefinition(CharacterId.Character1, "キャラ 1", "Character/Character1/Icon", "Character/Character1/Portrait"),
-            new CharacterDefinition(CharacterId.Character2, "キャラ 2", "Character/Character2/Icon", "Character/Character2/Portrait"),
-            new CharacterDefinition(CharacterId.Character3, "キャラ 3", "Character/Character3/Icon", "Character/Character3/Portrait"),
-            new CharacterDefinition(CharacterId.Character4, "キャラ 4", "Character/Character4/Icon", "Character/Character4/Portrait"),
+            new CharacterDefinition(CharacterId.Character1, "のらどっく", "Character/Character1/Icon", "Character/Character1/Portrait"),
+            new CharacterDefinition(CharacterId.Character2, "ザニザニマン", "Character/Character2/Icon", "Character/Character2/Portrait"),
+            new CharacterDefinition(CharacterId.Character3, "D.O.M", "Character/Character3/Icon", "Character/Character3/Portrait"),
+            new CharacterDefinition(CharacterId.Character4, "有馬", "Character/Character4/Icon", "Character/Character4/Portrait"),
         };
 
         /// <summary>既定（先頭）のキャラクター。</summary>
