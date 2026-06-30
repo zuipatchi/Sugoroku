@@ -300,6 +300,7 @@ GameObject:
   - component: {fileID: 1158252077}
   - component: {fileID: 1158252078}
   - component: {fileID: 1158252079}
+  - component: {fileID: 1158252080}
   m_Layer: 0
   m_Name: UI
   m_TagString: Untagged
@@ -355,9 +356,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6757b0ec9fd9fa34b93e92c9ce408715, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::Title.GameStartButton.GameStartButtonViewModel
   _nextScene: 4
+--- !u!114 &1158252080
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1158252076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ff5a1df56b515b4c95ac9cf32dcd643, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _videoPath: Video/TitleMovie.mp4
 --- !u!1 &1472985658
 GameObject:
   m_ObjectHideFlags: 0

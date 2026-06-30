@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Default Local Group
   m_GUID: 2296e1af91e62c84eb2f51cf913da5c3
   m_SerializeEntries:
+  - m_GUID: 06a5d2d177f57294681da74219dde6a4
+    m_Address: Character/Character3/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0ac14884a55a36147a6b23dc7ab6f88b
     m_Address: Sound/BGM/Title
     m_ReadOnly: 0
@@ -26,25 +31,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9bb0693a3eb2c524b9bc4ee38c45234b
-    m_Address: Character/Character2/Portrait
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 06a5d2d177f57294681da74219dde6a4
-    m_Address: Character/Character3/Portrait
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9511aa62b2fc3e44da0cb7962ba93bc8
-    m_Address: Character/Character4/Portrait
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1abf842a8d3a7644f8ecf8f0fb0a5c07
     m_Address: Character/Character4/Icon
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 23d2252a29c04204985b87492e693612
+    m_Address: Sound/SE/Enter3
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 343fbb90d9576674c9df0431d71e47f6
     m_Address: Sound/SE/Cancel1
@@ -54,12 +50,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 359575458dcc592418653f81d23a0c4d
     m_Address: Sound/SE/Enter2
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - default
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 23d2252a29c04204985b87492e693612
-    m_Address: Sound/SE/Enter3
     m_ReadOnly: 0
     m_SerializedLabels:
     - default
@@ -74,6 +64,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels:
     - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9511aa62b2fc3e44da0cb7962ba93bc8
+    m_Address: Character/Character4/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9bb0693a3eb2c524b9bc4ee38c45234b
+    m_Address: Character/Character2/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: af5c947c29d2130448eca04fbe4b1f5f
     m_Address: Sound/SE/Result

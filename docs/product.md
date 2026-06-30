@@ -21,6 +21,7 @@
 
 このテンプレートをコピーして作るゲームでは、実装した機能をここに列挙し、詳細は各ドキュメントへのリンクに集約する。
 
+- タイトル画面の演出（背景動画を1回だけ再生し、終了後に「ドラゴンファミリー/すごろく」を3行・1文字ずつ上から降らせて表示。画面全体が「Press start」ボタン。動画は WebGL 対応のため StreamingAssets を `VideoPlayer` の URL 再生）→ [Assets/Scripts/Title/Video/](../Assets/Scripts/Title/Video/)
 - 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存）→ [architecture.md](architecture.md)「シーン構成」
 - キャラクター選択（一人用は Main の前に CharacterSelect で選ぶ。立ち絵を全画面背景、アイコンの選択スロットを下部に表示。画面上部のタイトルには選択中キャラの名前を表示。選択は `CharacterSessionModel` に保持。画像は Addressables、現状オンライン非対応）→ [Assets/Scripts/CharacterSelect/](../Assets/Scripts/CharacterSelect/)
 - 円盤ルーレット（ボタンを長押し中は加速して回転し、離すと減速。すぐ離しても最低 1.5〜2.5 秒（ランダム）は回ってから、自然に止まった位置のセクターが出目になり移動マス数を決定。Painter2D で描画・`Update` で角速度を加減速）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)

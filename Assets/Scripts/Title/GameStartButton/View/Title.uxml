@@ -1,3 +1,10 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <ui:Button text="Push any button or click" name="GameStartButton" style="margin-top: auto; margin-right: auto; margin-bottom: auto; margin-left: auto;"/>
+    <Style src="Title.uss" />
+    <ui:VisualElement name="TitleRoot" class="title-root">
+        <!-- タイトル背景の動画（1回だけ再生）。コードで RenderTexture を backgroundImage に貼る（未配置時はベース色） -->
+        <ui:VisualElement name="VideoBackground" class="title-video" picking-mode="Ignore" />
+        <!-- 動画の再生終了後にコードで 3 行×1文字ずつのラベルを生成し、上から降らせる -->
+        <ui:VisualElement name="TitleText" class="title-text" picking-mode="Ignore" />
+        <ui:Button text="Press start" name="GameStartButton" class="title-start-button" />
+    </ui:VisualElement>
 </ui:UXML>
