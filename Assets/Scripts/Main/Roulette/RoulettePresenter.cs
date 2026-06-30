@@ -38,6 +38,10 @@ namespace Main.Roulette
         [SerializeField] private float _spinAcceleration = 2400f;
         [Tooltip("離した後の減速度（度/秒^2）。大きいほど早く止まる。")]
         [SerializeField] private float _spinDeceleration = 720f;
+        [Tooltip("一瞬のタップでも最低この秒数は回す（下限）。実際の回転時間は下限〜上限でランダムに決まる。")]
+        [SerializeField] private float _minSpinDuration = 1.5f;
+        [Tooltip("最低回転時間の上限（秒）。")]
+        [SerializeField] private float _maxSpinDuration = 2.5f;
 
         private RouletteModel _model;
         private BoardModel _board;
@@ -56,6 +60,9 @@ namespace Main.Roulette
         private float _lastAngle;
         private float _angularVelocity;
         private bool _isHolding;
+        private float _spinElapsed;
+        private float _targetSpinDuration;
+        private float _coastUntilElapsed = float.PositiveInfinity;
         private Tween _pointerBounceTween;
         private Tween _wheelPulseTween;
         private Tween _resultTween;
@@ -151,9 +158,19 @@ namespace Main.Roulette
             }
 
             float dt = Time.deltaTime;
-            _angularVelocity = _isHolding
-                ? Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * dt)
-                : Mathf.MoveTowards(_angularVelocity, 0f, _spinDeceleration * dt);
+            _spinElapsed += dt;
+
+            if (_isHolding)
+            {
+                // 押下中は加速。
+                _angularVelocity = Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * dt);
+            }
+            else if (_spinElapsed >= _coastUntilElapsed)
+            {
+                // 最低回転時間ぶんのコーストを終えたら減速して止める。
+                _angularVelocity = Mathf.MoveTowards(_angularVelocity, 0f, _spinDeceleration * dt);
+            }
+            // それ以外（離した直後〜減速開始まで）は等速でコーストし、すぐには止めない。
 
             if (_angularVelocity > 0f)
             {
@@ -161,8 +178,8 @@ namespace Main.Roulette
                 ApplyAngle(_currentRotation);
             }
 
-            // 離した後に速度が尽きたら停止して出目を確定する。
-            if (!_isHolding && Mathf.Approximately(_angularVelocity, 0f))
+            // 減速フェーズに入って速度が尽きたら停止して出目を確定する。
+            if (!_isHolding && _spinElapsed >= _coastUntilElapsed && Mathf.Approximately(_angularVelocity, 0f))
             {
                 FinalizeSpin();
             }
@@ -364,6 +381,9 @@ namespace Main.Roulette
             _isHolding = true;
             _angularVelocity = _minSpinSpeed;
             _lastAngle = _currentRotation;
+            _spinElapsed = 0f;
+            _targetSpinDuration = Random.Range(_minSpinDuration, _maxSpinDuration);
+            _coastUntilElapsed = float.PositiveInfinity;
             _model.BeginSpin();
             PlaySe(_soundStore?.Enter1SE);
             // ポインタ捕捉は Button の Clickable が行うため、ボタン外でリリースしても PointerUp は届く。
@@ -371,14 +391,33 @@ namespace Main.Roulette
 
         private void OnPointerUp(PointerUpEvent evt)
         {
-            // 押下を解除すると Update 側で減速が始まる。
-            _isHolding = false;
+            // 押下を解除すると、最低回転時間ぶんコーストしてから減速が始まる。
+            ReleaseHold();
         }
 
         private void OnPointerCaptureOut(PointerCaptureOutEvent evt)
         {
-            // 何らかの理由で捕捉が外れた場合の保険。押下中なら減速へ移す。
+            // 何らかの理由で捕捉が外れた場合の保険。押下中ならコースト→減速へ移す。
+            ReleaseHold();
+        }
+
+        /// <summary>
+        /// 押下解除。すぐ離しても <see cref="_targetSpinDuration"/> 秒（1.5〜2.5 秒のランダム）回ってから止まるよう、
+        /// 目標時間から通常減速にかかる時間を引いた時点まで等速でコーストし、その後に減速を始める。
+        /// 既に目標時間を過ぎている（長押しで十分回した）場合はすぐ減速へ移る。
+        /// </summary>
+        private void ReleaseHold()
+        {
+            if (!_isHolding)
+            {
+                return;
+            }
             _isHolding = false;
+
+            // 現在の角速度から通常減速で止まり切るのにかかる時間。
+            float stopDuration = _angularVelocity / _spinDeceleration;
+            // 目標時間ちょうどで止まるよう、減速開始の経過時間を逆算する。
+            _coastUntilElapsed = Mathf.Max(_spinElapsed, _targetSpinDuration - stopDuration);
         }
 
         private bool CanStartSpin()
