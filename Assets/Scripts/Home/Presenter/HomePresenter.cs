@@ -10,7 +10,7 @@ using VContainer;
 namespace Home.Presenter
 {
     // タイトルロゴと2つのモードボタンを表示する。
-    // 「一人用モード」は Main へ直接、「オンラインプレイ」は Matching へ遷移する。
+    // 「一人用モード」は CharacterSelect（キャラ選択）へ、「オンラインプレイ」は Matching へ遷移する。
     [RequireComponent(typeof(UIDocument))]
     public class HomePresenter : MonoBehaviour
     {
@@ -79,7 +79,7 @@ namespace Home.Presenter
             _transiting = true;
             _soundPlayer.PlaySE(_soundStore.Enter1SE);
             _gameSessionModel.SetSinglePlayer();
-            _sceneTransitioner.Transit(Scenes.Main).Forget();
+            _sceneTransitioner.Transit(Scenes.CharacterSelect).Forget();
         }
 
         private void OnOnlineClicked()

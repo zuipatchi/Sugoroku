@@ -21,6 +21,16 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0d93e5dfcd65c004aafbf027fb31624a
+    m_Address: Character/Character1/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1abf842a8d3a7644f8ecf8f0fb0a5c07
+    m_Address: Character/Character4/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 343fbb90d9576674c9df0431d71e47f6
     m_Address: Sound/SE/Cancel1
     m_ReadOnly: 0
@@ -32,6 +42,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels:
     - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5a3489b2bc0a7b440984b7b01240177d
+    m_Address: Character/Character3/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7069e5405f74953428aab1c2dae935a4
     m_Address: Sound/BGM/CatInPalmBeach
@@ -67,6 +82,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels:
     - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e88b69c9b968cd142b3a249d75dd6dfb
+    m_Address: Character/Character1/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fa6482679f22c694da6da18bdaea1da6
+    m_Address: Character/Character2/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ff539d642a1a86d4aac70aba745fb6cb
     m_Address: Icon/sliders

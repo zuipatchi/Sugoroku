@@ -1,3 +1,4 @@
+using Common.Character;
 using Common.GameSession;
 using Common.MiniGame;
 using Common.Option;
@@ -15,6 +16,7 @@ namespace Common.Injector
         protected override void Configure(IContainerBuilder builder)
         {
             builder.Register<GameSessionModel>(Lifetime.Singleton).AsSelf();
+            builder.Register<CharacterSessionModel>(Lifetime.Singleton).AsSelf();
             builder.RegisterEntryPoint<ModalStore>(Lifetime.Singleton).AsSelf();
             builder.RegisterComponentInHierarchy<OptionPresenter>().AsSelf();
             builder.RegisterEntryPoint<OptionModel>(Lifetime.Singleton).AsSelf();

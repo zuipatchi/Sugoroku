@@ -1,0 +1,18 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="CharacterSelect.uss" />
+    <ui:VisualElement name="CharacterSelectRoot" class="cs-root">
+        <!-- 選択中キャラの立ち絵を全画面の背景に表示する（コードで backgroundImage を差し替える） -->
+        <ui:VisualElement name="PortraitView" class="cs-portrait" picking-mode="Ignore" />
+        <ui:VisualElement name="Foreground" class="cs-foreground">
+            <ui:Label text="キャラクターをえらぶ" name="Title" class="cs-title" />
+            <ui:VisualElement name="Bottom" class="cs-bottom">
+                <!-- アイコンのカードはコードで CharacterGrid に追加する -->
+                <ui:VisualElement name="CharacterGrid" class="cs-grid" />
+                <ui:VisualElement name="Actions" class="cs-actions">
+                    <ui:Button text="戻る" name="BackButton" class="btn-secondary cs-action" />
+                    <ui:Button text="決定" name="ConfirmButton" class="btn-accent cs-action" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

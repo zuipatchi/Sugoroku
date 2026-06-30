@@ -116,6 +116,7 @@
   <Project Path="MiniGame.csproj" />
   <Project Path="Unity.RenderPipeline.Universal.ShaderLibrary.csproj" />
   <Project Path="Unity.Services.Authentication.Editor.Shared.csproj" />
+  <Project Path="CharacterSelect.csproj" />
   <Project Path="UniTask.Editor.csproj" />
   <Project Path="Unity.Services.Core.Registration.csproj" />
   <Project Path="Title.csproj" />
