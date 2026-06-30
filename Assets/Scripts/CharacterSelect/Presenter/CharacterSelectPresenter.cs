@@ -172,7 +172,7 @@ namespace CharacterSelect.Presenter
                 return;
             }
             _selected = id;
-            _soundPlayer.PlaySE(_soundStore.Enter2SE);
+            _soundPlayer.PlaySE(_soundStore.Enter3SE);
             UpdateSelection();
         }
 
