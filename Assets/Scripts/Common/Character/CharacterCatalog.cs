@@ -39,6 +39,10 @@ namespace Common.Character
             new CharacterDefinition(CharacterId.Character2, "ザニザニマン", "Character/Character2/Icon", "Character/Character2/Portrait"),
             new CharacterDefinition(CharacterId.Character3, "D.O.M", "Character/Character3/Icon", "Character/Character3/Portrait"),
             new CharacterDefinition(CharacterId.Character4, "有馬", "Character/Character4/Icon", "Character/Character4/Portrait"),
+            new CharacterDefinition(CharacterId.Character5, "キャラクター5", "Character/Character5/Icon", "Character/Character5/Portrait"),
+            new CharacterDefinition(CharacterId.Character6, "キャラクター6", "Character/Character6/Icon", "Character/Character6/Portrait"),
+            new CharacterDefinition(CharacterId.Character7, "キャラクター7", "Character/Character7/Icon", "Character/Character7/Portrait"),
+            new CharacterDefinition(CharacterId.Character8, "キャラクター8", "Character/Character8/Icon", "Character/Character8/Portrait"),
         };
 
         /// <summary>既定（先頭）のキャラクター。</summary>
