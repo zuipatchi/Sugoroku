@@ -22,12 +22,22 @@
 }
 
 .cs-title {
-    margin-top: 24px;
-    font-size: 28px;
+    margin-top: 32px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 28px;
+    padding-right: 28px;
+    font-size: 52px;
     color: rgb(255, 255, 255);
+    -unity-font-style: bold;
     -unity-text-align: middle-center;
-    -unity-text-outline-width: 1.2px;
-    -unity-text-outline-color: rgba(0, 0, 0, 0.7);
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+    background-color: rgba(0, 0, 0, 0.45);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
 }
 
 /* 画面下部の操作エリア。背景画像の上でも視認できるよう暗い帯を敷く。 */
@@ -122,7 +132,7 @@
 }
 
 .cs-action {
-    width: 160px;
+    width: 200px;
     margin-left: 10px;
     margin-right: 10px;
 }
@@ -139,11 +149,11 @@
     border-right-width: 0;
     border-top-width: 0;
     border-bottom-width: 0;
-    padding-top: 10px;
+    padding-top: 14px;
     padding-right: 10px;
-    padding-bottom: 10px;
+    padding-bottom: 14px;
     padding-left: 10px;
-    font-size: 14px;
+    font-size: 22px;
     -unity-text-align: middle-center;
 }
 
@@ -176,11 +186,11 @@
     border-right-color: rgba(255, 255, 255, 0.15);
     border-top-color: rgba(255, 255, 255, 0.15);
     border-bottom-color: rgba(255, 255, 255, 0.15);
-    padding-top: 10px;
+    padding-top: 14px;
     padding-right: 10px;
-    padding-bottom: 10px;
+    padding-bottom: 14px;
     padding-left: 10px;
-    font-size: 14px;
+    font-size: 22px;
     -unity-text-align: middle-center;
 }
 

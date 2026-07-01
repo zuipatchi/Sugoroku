@@ -19,6 +19,11 @@ namespace Title.GameStartButton
 
         private UIDocument _uiDocument;
         private Button _gameStartButton;
+        private IVisualElementScheduledItem _blinkSchedule;
+
+        // 「Press start」を明滅させる間隔（ミリ秒）。USS の opacity transition と合わせて滑らかに点滅する。
+        private const long BlinkIntervalMs = 700;
+        private const string BlinkDimClass = "title-start-button--blink-dim";
 
         [Inject]
         public void Construct(SceneTransitioner sceneTransitioner, SoundStore soundStore, SoundPlayer soundPlayer)
@@ -43,10 +48,15 @@ namespace Title.GameStartButton
                 return;
             }
             _gameStartButton.clicked += OnClickGameStart;
+            _blinkSchedule = _gameStartButton.schedule
+                .Execute(() => _gameStartButton.ToggleInClassList(BlinkDimClass))
+                .Every(BlinkIntervalMs);
         }
 
         private void OnDisable()
         {
+            _blinkSchedule?.Pause();
+            _blinkSchedule = null;
             if (_gameStartButton != null) _gameStartButton.clicked -= OnClickGameStart;
             _gameStartButton = null;
         }
@@ -54,6 +64,9 @@ namespace Title.GameStartButton
         private void OnClickGameStart()
         {
             _gameStartButton.SetEnabled(false);
+            _blinkSchedule?.Pause();
+            _blinkSchedule = null;
+            _gameStartButton.RemoveFromClassList(BlinkDimClass);
             _soundPlayer.PlaySE(_soundStore.Enter1SE);
             _sceneTransitioner.Transit(_nextScene).Forget();
         }

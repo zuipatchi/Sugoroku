@@ -33,7 +33,7 @@
 /* 1 文字分のラベル。初期は画面上方・透明。コードで title-char--visible を付けると、
    文字ごとの transition-delay ぶん遅れて降りてきて、着地で軽く跳ねる（ease-out-bounce）。 */
 .title-char {
-    font-size: 48px;
+    font-size: 80px;
     color: rgb(255, 255, 255);
     -unity-text-outline-width: 2px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.8);
@@ -71,12 +71,19 @@
     border-top-width: 0;
     border-bottom-width: 0;
     color: rgb(255, 255, 255);
-    font-size: 22px;
+    font-size: 56px;
+    -unity-font-style: bold;
     -unity-text-align: lower-center;
-    -unity-text-outline-width: 1.5px;
+    -unity-text-outline-width: 2px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.8);
     transition-property: opacity;
-    transition-duration: 0.1s;
+    transition-duration: 0.7s;
+    transition-timing-function: ease-in-out;
+}
+
+/* 点滅（チカチカ）用。コードから一定間隔でトグルし、opacity の transition で滑らかに明滅させる。 */
+.title-start-button--blink-dim {
+    opacity: 0.15;
 }
 
 /* 全画面ボタンなので背景は変えず、文字だけ反応させる（画面全体が暗転しないように）。 */

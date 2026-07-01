@@ -68,15 +68,15 @@
 | オプションモーダル UI バインド | [Assets/Scripts/Common/Option/OptionModalPresenter.cs](Assets/Scripts/Common/Option/OptionModalPresenter.cs) |
 | Store 共通基底クラス | [Assets/Scripts/Common/Store/AssetStoreBase.cs](Assets/Scripts/Common/Store/AssetStoreBase.cs) |
 | セッション保持・ゲームモード（Common） | [Assets/Scripts/Common/GameSession/GameSessionModel.cs](Assets/Scripts/Common/GameSession/GameSessionModel.cs) / [GameMode.cs](Assets/Scripts/Common/GameSession/GameMode.cs) |
-| モード選択（Home の一人用/オンライン分岐。一人用は CharacterSelect へ） | [Assets/Scripts/Home/Presenter/HomePresenter.cs](Assets/Scripts/Home/Presenter/HomePresenter.cs) |
+| モード選択（Home の一人用/オンライン分岐。一人用は CharacterSelect へ。クレジットモーダルの開閉も担当） | [Assets/Scripts/Home/Presenter/HomePresenter.cs](Assets/Scripts/Home/Presenter/HomePresenter.cs) |
 | キャラ識別子・カタログ・選択状態（Common。シーンをまたいで保持） | [Assets/Scripts/Common/Character/CharacterId.cs](Assets/Scripts/Common/Character/CharacterId.cs) / [CharacterCatalog.cs](Assets/Scripts/Common/Character/CharacterCatalog.cs) / [CharacterSessionModel.cs](Assets/Scripts/Common/Character/CharacterSessionModel.cs) |
-| キャラ選択 UI（立ち絵を全画面背景・アイコンの選択スロットを下部に配置。画像は Addressables ロード、未配置は色面プレースホルダ） | [Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs](Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs) |
+| キャラ選択 UI（立ち絵を全画面背景・アイコンの選択スロットを下部に配置。画面上部のタイトルに選択中キャラ名を表示。画像は Addressables ロード、未配置は色面プレースホルダ） | [Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs](Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs) |
 | マッチングサービス | [Assets/Scripts/Matching/MatchingService.cs](Assets/Scripts/Matching/MatchingService.cs) |
 | マッチング DI 登録 | [Assets/Scripts/Matching/Injector/MatchingLifetimeScope.cs](Assets/Scripts/Matching/Injector/MatchingLifetimeScope.cs) |
 | NGO 起動・接続待機 | [Assets/Scripts/Main/NetworkSessionStartup.cs](Assets/Scripts/Main/NetworkSessionStartup.cs) |
 | NGO メッセージ送受信 | [Assets/Scripts/Main/NgoMessenger.cs](Assets/Scripts/Main/NgoMessenger.cs) |
 | ルーレットの停止角度→セクター変換・状態（出目は止まった位置で決まる） | [Assets/Scripts/Main/Roulette/RouletteMath.cs](Assets/Scripts/Main/Roulette/RouletteMath.cs) / [RouletteModel.cs](Assets/Scripts/Main/Roulette/RouletteModel.cs) |
-| ルーレット UI（Painter2D で虹色円盤・区切り線・中心ハブを描画。長押し中は加速・離すと減速する角速度回転を `Update` で駆動。針のカチカチ反応・当たりセクター強調・結果ポップなどの演出） | [Assets/Scripts/Main/Roulette/RoulettePresenter.cs](Assets/Scripts/Main/Roulette/RoulettePresenter.cs) |
+| ルーレット UI（Painter2D で虹色円盤・区切り線・中心ハブを描画。長押し中は加速・離すと減速する角速度回転を `Update` で駆動。すぐ離しても最低 1.5〜2.5 秒（ランダム）は回るよう、離した後は目標時間まで等速コーストしてから減速する。針のカチカチ反応・当たりセクター強調・結果ポップなどの演出） | [Assets/Scripts/Main/Roulette/RoulettePresenter.cs](Assets/Scripts/Main/Roulette/RoulettePresenter.cs) |
 | 盤面ロジック（位置前進・周回判定・リング→グリッド座標の純粋関数） | [Assets/Scripts/Main/Board/BoardMath.cs](Assets/Scripts/Main/Board/BoardMath.cs) |
 | 盤面状態（コマ位置・移動中・クリア） | [Assets/Scripts/Main/Board/BoardModel.cs](Assets/Scripts/Main/Board/BoardModel.cs) |
 | 盤面 UI（外周マス描画・コマ移動演出。ルーレット出目とミニゲームのボーナスを共用する `AdvanceAsync`） | [Assets/Scripts/Main/Board/BoardPresenter.cs](Assets/Scripts/Main/Board/BoardPresenter.cs) |

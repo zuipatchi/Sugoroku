@@ -90,3 +90,84 @@
     background-color: rgba(255, 255, 255, 0.03);
     scale: 0.96 0.96;
 }
+
+/* クレジットモーダル ----------------------------------------------------- */
+
+/* 全画面オーバーレイ（暗幕）。既定は非表示でコードから display を切り替える。 */
+.credit-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+    display: none;
+}
+
+/* モーダルカード（design-system.md のカード準拠） */
+.credit-card {
+    width: 80%;
+    max-width: 420px;
+    background-color: rgb(22, 22, 35);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.15);
+    border-right-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+    padding-top: 28px;
+    padding-right: 32px;
+    padding-bottom: 28px;
+    padding-left: 32px;
+}
+
+.credit-title {
+    font-size: 20px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+    margin-bottom: 16px;
+}
+
+/* 区切り線（design-system.md 準拠） */
+.divider {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+}
+
+/* 項目行（キー＝項目名、バリュー＝内容）。縦並びにして長い内容も折り返す。 */
+.credit-row {
+    margin-bottom: 14px;
+}
+
+.credit-key {
+    font-size: 13px;
+    color: rgb(180, 180, 210);
+    margin-bottom: 4px;
+}
+
+.credit-value {
+    font-size: 13px;
+    color: rgb(230, 230, 245);
+    white-space: normal;
+}
+
+.credit-copyright {
+    font-size: 12px;
+    color: rgb(180, 180, 210);
+    -unity-text-align: middle-center;
+    margin-top: 6px;
+    margin-bottom: 24px;
+}
+
+.credit-close-button {
+    width: 100%;
+}
