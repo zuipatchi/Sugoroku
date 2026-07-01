@@ -38,7 +38,11 @@ namespace Common.Character
             new CharacterDefinition(CharacterId.Character1, "のらどっく", "Character/Character1/Icon", "Character/Character1/Portrait"),
             new CharacterDefinition(CharacterId.Character2, "ザニザニマン", "Character/Character2/Icon", "Character/Character2/Portrait"),
             new CharacterDefinition(CharacterId.Character3, "D.O.M", "Character/Character3/Icon", "Character/Character3/Portrait"),
-            new CharacterDefinition(CharacterId.Character4, "有馬", "Character/Character4/Icon", "Character/Character4/Portrait"),
+            new CharacterDefinition(CharacterId.Character4, "アリマ", "Character/Character4/Icon", "Character/Character4/Portrait"),
+            new CharacterDefinition(CharacterId.Character5, "モナカ", "Character/Character5/Icon", "Character/Character5/Portrait"),
+            new CharacterDefinition(CharacterId.Character6, "ずいさん", "Character/Character6/Icon", "Character/Character6/Portrait"),
+            new CharacterDefinition(CharacterId.Character7, "釈迦パッチ", "Character/Character7/Icon", "Character/Character7/Portrait"),
+            new CharacterDefinition(CharacterId.Character8, "タロー", "Character/Character8/Icon", "Character/Character8/Portrait"),
         };
 
         /// <summary>既定（先頭）のキャラクター。</summary>

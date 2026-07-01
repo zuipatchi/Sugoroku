@@ -33,7 +33,6 @@ namespace CharacterSelect.Presenter
         private VisualElement _root;
         private VisualElement _grid;
         private VisualElement _portraitView;
-        private Label _title;
         private Button _confirmButton;
         private Button _backButton;
 
@@ -73,10 +72,9 @@ namespace CharacterSelect.Presenter
 
             _grid = _root.Q<VisualElement>("CharacterGrid");
             _portraitView = _root.Q<VisualElement>("PortraitView");
-            _title = _root.Q<Label>("Title");
             _confirmButton = _root.Q<Button>("ConfirmButton");
             _backButton = _root.Q<Button>("BackButton");
-            if (_grid == null || _portraitView == null || _title == null || _confirmButton == null || _backButton == null)
+            if (_grid == null || _portraitView == null || _confirmButton == null || _backButton == null)
             {
                 Debug.LogError("CharacterSelect の UI 要素が見つかりませんでした。");
                 return;
@@ -185,9 +183,6 @@ namespace CharacterSelect.Presenter
             {
                 pair.Value.EnableInClassList("character-card--selected", pair.Key == _selected);
             }
-
-            // タイトルを選択中キャラの名前にする。
-            _title.text = CharacterCatalog.Find(_selected).DisplayName;
 
             if (_portraits.TryGetValue(_selected, out Sprite portrait) && portrait != null)
             {
