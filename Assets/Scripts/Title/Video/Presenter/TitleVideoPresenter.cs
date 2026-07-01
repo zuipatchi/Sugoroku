@@ -10,11 +10,12 @@ using UnityEngine.Video;
 namespace Title.Video
 {
     /// <summary>
-    /// タイトル背景に動画を 1 回だけ再生する。動画は <see cref="Application.streamingAssetsPath"/> 配下の
+    /// タイトル背景に動画を再生する。動画は <see cref="Application.streamingAssetsPath"/> 配下の
     /// ファイルを URL で参照し（WebGL は VideoClip アセット非対応のため URL 方式で全プラットフォーム共通にする）、
     /// <see cref="VideoPlayer"/> で <see cref="RenderTexture"/> に描画して、UXML の全画面背景
     /// 要素（VideoBackground）に貼り付ける。音声はミュートしてタイトル BGM をそのまま流す。
-    /// 再生が最後まで進んだら（ループせず）最後のフレームで止め、その上にタイトル文言（TitleText）を表示する。
+    /// 1 回の再生が最後まで進んだら最後のフレームで止め、その上にタイトル文言（TitleText）を表示する。
+    /// 初回再生開始から <c>_replayIntervalSeconds</c> 秒おきに、文言を隠して最初から再生し直すループを回す。
     /// 表示前に最初のフレームまで用意するため <see cref="ISceneReady"/> を実装する。
     /// 動画が未配置・再生不可の場合は USS のベース色のまま、文言だけ表示する。
     /// </summary>
@@ -25,6 +26,8 @@ namespace Title.Video
         [SerializeField] private string _videoPath = "Video/TitleMovie.mp4";
         // 準備がこの秒数で完了しなければ動画を諦めて文言だけ表示する（黒画面で固まらせない保険）。
         [SerializeField] private float _prepareTimeoutSeconds = 8f;
+        // 最初の再生開始からこの秒数ごとに、動画の最初からループ再生し直す。
+        [SerializeField] private float _replayIntervalSeconds = 30f;
 
         // タイトル文言（3 行）。1 文字ずつ上から降らせる。
         private static readonly string[] TitleLines = { "ドラゴン", "ファミリー", "すごろく" };
@@ -135,9 +138,25 @@ namespace Title.Video
             // 再生中に GPU デバイス喪失などのエラーが起きても、黒画面で固まらず文言を出す保険。
             _videoPlayer.errorReceived += OnPlaybackError;
             _videoPlayer.Play();
+
+            // 初回再生開始を起点に、以降 _replayIntervalSeconds 秒おきに最初から再生し直すループ。
+            RunReplayLoopAsync(ct).Forget();
         }
 
-        // 再生が最後まで進んだら呼ばれる（isLooping=false なので 1 回だけ）。
+        // 一定間隔で動画を最初から再生し直す。破棄・遷移キャンセルで自然に止まる。
+        private async UniTaskVoid RunReplayLoopAsync(CancellationToken ct)
+        {
+            while (true)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(_replayIntervalSeconds), cancellationToken: ct);
+                HideTitleText();
+                _videoPlayer.time = 0;
+                _videoPlayer.Play();
+            }
+        }
+
+        // 再生が最後まで進んだら呼ばれる（isLooping=false なので毎回の再生につき 1 回。
+        // ループ再生の 2 回目以降もここで文言を再表示する）。
         private void OnPlaybackFinished(VideoPlayer source)
         {
             ShowTitleText();
@@ -191,6 +210,15 @@ namespace Title.Video
             foreach (VisualElement charLabel in _titleChars)
             {
                 charLabel.EnableInClassList("title-char--visible", true);
+            }
+        }
+
+        // 全文字から visible クラスを外す。ループ再生の再開時に、次の再生終了までタイトル文言を隠す。
+        private void HideTitleText()
+        {
+            foreach (VisualElement charLabel in _titleChars)
+            {
+                charLabel.EnableInClassList("title-char--visible", false);
             }
         }
 
