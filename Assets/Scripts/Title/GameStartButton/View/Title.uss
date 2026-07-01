@@ -35,7 +35,7 @@
 .title-char {
     font-size: 80px;
     color: rgb(255, 255, 255);
-    -unity-text-outline-width: 2px;
+    -unity-text-outline-width: 4px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.8);
     opacity: 0;
     translate: 0 -240px;
@@ -74,7 +74,7 @@
     font-size: 56px;
     -unity-font-style: bold;
     -unity-text-align: lower-center;
-    -unity-text-outline-width: 2px;
+    -unity-text-outline-width: 4px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.8);
     transition-property: opacity;
     transition-duration: 0.7s;
