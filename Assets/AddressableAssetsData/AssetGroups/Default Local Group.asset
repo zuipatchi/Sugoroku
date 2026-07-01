@@ -120,6 +120,46 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6a8e71455ed98a64481267f967ded3f7
+    m_Address: Character/Character5/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 194e892f2a143514898cae51ea96d86f
+    m_Address: Character/Character5/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 49d7d926ae7891244a8f0e1c94229a31
+    m_Address: Character/Character6/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f5e96af4846271f4c9f2d1459815dd82
+    m_Address: Character/Character6/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3b1c2fa543d45dc40b3db079186c01d8
+    m_Address: Character/Character7/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9c760eba8b215e44cbbbb89a9e09478a
+    m_Address: Character/Character7/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1d07a708547a05e44a5b82221a7c8ba4
+    m_Address: Character/Character8/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 559ad425433d8ec44ab36dfca1765ad6
+    m_Address: Character/Character8/Portrait
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 581cd34c163354e4ca689f417e9ec42a, type: 2}
   m_SchemaSet:
