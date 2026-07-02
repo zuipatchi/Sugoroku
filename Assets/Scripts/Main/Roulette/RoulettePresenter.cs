@@ -382,7 +382,7 @@ namespace Main.Roulette
             _angularVelocity = _minSpinSpeed;
             _lastAngle = _currentRotation;
             _spinElapsed = 0f;
-            _targetSpinDuration = Random.Range(_minSpinDuration, _maxSpinDuration);
+            _targetSpinDuration = UnityEngine.Random.Range(_minSpinDuration, _maxSpinDuration);
             _coastUntilElapsed = float.PositiveInfinity;
             _model.BeginSpin();
             PlaySe(_soundStore?.Enter1SE);
