@@ -5,6 +5,7 @@ using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using Main.Board;
+using Main.Turn;
 using UnityEngine;
 using UnityEngine.UIElements;
 using VContainer;
@@ -31,16 +32,20 @@ namespace Main
         private Button _button;
         private CancellationToken _destroyCt;
         private bool _busy;
+        // CPU 対戦（一人用モード）では、ターン進行と干渉しないようテスト用トリガーを無効化する。
+        private bool _disabledForCpu;
 
         [Inject]
         public void Construct(
             MiniGameLauncher launcher,
             BoardPresenter board,
+            GameParticipants participants,
             SoundStore soundStore,
             SoundPlayer soundPlayer)
         {
             _launcher = launcher;
             _board = board;
+            _disabledForCpu = participants.HasCpu;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
         }
@@ -65,6 +70,14 @@ namespace Main
             if (_button == null)
             {
                 Debug.LogError("MiniGameButton が見つかりませんでした。");
+                return;
+            }
+
+            // CPU 対戦ではテスト用ボタンを隠し、クリックも受け付けない。
+            if (_disabledForCpu)
+            {
+                _button.style.display = DisplayStyle.None;
+                _button = null;
                 return;
             }
 
@@ -101,7 +114,8 @@ namespace Main
                 // ローカル完結のため「勝者」はしきい値で判定する（本来の順位判定は同期フェーズで導入）。
                 if (result.Score >= _winThreshold)
                 {
-                    await _board.AdvanceAsync(_bonusSteps, _destroyCt);
+                    // CPU 戦では無効化済みのため、ここに来るのは単独プレイ（プレイヤー 0）のみ。
+                    await _board.AdvanceAsync(0, _bonusSteps, _destroyCt);
                 }
             }
             catch (OperationCanceledException)

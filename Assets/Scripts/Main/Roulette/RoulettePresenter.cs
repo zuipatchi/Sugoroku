@@ -1,12 +1,16 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using Common.SoundManagement;
 using Common.Store;
+using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using Main.Board;
 using R3;
 using UnityEngine;
 using UnityEngine.UIElements;
 using VContainer;
+using Random = UnityEngine.Random;
 
 namespace Main.Roulette
 {
@@ -68,6 +72,9 @@ namespace Main.Roulette
         private Tween _resultTween;
         private bool _wheelBuilt;
         private int _highlightIndex = -1;
+        // 手番制御。ゲーム進行（GameFlowController）が現在の手番プレイヤーに応じて切り替える。
+        // false の間は手動スピン不可（CPU の番・自分の番でないときなど）。
+        private bool _turnInteractable;
 
         [Inject]
         public void Construct(RouletteModel model, BoardModel board, SoundStore soundStore, SoundPlayer soundPlayer)
@@ -81,7 +88,7 @@ namespace Main.Roulette
             // DOTween.dll の AddTo 拡張と衝突するため、ここでは CompositeDisposable.Add で購読を管理する。
             // コマ移動中・クリア後は回せないため、その 2 状態を購読してボタンを更新する。
             _disposables.Add(_board.IsMoving.Subscribe(_ => UpdateSpinEnabled()));
-            _disposables.Add(_board.IsCleared.Subscribe(_ => UpdateSpinEnabled()));
+            _disposables.Add(_board.Winner.Subscribe(_ => UpdateSpinEnabled()));
             _disposables.Add(_model.Result.Subscribe(value =>
             {
                 if (_resultLabel != null && value > 0)
@@ -373,6 +380,13 @@ namespace Main.Roulette
                 return;
             }
 
+            BeginSpinInternal();
+            // ポインタ捕捉は Button の Clickable が行うため、ボタン外でリリースしても PointerUp は届く。
+        }
+
+        /// <summary>回転を開始する内部処理。手動（PointerDown）と CPU 自動（<see cref="AutoSpinAsync"/>）で共有する。</summary>
+        private void BeginSpinInternal()
+        {
             // 前回の当たり強調・祝い演出を消してから回し始める（パルス途中で再回転されても残らないように）。
             ClearHighlight();
             _wheelPulseTween?.Kill();
@@ -386,7 +400,6 @@ namespace Main.Roulette
             _coastUntilElapsed = float.PositiveInfinity;
             _model.BeginSpin();
             PlaySe(_soundStore?.Enter1SE);
-            // ポインタ捕捉は Button の Clickable が行うため、ボタン外でリリースしても PointerUp は届く。
         }
 
         private void OnPointerUp(PointerUpEvent evt)
@@ -422,11 +435,12 @@ namespace Main.Roulette
 
         private bool CanStartSpin()
         {
-            return _model != null
+            return _turnInteractable
+                   && _model != null
                    && _board != null
                    && _model.State.CurrentValue != RouletteState.Spinning
                    && !_board.IsMoving.CurrentValue
-                   && !_board.IsCleared.CurrentValue;
+                   && !_board.IsFinished;
         }
 
         private void FinalizeSpin()
@@ -532,6 +546,40 @@ namespace Main.Roulette
                 .SetEase(Ease.OutBack);
         }
 
+        /// <summary>
+        /// 手番制御。<paramref name="interactable"/> が false の間は手動スピンできない（CPU の番など）。
+        /// <see cref="Turn.GameFlowController"/> が手番プレイヤーに応じて切り替える。
+        /// </summary>
+        public void SetInteractable(bool interactable)
+        {
+            _turnInteractable = interactable;
+            UpdateSpinEnabled();
+        }
+
+        /// <summary>
+        /// 手動スピンが停止して出目が確定するまで待ち、その出目を返す（人間の手番用）。
+        /// 呼び出し前に <see cref="RouletteModel.Reset"/> 済みであることを前提に、次の Stopped を待つ。
+        /// </summary>
+        public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
+        {
+            await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
+            return _model.Result.CurrentValue;
+        }
+
+        /// <summary>
+        /// CPU の手番。円盤を自動で回して自然に停止させ、その出目を返す。
+        /// 手動と同じ回転物理を使うため、少しの間ホールドしてから離す。
+        /// </summary>
+        public async UniTask<int> AutoSpinAsync(CancellationToken ct)
+        {
+            BeginSpinInternal();
+            float hold = Random.Range(_minSpinDuration * 0.25f, _minSpinDuration * 0.5f);
+            await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
+            ReleaseHold();
+            await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
+            return _model.Result.CurrentValue;
+        }
+
         private void UpdateSpinEnabled()
         {
             if (_spinButton == null || _board == null)
@@ -541,7 +589,8 @@ namespace Main.Roulette
 
             // 回転中（Spinning）はボタンを押下したまま離す操作を受け取る必要があるため無効化しない。
             // 再回転のガードは OnPointerDown 側の状態チェックで行う。
-            bool canPress = !_board.IsMoving.CurrentValue && !_board.IsCleared.CurrentValue;
+            // 自分の手番でない（_turnInteractable == false）ときは常に無効化する。
+            bool canPress = _turnInteractable && !_board.IsMoving.CurrentValue && !_board.IsFinished;
             _spinButton.SetEnabled(canPress);
         }
 
