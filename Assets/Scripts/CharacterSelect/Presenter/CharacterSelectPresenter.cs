@@ -99,8 +99,8 @@ namespace CharacterSelect.Presenter
             {
                 CharacterDefinition definition = all[i];
 
-                // クリック用アイコンと、選択時に表示する立ち絵を両方ロードする。
-                Sprite icon = await TryLoadAsync(definition.IconAddress, ct);
+                // クリック用のカード絵と、選択時に表示する立ち絵を両方ロードする。
+                Sprite icon = await TryLoadAsync(definition.CardAddress, ct);
                 _portraits[definition.Id] = await TryLoadAsync(definition.PortraitAddress, ct);
 
                 Button card = new();

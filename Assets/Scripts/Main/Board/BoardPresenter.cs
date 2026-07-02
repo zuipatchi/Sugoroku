@@ -1,10 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
+using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
+using Main.Turn;
 using R3;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 
@@ -25,24 +30,37 @@ namespace Main.Board
         private BoardModel _model;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
+        private CharacterSessionModel _characterSession;
+        private GameParticipants _participants;
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
         private VisualElement[] _pieces;
+        private Sprite[] _pieceIcons;
         private Label _clearLabel;
         private int _cellCount;
         private int _pieceCount;
         private bool _cellsBuilt;
         private bool _piecesBuilt;
+        private bool _iconLoadStarted;
+        private CharacterId? _cpuCharacter;
         private CancellationToken _destroyCt;
         private readonly CompositeDisposable _disposables = new();
+        private readonly List<AsyncOperationHandle<Sprite>> _iconHandles = new();
 
         [Inject]
-        public void Construct(BoardModel model, SoundStore soundStore, SoundPlayer soundPlayer)
+        public void Construct(
+            BoardModel model,
+            SoundStore soundStore,
+            SoundPlayer soundPlayer,
+            CharacterSessionModel characterSession,
+            GameParticipants participants)
         {
             _model = model;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
+            _characterSession = characterSession;
+            _participants = participants;
 
             // コマ位置は Model を source of truth とし、Position を購読して描画へ反映する。
             // 購読と UI 構築（OnEnable / injection）の順序が不定のため、_pieces を null ガードする。
@@ -72,6 +90,7 @@ namespace Main.Board
 
             // OnEnable が先に走っていれば、この時点でコマを構築できる。
             BuildPiecesIfReady();
+            StartLoadingPieceIconsIfReady();
         }
 
         private void Awake()
@@ -86,11 +105,20 @@ namespace Main.Board
             _destroyCt = destroyCancellationToken;
             BuildCells();
             BuildPiecesIfReady();
+            StartLoadingPieceIconsIfReady();
         }
 
         private void OnDestroy()
         {
             _disposables.Dispose();
+            foreach (AsyncOperationHandle<Sprite> handle in _iconHandles)
+            {
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+            }
+            _iconHandles.Clear();
         }
 
         private void BuildCells()
@@ -167,7 +195,121 @@ namespace Main.Board
                 PlaceAtCell(piece, _model.Position(player).CurrentValue);
                 _boardArea.Add(piece);
                 _pieces[player] = piece;
+
+                // アイコンのロードが先に終わっていれば、この時点で貼り付ける。
+                ApplyPieceIcon(player);
             }
+        }
+
+        /// <summary>
+        /// 各プレイヤーのコマに使うキャラアイコン（バッジ）を Addressables から読み込む。
+        /// コマ構築（BuildPiecesIfReady）と injection（Construct）の両方がそろってから 1 度だけ起動する。
+        /// </summary>
+        private void StartLoadingPieceIconsIfReady()
+        {
+            if (_iconLoadStarted || _model == null || _characterSession == null || _participants == null)
+            {
+                return;
+            }
+
+            _iconLoadStarted = true;
+            _pieceIcons = new Sprite[_model.PlayerCount];
+            LoadPieceIconsAsync(destroyCancellationToken).Forget();
+        }
+
+        private async UniTaskVoid LoadPieceIconsAsync(CancellationToken ct)
+        {
+            try
+            {
+                for (int player = 0; player < _pieceIcons.Length; player++)
+                {
+                    CharacterId id = ResolveCharacter(player);
+                    string address = CharacterCatalog.Find(id).PieceIconAddress;
+                    Sprite sprite = await TryLoadPieceIconAsync(address, ct);
+                    if (sprite == null)
+                    {
+                        continue; // 未配置のキャラは従来の色コマにフォールバック
+                    }
+                    _pieceIcons[player] = sprite;
+                    ApplyPieceIcon(player);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        /// <summary>プレイヤー <paramref name="player"/> のコマに割り当てるキャラを解決する。</summary>
+        private CharacterId ResolveCharacter(int player)
+        {
+            if (_participants.KindOf(player) == PlayerKind.Human)
+            {
+                return _characterSession.Selected;
+            }
+
+            // CPU は人間と違うキャラをランダムに選ぶ。1 度だけ決めてゲーム中は固定する。
+            if (_cpuCharacter == null)
+            {
+                _cpuCharacter = PickCpuCharacter(_characterSession.Selected);
+            }
+            return _cpuCharacter.Value;
+        }
+
+        /// <summary>人間の選択キャラ <paramref name="human"/> を除いた残りから等確率で 1 体選ぶ。</summary>
+        private static CharacterId PickCpuCharacter(CharacterId human)
+        {
+            IReadOnlyList<CharacterDefinition> all = CharacterCatalog.All;
+            int humanIndex = CharacterCatalog.IndexOf(human);
+            // オフセット 1..(Count-1) を足すことで、必ず人間と別のキャラ index になる。
+            int offset = UnityEngine.Random.Range(1, all.Count);
+            return all[(humanIndex + offset) % all.Count].Id;
+        }
+
+        private async UniTask<Sprite> TryLoadPieceIconAsync(string address, CancellationToken ct)
+        {
+            AsyncOperationHandle<Sprite> handle = default;
+            try
+            {
+                handle = Addressables.LoadAssetAsync<Sprite>(address);
+                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
+                _iconHandles.Add(handle);
+                return sprite;
+            }
+            catch (OperationCanceledException)
+            {
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+                throw;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"コマ画像 '{address}' のロードに失敗。色コマ表示にします: {e.Message}");
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+                return null;
+            }
+        }
+
+        /// <summary>ロード済みのアイコンをコマへ貼り付ける。コマ・アイコンのどちらか未準備なら何もしない。</summary>
+        private void ApplyPieceIcon(int player)
+        {
+            if (_pieces == null || player < 0 || player >= _pieces.Length || _pieces[player] == null)
+            {
+                return;
+            }
+            if (_pieceIcons == null || player >= _pieceIcons.Length || _pieceIcons[player] == null)
+            {
+                return;
+            }
+
+            VisualElement piece = _pieces[player];
+            piece.style.backgroundImage = new StyleBackground(_pieceIcons[player]);
+            // 色背景を透過にして YOU/CPU ラベルを隠す（バッジ自体で見分ける）。プレイヤー色は枠線で残る。
+            piece.AddToClassList("board-piece--icon");
         }
 
         private string PieceLabel(int player)

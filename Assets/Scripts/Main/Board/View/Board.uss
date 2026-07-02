@@ -69,14 +69,34 @@
     transition-duration: 0.15s, 0.15s;
 }
 
-/* あなたのコマ（先攻・プレイヤー 0）。従来の金色。 */
+/* あなたのコマ（先攻・プレイヤー 0）。従来の金色。アイコン表示時は枠線で色を残す。 */
 .board-piece--p0 {
     background-color: rgb(235, 200, 90);
+    border-left-color: rgb(255, 225, 120);
+    border-right-color: rgb(255, 225, 120);
+    border-top-color: rgb(255, 225, 120);
+    border-bottom-color: rgb(255, 225, 120);
 }
 
 /* CPU のコマ（プレイヤー 1）。青緑で区別する。 */
 .board-piece--p1 {
     background-color: rgb(90, 190, 200);
+    border-left-color: rgb(140, 225, 235);
+    border-right-color: rgb(140, 225, 235);
+    border-top-color: rgb(140, 225, 235);
+    border-bottom-color: rgb(140, 225, 235);
+}
+
+/* キャラアイコン（バッジ）を貼ったコマ。色背景は透過にしてバッジを見せ、
+   プレイヤー色は上の枠線で残す。--p0 / --p1 より後に定義して背景色を上書きする。 */
+.board-piece--icon {
+    background-color: rgba(0, 0, 0, 0);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* アイコン表示時は YOU / CPU ラベルを隠す（バッジ自体で見分ける）。 */
+.board-piece--icon .board-piece__label {
+    display: none;
 }
 
 /* コマの上に載る識別ラベル（YOU / CPU）。 */
