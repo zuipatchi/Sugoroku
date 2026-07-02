@@ -72,8 +72,8 @@
 | 手番状態（現在の手番プレイヤーの巡回） | [Assets/Scripts/Main/Turn/TurnModel.cs](Assets/Scripts/Main/Turn/TurnModel.cs) |
 | ターン進行の統括（手番に応じてルーレットを手動待機／CPU 自動スピン→手番プレイヤーのコマ前進→勝者が出るまで交代。散在していた「ルーレット停止→前進」の連鎖をここへ集約） | [Assets/Scripts/Main/Turn/GameFlowController.cs](Assets/Scripts/Main/Turn/GameFlowController.cs) |
 | モード選択（Home の一人用/オンライン分岐。一人用は CharacterSelect へ。クレジットモーダルの開閉も担当） | [Assets/Scripts/Home/Presenter/HomePresenter.cs](Assets/Scripts/Home/Presenter/HomePresenter.cs) |
-| キャラ識別子・カタログ・選択状態（Common。シーンをまたいで保持） | [Assets/Scripts/Common/Character/CharacterId.cs](Assets/Scripts/Common/Character/CharacterId.cs) / [CharacterCatalog.cs](Assets/Scripts/Common/Character/CharacterCatalog.cs) / [CharacterSessionModel.cs](Assets/Scripts/Common/Character/CharacterSessionModel.cs) |
-| キャラ選択 UI（立ち絵を全画面背景・アイコンの選択スロットを下部に配置。戻る／決定ボタンは画面上部（右上のオプションアイコンを避けて中央寄せ）。キャラ名は各カード内に表示。画像は Addressables ロード、未配置は色面プレースホルダ） | [Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs](Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs) |
+| キャラ識別子・カタログ・選択状態（Common。シーンをまたいで保持。各キャラは Card（選択カード絵）/Icon（盤面コマの丸バッジ）/Portrait（立ち絵）の3系統の Addressable アドレスを持つ） | [Assets/Scripts/Common/Character/CharacterId.cs](Assets/Scripts/Common/Character/CharacterId.cs) / [CharacterCatalog.cs](Assets/Scripts/Common/Character/CharacterCatalog.cs) / [CharacterSessionModel.cs](Assets/Scripts/Common/Character/CharacterSessionModel.cs) |
+| キャラ選択 UI（立ち絵を全画面背景・カード絵の選択スロットを下部に配置。戻る／決定ボタンは画面上部（右上のオプションアイコンを避けて中央寄せ）。キャラ名は各カード内に表示。画像は `CardAddress`（カード）と `PortraitAddress`（立ち絵）を Addressables ロード、未配置は色面プレースホルダ） | [Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs](Assets/Scripts/CharacterSelect/Presenter/CharacterSelectPresenter.cs) |
 | マッチングサービス | [Assets/Scripts/Matching/MatchingService.cs](Assets/Scripts/Matching/MatchingService.cs) |
 | マッチング DI 登録 | [Assets/Scripts/Matching/Injector/MatchingLifetimeScope.cs](Assets/Scripts/Matching/Injector/MatchingLifetimeScope.cs) |
 | NGO 起動・接続待機 | [Assets/Scripts/Main/NetworkSessionStartup.cs](Assets/Scripts/Main/NetworkSessionStartup.cs) |
@@ -82,7 +82,7 @@
 | ルーレット UI（Painter2D で虹色円盤・区切り線・中心ハブを描画。長押し中は加速・離すと減速する角速度回転を `Update` で駆動。すぐ離しても最低 1.5〜2.5 秒（ランダム）は回るよう、離した後は目標時間まで等速コーストしてから減速する。針のカチカチ反応・当たりセクター強調・結果ポップなどの演出。手番制御 `SetInteractable`／人間の停止待ち `WaitForManualSpinAsync`／CPU の自動スピン `AutoSpinAsync` を公開し `GameFlowController` から駆動される） | [Assets/Scripts/Main/Roulette/RoulettePresenter.cs](Assets/Scripts/Main/Roulette/RoulettePresenter.cs) |
 | 盤面ロジック（位置前進・周回判定・リング→グリッド座標の純粋関数） | [Assets/Scripts/Main/Board/BoardMath.cs](Assets/Scripts/Main/Board/BoardMath.cs) |
 | 盤面状態（コマ位置を**プレイヤーごと**に保持・移動中・勝者 index／`IsFinished`） | [Assets/Scripts/Main/Board/BoardModel.cs](Assets/Scripts/Main/Board/BoardModel.cs) |
-| 盤面 UI（外周マス描画・参加者ぶんのコマ描画（色＋YOU/CPU ラベル・同マスの重なり回避）・コマ移動演出。ルーレット出目とミニゲームのボーナスを共用する `AdvanceAsync(player, steps)`・勝敗メッセージ表示） | [Assets/Scripts/Main/Board/BoardPresenter.cs](Assets/Scripts/Main/Board/BoardPresenter.cs) |
+| 盤面 UI（外周マス描画・参加者ぶんのコマ描画（キャラの丸バッジ画像＝`PieceIconAddress` を Addressables ロードして貼付、YOU＝選択キャラ・CPU＝人間と別のキャラをランダム選択。画像未配置のキャラは色＋YOU/CPU ラベルにフォールバック・同マスの重なり回避）・コマ移動演出。ルーレット出目とミニゲームのボーナスを共用する `AdvanceAsync(player, steps)`・勝敗メッセージ表示） | [Assets/Scripts/Main/Board/BoardPresenter.cs](Assets/Scripts/Main/Board/BoardPresenter.cs) |
 | ミニゲーム起動（Main を残して MiniGame シーンを Additive で重ね・終了後に単独アンロード。Transit は使わない） | [Assets/Scripts/Common/MiniGame/MiniGameLauncher.cs](Assets/Scripts/Common/MiniGame/MiniGameLauncher.cs) |
 | ミニゲーム種別・結果・起動側↔ホストの仲介 | [Assets/Scripts/Common/MiniGame/MiniGameId.cs](Assets/Scripts/Common/MiniGame/MiniGameId.cs) / [MiniGameResult.cs](Assets/Scripts/Common/MiniGame/MiniGameResult.cs) / [MiniGameSessionModel.cs](Assets/Scripts/Common/MiniGame/MiniGameSessionModel.cs) |
 | ミニゲームホスト（CurrentGame に応じた UXML を Addressables ロードして進行） | [Assets/Scripts/MiniGame/MiniGameHostPresenter.cs](Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) |
