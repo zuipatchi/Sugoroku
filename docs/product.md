@@ -25,7 +25,7 @@
 - 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存）→ [architecture.md](architecture.md)「シーン構成」
 - クレジット表示（Home のクレジットボタンでモーダルを開き、制作・イラスト・使用技術などを表示）→ [Assets/Scripts/Home/](../Assets/Scripts/Home/)
 - キャラクター選択（一人用は Main の前に CharacterSelect で選ぶ。全8種。立ち絵を全画面背景、アイコンの選択スロットを下部に表示。戻る／決定ボタンは画面上部（右上のオプションアイコンを避けて中央寄せ）。キャラ名は各カード内に表示。選択は `CharacterSessionModel` に保持。画像は Addressables、現状オンライン非対応）→ [Assets/Scripts/CharacterSelect/](../Assets/Scripts/CharacterSelect/)
-- 円盤ルーレット（ボタンを長押し中は加速して回転し、離すと減速。すぐ離しても最低 1.5〜2.5 秒（ランダム）は回ってから、自然に止まった位置のセクターが出目になり移動マス数を決定。Painter2D で描画・`Update` で角速度を加減速）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
+- 円盤ルーレット（8分割・出目1〜8。ボタンを長押し中は加速して回転し、離すと減速。すぐ離しても最低 1.5〜2.5 秒（ランダム）は回ってから、自然に止まった位置のセクターが出目になり移動マス数を決定。各セクターにキャラアイコンをコイン（ゴールド枠＋白座面）で表示し、出目の数字をコイン下部にバッジ表示。アイコンは円盤と一緒に周回しつつ常に正立。Painter2D で描画・`Update` で角速度を加減速）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
 - すごろくのループ盤面（外周にマスを並べたループ盤。ルーレットの出目ぶんコマを1マスずつ移動し、1周してゴール＝スタートに到達するとクリア。1コマ・普通マスのみ）→ [Assets/Scripts/Main/Board/](../Assets/Scripts/Main/Board/)
 - ミニゲーム（タップ連打。5秒間のタップ数を競う。Main を残したまま MiniGame シーンを Additive で重ねて起動し、勝利なら盤面にボーナス前進。中身は `MiniGameId` に応じて Addressables で差し替え、将来最大5種類）→ [architecture.md](architecture.md)「シーン構成」・[Assets/Scripts/MiniGame/](../Assets/Scripts/MiniGame/)
 
