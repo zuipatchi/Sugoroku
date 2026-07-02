@@ -1,4 +1,5 @@
 using System;
+using Common.Character;
 
 namespace Main.Roulette
 {
@@ -37,6 +38,18 @@ namespace Main.Roulette
                 index = count - 1;
             }
             return index;
+        }
+
+        /// <summary>
+        /// セクター <paramref name="sectorIndex"/>（0 始まり）に装飾として貼るキャラクターを、
+        /// <see cref="CharacterCatalog"/> の表示順で割り当てる。セクター数がカタログ数を超えても
+        /// 巡回して割り当てる（出目の意味とは無関係な純粋な見た目の対応）。
+        /// </summary>
+        public static CharacterId CharacterForSector(int sectorIndex)
+        {
+            int count = CharacterCatalog.All.Count;
+            int wrapped = ((sectorIndex % count) + count) % count;
+            return CharacterCatalog.All[wrapped].Id;
         }
 
         private static float Mod(float a, float m)

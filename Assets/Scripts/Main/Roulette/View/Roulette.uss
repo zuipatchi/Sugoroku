@@ -35,15 +35,39 @@
     -unity-text-outline-color: rgba(35, 30, 15, 0.9);
 }
 
-/* 円盤上の数字（コードで left/top に中心座標を設定し、translate で自身の中心に合わせる）。
-   明るいセクター色の上でも読めるよう白文字＋暗い縁取り。 */
+/* 出目の数字バッジ。キャラアイコン（.roulette-character）の子として、コイン下部中央に重ねる。
+   濃紺の丸座＋白縁で、どのキャラ絵の上でも読めるようにする。親アイコンの正立・周回に追従する。 */
 .roulette-number {
     position: absolute;
-    font-size: 34px;
+    bottom: 2px;
+    left: 50%;
+    translate: -50% 0;
+    width: 26px;
+    height: 26px;
+    border-top-left-radius: 13px;
+    border-top-right-radius: 13px;
+    border-bottom-left-radius: 13px;
+    border-bottom-right-radius: 13px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgb(250, 250, 252);
+    border-right-color: rgb(250, 250, 252);
+    border-top-color: rgb(250, 250, 252);
+    border-bottom-color: rgb(250, 250, 252);
+    background-color: rgb(45, 45, 70);
+    font-size: 16px;
     color: rgb(255, 255, 255);
     -unity-text-align: middle-center;
-    -unity-text-outline-width: 1.2px;
-    -unity-text-outline-color: rgba(0, 0, 0, 0.55);
+}
+
+/* 各セクターに貼るキャラアイコン（コードで left/top・サイズ・border-radius・rotate を設定。
+   サイズはセクター数に応じて重ならないよう自動計算する）。丸く切り抜き、下地のコイン
+   （Painter2D 描画のゴールドリング＋白座面）の上に載せて浮かせる。未配置時は背景色がプレースホルダ。 */
+.roulette-character {
+    position: absolute;
+    -unity-background-scale-mode: scale-and-crop;
     translate: -50% -50%;
 }
 
