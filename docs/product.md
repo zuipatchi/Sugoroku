@@ -25,7 +25,7 @@
 - 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存で CPU と 1 対 1 のすごろく対戦）→ [architecture.md](architecture.md)「シーン構成」
 - クレジット表示（Home のクレジットボタンでモーダルを開き、制作・イラスト・使用技術などを表示）→ [Assets/Scripts/Home/](../Assets/Scripts/Home/)
 - キャラクター選択（一人用は Main の前に CharacterSelect で選ぶ。全8種。立ち絵を全画面背景、カード絵の選択スロットを下部に表示。戻る／決定ボタンは画面上部（右上のオプションアイコンを避けて中央寄せ）。キャラ名は各カード内に表示。選択は `CharacterSessionModel` に保持。画像は Addressables、現状オンライン非対応）→ [Assets/Scripts/CharacterSelect/](../Assets/Scripts/CharacterSelect/)
-- 円盤ルーレット（ボタンを長押し中は加速して回転し、離すと減速。すぐ離しても最低 1.5〜2.5 秒（ランダム）は回ってから、自然に止まった位置のセクターが出目になり移動マス数を決定。Painter2D で描画・`Update` で角速度を加減速）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
+- 円盤ルーレット（ボタンを長押し中は加速して回転し、離すと離した瞬間の速度に依らず一定時間（2.5〜3.5 秒・ランダム）かけて ease-out で緩やかに減速して止まる（すぐ離しても長押しから離しても止まり方の印象が揃う）。止まった位置のセクターが出目になり移動マス数を決定。回転中はセクター境界を通過するたびにティック SE（Roulet）が鳴る。Painter2D で描画・`Update` で角速度を加減速）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
 - CPU 対戦のターン進行（一人用モード。あなたが先攻で以降交互。人間の番は手動でルーレット、CPU の番は同じ円盤が自動で回る。手番プレイヤーのコマが出目ぶん進み、先に 1 周ゴールした方が勝ち。`GameFlowController` が統括し、オンラインは参加者 1 人で従来どおり単独プレイ）→ [Assets/Scripts/Main/Turn/](../Assets/Scripts/Main/Turn/)
 - すごろくのループ盤面（外周にマスを並べたループ盤。手番プレイヤーのコマをルーレットの出目ぶん1マスずつ移動し、1周してゴール＝スタートに到達すると勝ち。コマは各プレイヤーのキャラの丸アイコン画像で描画（YOU＝選択キャラ、CPU＝人間と別のキャラをランダム選択）。アイコン未配置のキャラは色＋YOU/CPU ラベルにフォールバック。普通マスのみ）→ [Assets/Scripts/Main/Board/](../Assets/Scripts/Main/Board/)
 - ミニゲーム（タップ連打。5秒間のタップ数を競う。Main を残したまま MiniGame シーンを Additive で重ねて起動し、勝利なら盤面にボーナス前進。中身は `MiniGameId` に応じて Addressables で差し替え、将来最大5種類）→ [architecture.md](architecture.md)「シーン構成」・[Assets/Scripts/MiniGame/](../Assets/Scripts/MiniGame/)
