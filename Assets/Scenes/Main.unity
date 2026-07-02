@@ -291,7 +291,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be543fbcd5937d9449460b9dc935e25a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Main::Main.Roulette.RoulettePresenter
-  _sectorCount: 6
+  _sectorCount: 8
   _spinTurns: 5
   _spinDuration: 3
 --- !u!1 &1384105612

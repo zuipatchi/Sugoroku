@@ -14,6 +14,12 @@ namespace Tests.PlayMode
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            // Title シーンは TitleVideoPresenter が動画を再生する。テスト環境で動画を再生できないと
+            // Unity の VideoPlayer がネイティブに Error ログを吐き、それだけでテストが失敗扱いになる。
+            // ここでは GameStartButton の挙動しか検証しないため、想定外ログでの失敗を無効化する
+            // （ボタンが存在しない等の本当の不具合は各テストのアサーションで検出される）。
+            LogAssert.ignoreFailingMessages = true;
+
             yield return SceneManager.LoadSceneAsync("Title", LoadSceneMode.Single);
             // Common シーンのロード完了を待つ
             yield return new WaitUntil(() => SceneManager.GetSceneByName("Common").isLoaded);
@@ -25,6 +31,8 @@ namespace Tests.PlayMode
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            LogAssert.ignoreFailingMessages = false;
+
             // static フィールドをリセットして次のテストで Common シーンが再ロードされるようにする
             typeof(CommonSceneLoader)
                 .GetField("_loaded", BindingFlags.NonPublic | BindingFlags.Static)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
@@ -8,6 +9,8 @@ using DG.Tweening;
 using Main.Board;
 using R3;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 using Random = UnityEngine.Random;
@@ -29,8 +32,22 @@ namespace Main.Roulette
         private static readonly Color _hubOuterColor = new(45f / 255f, 45f / 255f, 70f / 255f);
         private static readonly Color _hubInnerColor = new(245f / 255f, 245f / 255f, 250f / 255f);
         private static readonly Color _hubAccentColor = new(235f / 255f, 200f / 255f, 90f / 255f);
+        // キャラアイコンの下地（コイン風）。白い座面をゴールドのリングで縁取り、虹色セクター上でアバターを浮き立たせる。
+        private static readonly Color _coinBaseColor = new(250f / 255f, 250f / 255f, 252f / 255f);
+        private static readonly Color _coinRingColor = new(235f / 255f, 200f / 255f, 90f / 255f);
 
-        [SerializeField] private int _sectorCount = 6;
+        // セクター中心線上でのアバター配置半径（円盤半径に対する比）。数字はアバターの子バッジなので独立配置は不要。
+        private const float IconRadiusFactor = 0.62f;
+        // 隣のコインと重ならないよう、コイン直径を隣接中心間距離（弦長）のこの割合までに収める。
+        private const float CoinChordFillRatio = 0.88f;
+        // セクター数が少ないときにコインが大きくなりすぎないよう、直径を円盤半径のこの割合で頭打ちにする。
+        private const float CoinDiameterCapRatio = 0.62f;
+        // 白座面の外に出すゴールドリングの太さ（px）。
+        private const float CoinRingWidth = 3f;
+        // アバター画像はコイン白座面のさらに内側に収める割合。
+        private const float AvatarInsetRatio = 0.84f;
+
+        [SerializeField] private int _sectorCount = 8;
         [Tooltip("押し始めの初速（度/秒）。一瞬のタップでも最低これだけ回る。")]
         [SerializeField] private float _minSpinSpeed = 360f;
         [Tooltip("押し続けたときの最高速（度/秒）。")]
@@ -52,7 +69,9 @@ namespace Main.Roulette
         private Label _pointer;
         private Button _spinButton;
         private Label _resultLabel;
-        private readonly List<Label> _numberLabels = new();
+        // 各セクターに貼るキャラアイコン（コイン）。円盤の子として一緒に周回し、逆回転で正立を保つ。数字は各アイコンの子バッジ。
+        private readonly List<VisualElement> _characterIcons = new();
+        private readonly List<AsyncOperationHandle<Sprite>> _iconHandles = new();
         private readonly CompositeDisposable _disposables = new();
 
         private float _currentRotation;
@@ -150,6 +169,14 @@ namespace Main.Roulette
         private void OnDestroy()
         {
             _disposables.Dispose();
+            foreach (AsyncOperationHandle<Sprite> handle in _iconHandles)
+            {
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+            }
+            _iconHandles.Clear();
         }
 
         private void Update()
@@ -204,21 +231,95 @@ namespace Main.Roulette
 
             _wheel.generateVisualContent += DrawWheel;
 
-            _numberLabels.Clear();
+            _characterIcons.Clear();
             for (int i = 0; i < _sectorCount; i++)
             {
+                // セクターごとのキャラアイコン（コイン）。画像ロード前はプレースホルダ色。
+                VisualElement icon = new() { pickingMode = PickingMode.Ignore };
+                icon.AddToClassList("roulette-character");
+                icon.style.backgroundColor = PlaceholderColor(i, _sectorCount);
+                _wheel.Add(icon);
+                _characterIcons.Add(icon);
+
+                // 出目の数字はアイコンの子にして、アイコンの正立・周回にそのまま追従させる。
+                // USS で下部中央のバッジとして配置する（コード側の位置・逆回転は不要）。
                 Label label = new() { text = (i + 1).ToString() };
                 label.AddToClassList("roulette-number");
                 label.pickingMode = PickingMode.Ignore;
-                _wheel.Add(label);
-                _numberLabels.Add(label);
+                icon.Add(label);
             }
 
-            // レイアウト確定後に数字ラベルを配置する。
-            _wheel.RegisterCallback<GeometryChangedEvent>(_ => PositionNumberLabels());
+            // レイアウト確定後にアイコン（コイン）を配置する。数字は子バッジなので一緒に付いてくる。
+            _wheel.RegisterCallback<GeometryChangedEvent>(_ => PositionSectorContents());
+            // キャラ画像は非同期ロード。破棄・遷移で自然に止まるよう destroyCancellationToken を渡す。
+            LoadCharacterIconsAsync(destroyCancellationToken).Forget();
         }
 
-        private void PositionNumberLabels()
+        // 各セクターのアイコンにキャラ画像を貼る。未配置・失敗はプレースホルダ色のまま残す。
+        private async UniTaskVoid LoadCharacterIconsAsync(CancellationToken ct)
+        {
+            for (int i = 0; i < _characterIcons.Count; i++)
+            {
+                CharacterId id = RouletteMath.CharacterForSector(i);
+                CharacterDefinition definition = CharacterCatalog.Find(id);
+                // コインには盤面コマと同じ丸バッジ画像（PieceIconAddress）を使う。
+                Sprite icon = await TryLoadIconAsync(definition.PieceIconAddress, ct);
+                if (icon != null)
+                {
+                    _characterIcons[i].style.backgroundImage = new StyleBackground(icon);
+                    // 画像を貼れたらプレースホルダ色は消す（透過部分に色が透けないように）。
+                    _characterIcons[i].style.backgroundColor = new StyleColor(Color.clear);
+                }
+            }
+        }
+
+        private async UniTask<Sprite> TryLoadIconAsync(string address, CancellationToken ct)
+        {
+            AsyncOperationHandle<Sprite> handle = default;
+            try
+            {
+                handle = Addressables.LoadAssetAsync<Sprite>(address);
+                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
+                _iconHandles.Add(handle);
+                return sprite;
+            }
+            catch (OperationCanceledException)
+            {
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+                throw;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"ルーレットのキャラ画像 '{address}' のロードに失敗。プレースホルダ表示にします: {e.Message}");
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+                return null;
+            }
+        }
+
+        private static Color PlaceholderColor(int index, int count)
+        {
+            float hue = (count <= 0) ? 0f : (float)index / count;
+            return Color.HSVToRGB(hue, 0.45f, 0.65f);
+        }
+
+        // 隣り合うコインが重ならないコイン直径（px）を、円盤半径とセクター数から求める。
+        // 隣接するアイコン中心間の弦長 = 2r·sin(π/n)。その一定割合をコイン直径とし、少数セクターでは上限で頭打ちにする。
+        private float CoinDiameter(float wheelRadius)
+        {
+            float iconRadius = wheelRadius * IconRadiusFactor;
+            float chord = 2f * iconRadius * Mathf.Sin(Mathf.PI / _sectorCount);
+            return Mathf.Min(chord * CoinChordFillRatio, wheelRadius * CoinDiameterCapRatio);
+        }
+
+        // キャラアイコン（コイン）をセクター中心線上に配置し、セクター数に応じたサイズに整える。
+        // 数字はアイコンの子バッジなので一緒に付いてくる。
+        private void PositionSectorContents()
         {
             float width = _wheel.resolvedStyle.width;
             float height = _wheel.resolvedStyle.height;
@@ -229,18 +330,48 @@ namespace Main.Roulette
 
             Vector2 center = new(width * 0.5f, height * 0.5f);
             float radius = Mathf.Min(width, height) * 0.5f;
-            float labelRadius = radius * 0.66f;
+            float iconRadius = radius * IconRadiusFactor;
             float sector = RouletteMath.SectorAngle(_sectorCount);
+            // アバター画像はコイン白座面の内側に収める。コインの縁取り（ゴールド＋白）は Painter2D 側で描く。
+            float avatarSize = CoinDiameter(radius) * AvatarInsetRatio;
 
-            for (int i = 0; i < _numberLabels.Count; i++)
+            for (int i = 0; i < _characterIcons.Count; i++)
             {
-                Label label = _numberLabels[i];
                 float angleFromTop = (i + 0.5f) * sector * Mathf.Deg2Rad;
                 // 上方向を基準に時計回り（画面は y 軸下向き）。
-                Vector2 pos = center + new Vector2(Mathf.Sin(angleFromTop), -Mathf.Cos(angleFromTop)) * labelRadius;
-                // ラベル自身のサイズに依存せず中心に合わせる（USS の translate: -50% -50% と併用）。
-                label.style.left = pos.x;
-                label.style.top = pos.y;
+                Vector2 dir = new(Mathf.Sin(angleFromTop), -Mathf.Cos(angleFromTop));
+                Vector2 iconPos = center + dir * iconRadius;
+
+                VisualElement icon = _characterIcons[i];
+                icon.style.width = avatarSize;
+                icon.style.height = avatarSize;
+                SetCircleRadius(icon, avatarSize * 0.5f);
+                // 要素自身のサイズに依存せず中心に合わせる（USS の translate: -50% -50% と併用）。
+                icon.style.left = iconPos.x;
+                icon.style.top = iconPos.y;
+            }
+
+            // 停止中も現在の回転ぶん逆回転させて、アイコンの顔（と子の数字）を正立させておく。
+            CounterRotateCharacterIcons(_currentRotation);
+        }
+
+        // 4 隅の border-radius をまとめて設定して円形にする。
+        private static void SetCircleRadius(VisualElement element, float r)
+        {
+            element.style.borderTopLeftRadius = r;
+            element.style.borderTopRightRadius = r;
+            element.style.borderBottomLeftRadius = r;
+            element.style.borderBottomRightRadius = r;
+        }
+
+        // 円盤の回転 v を打ち消す逆回転をアイコンに与え、周回しても傾かない（常に正立する）ようにする。
+        // 数字はアイコンの子なので、この逆回転にそのまま追従する（別途回す必要はない）。
+        private void CounterRotateCharacterIcons(float v)
+        {
+            Rotate counter = new(new Angle(-v, AngleUnit.Degree));
+            for (int i = 0; i < _characterIcons.Count; i++)
+            {
+                _characterIcons[i].style.rotate = counter;
             }
         }
 
@@ -315,7 +446,23 @@ namespace Main.Roulette
                 painter.Stroke();
             }
 
-            // 5) 中心ハブ（軸キャップ）。暗→明→ゴールドの三重円で立体感を出す。
+            // 5) キャラアイコンの下地コイン（ゴールドのリング → 白い座面）。アイコン要素はこの上（子要素）に描画される。
+            //    円形なので円盤が回転しても見た目は変わらない（周回はするが傾かない）。数字バッジはアイコン側（USS）で描く。
+            float iconRadius = radius * IconRadiusFactor;
+            float coinRingRadius = CoinDiameter(radius) * 0.5f;
+            float coinBaseRadius = coinRingRadius - CoinRingWidth;
+            for (int i = 0; i < _sectorCount; i++)
+            {
+                float angleFromTop = (i + 0.5f) * sector * Mathf.Deg2Rad;
+                Vector2 dir = new(Mathf.Sin(angleFromTop), -Mathf.Cos(angleFromTop));
+                Vector2 iconCenter = center + dir * iconRadius;
+                painter.fillColor = _coinRingColor;
+                FillCircle(painter, iconCenter, coinRingRadius);
+                painter.fillColor = _coinBaseColor;
+                FillCircle(painter, iconCenter, coinBaseRadius);
+            }
+
+            // 6) 中心ハブ（軸キャップ）。暗→明→ゴールドの三重円で立体感を出す。
             float hubR = radius * 0.16f;
             painter.fillColor = _hubOuterColor;
             FillCircle(painter, center, hubR);
@@ -453,6 +600,8 @@ namespace Main.Roulette
         private void ApplyAngle(float v)
         {
             _wheel.style.rotate = new Rotate(new Angle(v, AngleUnit.Degree));
+            // アイコン（と子の数字）は円盤の子なので一緒に周回するが、逆回転させて常に正立させる。
+            CounterRotateCharacterIcons(v);
 
             float sector = RouletteMath.SectorAngle(_sectorCount);
             int prevBucket = Mathf.FloorToInt(_lastAngle / sector);
