@@ -81,6 +81,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b38167be1090b4c4eb65a09f75258c30
+    m_Address: Sound/SE/Roulette
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: bf6f1160940837d468bd8c176cc85503
     m_Address: Modal/OptionModal
     m_ReadOnly: 0

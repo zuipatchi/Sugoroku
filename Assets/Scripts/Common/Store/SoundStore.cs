@@ -13,6 +13,7 @@ namespace Common.Store
         private readonly string _enter2SEAddressable = "Sound/SE/Enter2";
         private readonly string _enter3SEAddressable = "Sound/SE/Enter3";
         private readonly string _resultSEAddressable = "Sound/SE/Result";
+        private readonly string _rouletteSEAddressable = "Sound/SE/Roulette";
 
         public AudioClip MainBGM => _mainBGM;
         public AudioClip TitleBGM => _titleBGM;
@@ -22,6 +23,9 @@ namespace Common.Store
         public AudioClip Enter3SE => _enter3SE;
         public AudioClip ResultSE => _resultSE;
 
+        /// <summary>ルーレット回転中、セクター境界を通過するたびに鳴らすティック SE。</summary>
+        public AudioClip RouletteSE => _rouletteSE;
+
         private AudioClip _mainBGM = null;
         private AudioClip _titleBGM = null;
         private AudioClip _cancel1SE = null;
@@ -29,6 +33,7 @@ namespace Common.Store
         private AudioClip _enter2SE = null;
         private AudioClip _enter3SE = null;
         private AudioClip _resultSE = null;
+        private AudioClip _rouletteSE = null;
 
         protected override string AssetCategory => "サウンド";
 
@@ -41,6 +46,7 @@ namespace Common.Store
             _enter2SE = await Addressables.LoadAssetAsync<AudioClip>(_enter2SEAddressable).ToUniTask();
             _enter3SE = await Addressables.LoadAssetAsync<AudioClip>(_enter3SEAddressable).ToUniTask();
             _resultSE = await Addressables.LoadAssetAsync<AudioClip>(_resultSEAddressable).ToUniTask();
+            _rouletteSE = await Addressables.LoadAssetAsync<AudioClip>(_rouletteSEAddressable).ToUniTask();
         }
     }
 }

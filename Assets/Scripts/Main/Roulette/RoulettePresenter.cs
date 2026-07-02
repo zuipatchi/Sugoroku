@@ -30,9 +30,6 @@ namespace Main.Roulette
         private static readonly Color _hubInnerColor = new(245f / 255f, 245f / 255f, 250f / 255f);
         private static readonly Color _hubAccentColor = new(235f / 255f, 200f / 255f, 90f / 255f);
 
-        // 針が低速で境界を通過するときだけティック SE を鳴らすための速度しきい値（度/フレーム）。
-        private const float TickSeSpeedThreshold = 9f;
-
         [SerializeField] private int _sectorCount = 6;
         [Tooltip("押し始めの初速（度/秒）。一瞬のタップでも最低これだけ回る。")]
         [SerializeField] private float _minSpinSpeed = 360f;
@@ -40,12 +37,10 @@ namespace Main.Roulette
         [SerializeField] private float _maxSpinSpeed = 1200f;
         [Tooltip("押下中の加速度（度/秒^2）。")]
         [SerializeField] private float _spinAcceleration = 2400f;
-        [Tooltip("離した後の減速度（度/秒^2）。大きいほど早く止まる。")]
-        [SerializeField] private float _spinDeceleration = 720f;
-        [Tooltip("一瞬のタップでも最低この秒数は回す（下限）。実際の回転時間は下限〜上限でランダムに決まる。")]
-        [SerializeField] private float _minSpinDuration = 1.5f;
-        [Tooltip("最低回転時間の上限（秒）。")]
-        [SerializeField] private float _maxSpinDuration = 2.5f;
+        [Tooltip("離してから止まるまでの時間（秒・下限）。速度に依らずこの時間で ease-out 減速するため、すぐ離しても長押しから離しても止まり方の印象が揃う。")]
+        [SerializeField] private float _minStopDuration = 2.5f;
+        [Tooltip("離してから止まるまでの時間（秒・上限）。実際の停止時間は下限〜上限でランダムに決まる。")]
+        [SerializeField] private float _maxStopDuration = 3.5f;
 
         private RouletteModel _model;
         private BoardModel _board;
@@ -64,9 +59,10 @@ namespace Main.Roulette
         private float _lastAngle;
         private float _angularVelocity;
         private bool _isHolding;
-        private float _spinElapsed;
-        private float _targetSpinDuration;
-        private float _coastUntilElapsed = float.PositiveInfinity;
+        // 離した瞬間の速度と、停止までの経過・目標時間。ease-out 減速に使う。
+        private float _decelStartVelocity;
+        private float _decelElapsed;
+        private float _stopDuration;
         private Tween _pointerBounceTween;
         private Tween _wheelPulseTween;
         private Tween _resultTween;
@@ -165,19 +161,24 @@ namespace Main.Roulette
             }
 
             float dt = Time.deltaTime;
-            _spinElapsed += dt;
 
             if (_isHolding)
             {
                 // 押下中は加速。
                 _angularVelocity = Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * dt);
             }
-            else if (_spinElapsed >= _coastUntilElapsed)
+            else
             {
-                // 最低回転時間ぶんのコーストを終えたら減速して止める。
-                _angularVelocity = Mathf.MoveTowards(_angularVelocity, 0f, _spinDeceleration * dt);
+                // 離したら、離した瞬間の速度から _stopDuration 秒かけて ease-out（終盤ほど緩やか）で 0 まで落とす。
+                // 停止までの時間は速度に依存しないため、すぐ離しても長押しから離しても止まり方の印象が揃う。
+                _decelElapsed += dt;
+                float u = _stopDuration > 0f ? Mathf.Clamp01(_decelElapsed / _stopDuration) : 1f;
+                _angularVelocity = _decelStartVelocity * (1f - u) * (1f - u);
+                if (u >= 1f)
+                {
+                    _angularVelocity = 0f;
+                }
             }
-            // それ以外（離した直後〜減速開始まで）は等速でコーストし、すぐには止めない。
 
             if (_angularVelocity > 0f)
             {
@@ -185,8 +186,8 @@ namespace Main.Roulette
                 ApplyAngle(_currentRotation);
             }
 
-            // 減速フェーズに入って速度が尽きたら停止して出目を確定する。
-            if (!_isHolding && _spinElapsed >= _coastUntilElapsed && Mathf.Approximately(_angularVelocity, 0f))
+            // 減速し切って速度が尽きたら停止して出目を確定する。
+            if (!_isHolding && _angularVelocity <= 0f)
             {
                 FinalizeSpin();
             }
@@ -395,9 +396,6 @@ namespace Main.Roulette
             _isHolding = true;
             _angularVelocity = _minSpinSpeed;
             _lastAngle = _currentRotation;
-            _spinElapsed = 0f;
-            _targetSpinDuration = Random.Range(_minSpinDuration, _maxSpinDuration);
-            _coastUntilElapsed = float.PositiveInfinity;
             _model.BeginSpin();
             PlaySe(_soundStore?.Enter1SE);
         }
@@ -415,9 +413,9 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 押下解除。すぐ離しても <see cref="_targetSpinDuration"/> 秒（1.5〜2.5 秒のランダム）回ってから止まるよう、
-        /// 目標時間から通常減速にかかる時間を引いた時点まで等速でコーストし、その後に減速を始める。
-        /// 既に目標時間を過ぎている（長押しで十分回した）場合はすぐ減速へ移る。
+        /// 押下解除。離した瞬間の速度に関わらず <see cref="_stopDuration"/> 秒
+        /// （<see cref="_minStopDuration"/>〜<see cref="_maxStopDuration"/> のランダム）かけて
+        /// ease-out で減速して止める。これによりすぐ離しても長押しから離しても止まり方の印象が揃う。
         /// </summary>
         private void ReleaseHold()
         {
@@ -427,10 +425,9 @@ namespace Main.Roulette
             }
             _isHolding = false;
 
-            // 現在の角速度から通常減速で止まり切るのにかかる時間。
-            float stopDuration = _angularVelocity / _spinDeceleration;
-            // 目標時間ちょうどで止まるよう、減速開始の経過時間を逆算する。
-            _coastUntilElapsed = Mathf.Max(_spinElapsed, _targetSpinDuration - stopDuration);
+            _decelStartVelocity = _angularVelocity;
+            _decelElapsed = 0f;
+            _stopDuration = Random.Range(_minStopDuration, _maxStopDuration);
         }
 
         private bool CanStartSpin()
@@ -463,11 +460,9 @@ namespace Main.Roulette
             if (curBucket != prevBucket)
             {
                 BouncePointer();
-                // 低速時のみティック SE を鳴らす（高速な序盤は連射になるため抑制）。
-                if (Mathf.Abs(v - _lastAngle) < TickSeSpeedThreshold)
-                {
-                    PlaySe(_soundStore?.Enter2SE);
-                }
+                // 長押し中の高速回転も含め、セクター境界を通過するたびにティック SE を鳴らす
+                // （高速時は 1 フレームに複数境界を跨ぐが、鳴るのはフレームあたり 1 回）。
+                PlaySe(_soundStore?.RouletteSE);
             }
             _lastAngle = v;
         }
@@ -573,7 +568,7 @@ namespace Main.Roulette
         public async UniTask<int> AutoSpinAsync(CancellationToken ct)
         {
             BeginSpinInternal();
-            float hold = Random.Range(_minSpinDuration * 0.25f, _minSpinDuration * 0.5f);
+            float hold = Random.Range(_minStopDuration * 0.25f, _minStopDuration * 0.5f);
             await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
             ReleaseHold();
             await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
