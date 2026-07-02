@@ -241,6 +241,28 @@ button.RegisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
 
 ---
 
+## 10. ターン進行など「順序のある流れ」はエントリポイントの async ループに集約する
+
+「ルーレットが止まったらコマを進める → 移動が終わったらボタンを戻す → 次の手番へ」のような**順序のある進行**を、各 Presenter の R3 購読（`State.Subscribe(...)` で次を呼ぶ）に散らすと、手番・CPU・勝敗判定が絡んだ瞬間に「誰のコマを動かすか」「今は押していい番か」が追えなくなる。こうした流れは、`RegisterEntryPoint` で登録した純粋 C# サービス（`IAsyncStartable`）の **1 本の async ループ**に集約すると読みやすい（例: [GameFlowController.cs](../Assets/Scripts/Main/Turn/GameFlowController.cs)）。
+
+- **状態変化の待受は R3 の `FirstAsync` を `await` する**。`ReactiveProperty` は購読時に現在値を流すため、`Where` で目的の状態だけ通し、`FirstAsync(ct)` でその瞬間まで待つ。ボタン長押しのような「ユーザー操作の完了」も、Presenter に `UniTask<int> WaitForManualSpinAsync(ct)` を生やして中で `await` すればループ側は分岐なく書ける。
+
+```csharp
+// Stopped になるまで待って、その時の出目を返す（Presenter 側）
+public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
+{
+    await _model.State.Where(s => s == RouletteState.Stopped).FirstAsync(ct);
+    return _model.Result.CurrentValue;
+}
+```
+
+- **前回の状態が残る点に注意**。`FirstAsync` は購読時の現在値も評価するので、前手番の `Stopped` を「今回の停止」と誤検知しないよう、手番の開始時に Model を `Reset()`（`Idle` へ戻す）してから待つ。
+- **人間と CPU は同じ流れの分岐にする**。人間＝入力の完了を待つ、CPU＝同じ UI（円盤）をコードから回して（`AutoSpinAsync`）結果を待つ、と**入口だけ変えて後段（コマ前進・勝敗判定）は共通**にすると、演出コードを二重化せずに済む。
+- **キャンセルは握る**。ループの `await` はシーン破棄でキャンセルされる。`StartAsync` 全体を `try { ... } catch (OperationCanceledException) { }` で囲む（VContainer 由来のトークンなので [#4](#4-シーン表示前に非同期初期化を待つisceneready) と同じ扱い）。
+- **接続待ちを最初に置く**とオンライン/オフラインを同じループで扱える（`NetworkModel.State` が `Connected` になるまで `FirstAsync` で待ってから進行を始める。一人用は即 `Connected`）。
+
+---
+
 ## 共通ルール（抜粋）
 
 - `var` は使わない。型を明示する

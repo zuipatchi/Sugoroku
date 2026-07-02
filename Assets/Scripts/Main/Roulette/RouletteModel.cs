@@ -37,6 +37,15 @@ namespace Main.Roulette
             _state.Value = RouletteState.Stopped;
         }
 
+        /// <summary>
+        /// 次の手番のために状態を <see cref="RouletteState.Idle"/> へ戻す（出目の値は保持する）。
+        /// 前手番の Stopped を「今回の停止」と誤検知しないよう、手番開始時に呼ぶ。
+        /// </summary>
+        public void Reset()
+        {
+            _state.Value = RouletteState.Idle;
+        }
+
         public void Dispose()
         {
             _state.Dispose();

@@ -13,6 +13,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
+using Random = UnityEngine.Random;
 
 namespace Main.Roulette
 {
@@ -35,9 +36,6 @@ namespace Main.Roulette
         private static readonly Color _coinBaseColor = new(250f / 255f, 250f / 255f, 252f / 255f);
         private static readonly Color _coinRingColor = new(235f / 255f, 200f / 255f, 90f / 255f);
 
-        // 針が低速で境界を通過するときだけティック SE を鳴らすための速度しきい値（度/フレーム）。
-        private const float TickSeSpeedThreshold = 9f;
-
         // セクター中心線上でのアバター配置半径（円盤半径に対する比）。数字はアバターの子バッジなので独立配置は不要。
         private const float IconRadiusFactor = 0.62f;
         // 隣のコインと重ならないよう、コイン直径を隣接中心間距離（弦長）のこの割合までに収める。
@@ -56,12 +54,10 @@ namespace Main.Roulette
         [SerializeField] private float _maxSpinSpeed = 1200f;
         [Tooltip("押下中の加速度（度/秒^2）。")]
         [SerializeField] private float _spinAcceleration = 2400f;
-        [Tooltip("離した後の減速度（度/秒^2）。大きいほど早く止まる。")]
-        [SerializeField] private float _spinDeceleration = 720f;
-        [Tooltip("一瞬のタップでも最低この秒数は回す（下限）。実際の回転時間は下限〜上限でランダムに決まる。")]
-        [SerializeField] private float _minSpinDuration = 1.5f;
-        [Tooltip("最低回転時間の上限（秒）。")]
-        [SerializeField] private float _maxSpinDuration = 2.5f;
+        [Tooltip("離してから止まるまでの時間（秒・下限）。速度に依らずこの時間で ease-out 減速するため、すぐ離しても長押しから離しても止まり方の印象が揃う。")]
+        [SerializeField] private float _minStopDuration = 2.5f;
+        [Tooltip("離してから止まるまでの時間（秒・上限）。実際の停止時間は下限〜上限でランダムに決まる。")]
+        [SerializeField] private float _maxStopDuration = 3.5f;
 
         private RouletteModel _model;
         private BoardModel _board;
@@ -82,14 +78,18 @@ namespace Main.Roulette
         private float _lastAngle;
         private float _angularVelocity;
         private bool _isHolding;
-        private float _spinElapsed;
-        private float _targetSpinDuration;
-        private float _coastUntilElapsed = float.PositiveInfinity;
+        // 離した瞬間の速度と、停止までの経過・目標時間。ease-out 減速に使う。
+        private float _decelStartVelocity;
+        private float _decelElapsed;
+        private float _stopDuration;
         private Tween _pointerBounceTween;
         private Tween _wheelPulseTween;
         private Tween _resultTween;
         private bool _wheelBuilt;
         private int _highlightIndex = -1;
+        // 手番制御。ゲーム進行（GameFlowController）が現在の手番プレイヤーに応じて切り替える。
+        // false の間は手動スピン不可（CPU の番・自分の番でないときなど）。
+        private bool _turnInteractable;
 
         [Inject]
         public void Construct(RouletteModel model, BoardModel board, SoundStore soundStore, SoundPlayer soundPlayer)
@@ -103,7 +103,7 @@ namespace Main.Roulette
             // DOTween.dll の AddTo 拡張と衝突するため、ここでは CompositeDisposable.Add で購読を管理する。
             // コマ移動中・クリア後は回せないため、その 2 状態を購読してボタンを更新する。
             _disposables.Add(_board.IsMoving.Subscribe(_ => UpdateSpinEnabled()));
-            _disposables.Add(_board.IsCleared.Subscribe(_ => UpdateSpinEnabled()));
+            _disposables.Add(_board.Winner.Subscribe(_ => UpdateSpinEnabled()));
             _disposables.Add(_model.Result.Subscribe(value =>
             {
                 if (_resultLabel != null && value > 0)
@@ -188,19 +188,24 @@ namespace Main.Roulette
             }
 
             float dt = Time.deltaTime;
-            _spinElapsed += dt;
 
             if (_isHolding)
             {
                 // 押下中は加速。
                 _angularVelocity = Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * dt);
             }
-            else if (_spinElapsed >= _coastUntilElapsed)
+            else
             {
-                // 最低回転時間ぶんのコーストを終えたら減速して止める。
-                _angularVelocity = Mathf.MoveTowards(_angularVelocity, 0f, _spinDeceleration * dt);
+                // 離したら、離した瞬間の速度から _stopDuration 秒かけて ease-out（終盤ほど緩やか）で 0 まで落とす。
+                // 停止までの時間は速度に依存しないため、すぐ離しても長押しから離しても止まり方の印象が揃う。
+                _decelElapsed += dt;
+                float u = _stopDuration > 0f ? Mathf.Clamp01(_decelElapsed / _stopDuration) : 1f;
+                _angularVelocity = _decelStartVelocity * (1f - u) * (1f - u);
+                if (u >= 1f)
+                {
+                    _angularVelocity = 0f;
+                }
             }
-            // それ以外（離した直後〜減速開始まで）は等速でコーストし、すぐには止めない。
 
             if (_angularVelocity > 0f)
             {
@@ -208,8 +213,8 @@ namespace Main.Roulette
                 ApplyAngle(_currentRotation);
             }
 
-            // 減速フェーズに入って速度が尽きたら停止して出目を確定する。
-            if (!_isHolding && _spinElapsed >= _coastUntilElapsed && Mathf.Approximately(_angularVelocity, 0f))
+            // 減速し切って速度が尽きたら停止して出目を確定する。
+            if (!_isHolding && _angularVelocity <= 0f)
             {
                 FinalizeSpin();
             }
@@ -257,7 +262,8 @@ namespace Main.Roulette
             {
                 CharacterId id = RouletteMath.CharacterForSector(i);
                 CharacterDefinition definition = CharacterCatalog.Find(id);
-                Sprite icon = await TryLoadIconAsync(definition.IconAddress, ct);
+                // コインには盤面コマと同じ丸バッジ画像（PieceIconAddress）を使う。
+                Sprite icon = await TryLoadIconAsync(definition.PieceIconAddress, ct);
                 if (icon != null)
                 {
                     _characterIcons[i].style.backgroundImage = new StyleBackground(icon);
@@ -522,6 +528,13 @@ namespace Main.Roulette
                 return;
             }
 
+            BeginSpinInternal();
+            // ポインタ捕捉は Button の Clickable が行うため、ボタン外でリリースしても PointerUp は届く。
+        }
+
+        /// <summary>回転を開始する内部処理。手動（PointerDown）と CPU 自動（<see cref="AutoSpinAsync"/>）で共有する。</summary>
+        private void BeginSpinInternal()
+        {
             // 前回の当たり強調・祝い演出を消してから回し始める（パルス途中で再回転されても残らないように）。
             ClearHighlight();
             _wheelPulseTween?.Kill();
@@ -530,12 +543,8 @@ namespace Main.Roulette
             _isHolding = true;
             _angularVelocity = _minSpinSpeed;
             _lastAngle = _currentRotation;
-            _spinElapsed = 0f;
-            _targetSpinDuration = UnityEngine.Random.Range(_minSpinDuration, _maxSpinDuration);
-            _coastUntilElapsed = float.PositiveInfinity;
             _model.BeginSpin();
             PlaySe(_soundStore?.Enter1SE);
-            // ポインタ捕捉は Button の Clickable が行うため、ボタン外でリリースしても PointerUp は届く。
         }
 
         private void OnPointerUp(PointerUpEvent evt)
@@ -551,9 +560,9 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 押下解除。すぐ離しても <see cref="_targetSpinDuration"/> 秒（1.5〜2.5 秒のランダム）回ってから止まるよう、
-        /// 目標時間から通常減速にかかる時間を引いた時点まで等速でコーストし、その後に減速を始める。
-        /// 既に目標時間を過ぎている（長押しで十分回した）場合はすぐ減速へ移る。
+        /// 押下解除。離した瞬間の速度に関わらず <see cref="_stopDuration"/> 秒
+        /// （<see cref="_minStopDuration"/>〜<see cref="_maxStopDuration"/> のランダム）かけて
+        /// ease-out で減速して止める。これによりすぐ離しても長押しから離しても止まり方の印象が揃う。
         /// </summary>
         private void ReleaseHold()
         {
@@ -563,19 +572,19 @@ namespace Main.Roulette
             }
             _isHolding = false;
 
-            // 現在の角速度から通常減速で止まり切るのにかかる時間。
-            float stopDuration = _angularVelocity / _spinDeceleration;
-            // 目標時間ちょうどで止まるよう、減速開始の経過時間を逆算する。
-            _coastUntilElapsed = Mathf.Max(_spinElapsed, _targetSpinDuration - stopDuration);
+            _decelStartVelocity = _angularVelocity;
+            _decelElapsed = 0f;
+            _stopDuration = Random.Range(_minStopDuration, _maxStopDuration);
         }
 
         private bool CanStartSpin()
         {
-            return _model != null
+            return _turnInteractable
+                   && _model != null
                    && _board != null
                    && _model.State.CurrentValue != RouletteState.Spinning
                    && !_board.IsMoving.CurrentValue
-                   && !_board.IsCleared.CurrentValue;
+                   && !_board.IsFinished;
         }
 
         private void FinalizeSpin()
@@ -600,11 +609,9 @@ namespace Main.Roulette
             if (curBucket != prevBucket)
             {
                 BouncePointer();
-                // 低速時のみティック SE を鳴らす（高速な序盤は連射になるため抑制）。
-                if (Mathf.Abs(v - _lastAngle) < TickSeSpeedThreshold)
-                {
-                    PlaySe(_soundStore?.Enter2SE);
-                }
+                // 長押し中の高速回転も含め、セクター境界を通過するたびにティック SE を鳴らす
+                // （高速時は 1 フレームに複数境界を跨ぐが、鳴るのはフレームあたり 1 回）。
+                PlaySe(_soundStore?.RouletteSE);
             }
             _lastAngle = v;
         }
@@ -683,6 +690,40 @@ namespace Main.Roulette
                 .SetEase(Ease.OutBack);
         }
 
+        /// <summary>
+        /// 手番制御。<paramref name="interactable"/> が false の間は手動スピンできない（CPU の番など）。
+        /// <see cref="Turn.GameFlowController"/> が手番プレイヤーに応じて切り替える。
+        /// </summary>
+        public void SetInteractable(bool interactable)
+        {
+            _turnInteractable = interactable;
+            UpdateSpinEnabled();
+        }
+
+        /// <summary>
+        /// 手動スピンが停止して出目が確定するまで待ち、その出目を返す（人間の手番用）。
+        /// 呼び出し前に <see cref="RouletteModel.Reset"/> 済みであることを前提に、次の Stopped を待つ。
+        /// </summary>
+        public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
+        {
+            await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
+            return _model.Result.CurrentValue;
+        }
+
+        /// <summary>
+        /// CPU の手番。円盤を自動で回して自然に停止させ、その出目を返す。
+        /// 手動と同じ回転物理を使うため、少しの間ホールドしてから離す。
+        /// </summary>
+        public async UniTask<int> AutoSpinAsync(CancellationToken ct)
+        {
+            BeginSpinInternal();
+            float hold = Random.Range(_minStopDuration * 0.25f, _minStopDuration * 0.5f);
+            await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
+            ReleaseHold();
+            await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
+            return _model.Result.CurrentValue;
+        }
+
         private void UpdateSpinEnabled()
         {
             if (_spinButton == null || _board == null)
@@ -692,7 +733,8 @@ namespace Main.Roulette
 
             // 回転中（Spinning）はボタンを押下したまま離す操作を受け取る必要があるため無効化しない。
             // 再回転のガードは OnPointerDown 側の状態チェックで行う。
-            bool canPress = !_board.IsMoving.CurrentValue && !_board.IsCleared.CurrentValue;
+            // 自分の手番でない（_turnInteractable == false）ときは常に無効化する。
+            bool canPress = _turnInteractable && !_board.IsMoving.CurrentValue && !_board.IsFinished;
             _spinButton.SetEnabled(canPress);
         }
 
