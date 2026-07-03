@@ -21,6 +21,38 @@
     margin-bottom: 12px;
 }
 
+/* ランダムカードの全画面背景 ----------------------------------------------- */
+
+/* 全画面枠。はみ出しをここで隠す。入力は奪わない。 */
+.home-bg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+/* ランダムに選んだカード画像。全画面をカバーするよう scale-and-crop で敷く。 */
+.home-bg__image {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+/* 前面 UI を読みやすくする暗いスクリム（幕）。 */
+.home-bg__scrim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 15, 26, 0.55);
+}
+
 /* アクセントボタン（design-system.md 準拠） */
 .btn-accent {
     background-color: rgb(70, 90, 180);
