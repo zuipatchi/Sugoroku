@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="MiniGameTest.uss" />
+    <ui:VisualElement name="TestRoot" class="test-root">
+        <ui:Label text="ミニゲーム テスト" name="TitleLabel" class="test-title" />
+        <ui:Label text="遊ぶミニゲームを選んでください" name="ResultLabel" class="test-result" />
+        <ui:VisualElement name="GameList" class="test-list" />
+    </ui:VisualElement>
+</ui:UXML>

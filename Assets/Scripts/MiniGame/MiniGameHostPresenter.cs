@@ -328,11 +328,7 @@ namespace MiniGame
 
         private static string AddressFor(MiniGameId game)
         {
-            return game switch
-            {
-                MiniGameId.Tap => "MiniGame/TapGame",
-                _ => "MiniGame/TapGame"
-            };
+            return MiniGameCatalog.Find(game).UxmlAddress;
         }
     }
 }
