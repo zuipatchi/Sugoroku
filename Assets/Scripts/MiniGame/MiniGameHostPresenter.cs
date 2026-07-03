@@ -1,14 +1,17 @@
 using System;
 using System.Threading;
+using Common.Character;
 using Common.MiniGame;
 using Common.SceneManagement;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using MiniGame.TapGame;
 using R3;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 
@@ -31,15 +34,21 @@ namespace MiniGame
         private TapGameModel _tap;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
+        private CharacterSessionModel _characterSession;
 
         private UIDocument _uiDocument;
         private Label _timerLabel;
         private Label _countLabel;
         private Label _centerLabel;
         private Button _tapButton;
+        private VisualElement _characterCard;
         private VisualElement _resultPanel;
         private Label _resultLabel;
         private Button _closeButton;
+
+        private AsyncOperationHandle<Sprite> _cardHandle;
+        private Tween _shakeTween;
+        private float _shakePhase;
 
         private CancellationToken _destroyCt;
         private bool _uiReady;
@@ -50,12 +59,14 @@ namespace MiniGame
             MiniGameSessionModel session,
             TapGameModel tap,
             SoundStore soundStore,
-            SoundPlayer soundPlayer)
+            SoundPlayer soundPlayer,
+            CharacterSessionModel characterSession)
         {
             _session = session;
             _tap = tap;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
+            _characterSession = characterSession;
         }
 
         private void Awake()
@@ -71,6 +82,12 @@ namespace MiniGame
 
         private void OnDestroy()
         {
+            _shakeTween?.Kill();
+            _shakeTween = null;
+            if (_cardHandle.IsValid())
+            {
+                Addressables.Release(_cardHandle);
+            }
             _disposables.Dispose();
         }
 
@@ -107,6 +124,7 @@ namespace MiniGame
             _countLabel = root.Q<Label>("CountLabel");
             _centerLabel = root.Q<Label>("CenterLabel");
             _tapButton = root.Q<Button>("TapButton");
+            _characterCard = root.Q<VisualElement>("CharacterCard");
             _resultPanel = root.Q<VisualElement>("ResultPanel");
             _resultLabel = root.Q<Label>("ResultLabel");
             _closeButton = root.Q<Button>("CloseButton");
@@ -116,6 +134,8 @@ namespace MiniGame
                 Debug.LogError("TapGame の UI 要素が見つかりませんでした。");
                 return;
             }
+
+            await ApplyCharacterCardAsync(ct);
 
             _tapButton.clicked += OnTapClicked;
             _closeButton.clicked += OnCloseClicked;
@@ -194,9 +214,101 @@ namespace MiniGame
             }
         }
 
+        // 選択中キャラのカード絵を読み込んで中央に表示する。未配置ならプレースホルダ（色面）にフォールバックする。
+        private async UniTask ApplyCharacterCardAsync(CancellationToken ct)
+        {
+            if (_characterCard == null)
+            {
+                return;
+            }
+
+            CharacterId id = _characterSession.Selected;
+            CharacterDefinition definition = CharacterCatalog.Find(id);
+
+            try
+            {
+                _cardHandle = Addressables.LoadAssetAsync<Sprite>(definition.CardAddress);
+                Sprite card = await _cardHandle.ToUniTask(cancellationToken: ct);
+                _characterCard.style.backgroundImage = new StyleBackground(card);
+            }
+            catch (OperationCanceledException)
+            {
+                if (_cardHandle.IsValid())
+                {
+                    Addressables.Release(_cardHandle);
+                }
+                throw;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"キャラカード '{definition.CardAddress}' のロードに失敗。プレースホルダ表示にします: {e.Message}");
+                if (_cardHandle.IsValid())
+                {
+                    Addressables.Release(_cardHandle);
+                }
+                _characterCard.style.backgroundImage = StyleKeyword.None;
+                _characterCard.style.backgroundColor = PlaceholderColor(CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count);
+            }
+        }
+
+        private static Color PlaceholderColor(int index, int count)
+        {
+            float hue = (count <= 0) ? 0f : (float)index / count;
+            return Color.HSVToRGB(hue, 0.45f, 0.65f);
+        }
+
+        // タップのたびにカードを弾ませる。「がたがた」（減衰する小刻みな振動）と「パンチ」（ぷにっと拡大→戻る）を合わせた演出。
+        // 位相 1→0 を 1 本の Tween で流し、その位相から毎フレーム位置と拡大を計算する。
+        private void ShakeCard()
+        {
+            if (_characterCard == null)
+            {
+                return;
+            }
+
+            _shakeTween?.Kill();
+
+            float amplitude = UnityEngine.Random.Range(9f, 13f);
+            float sign = (UnityEngine.Random.value < 0.5f) ? -1f : 1f;
+
+            _shakePhase = 1f;
+            ApplyShake(1f, amplitude, sign);
+
+            _shakeTween = DOTween.To(
+                    () => _shakePhase,
+                    p =>
+                    {
+                        _shakePhase = p;
+                        ApplyShake(p, amplitude, sign);
+                    },
+                    0f,
+                    0.4f)
+                .SetEase(Ease.Linear);
+        }
+
+        // 位相 phase（1→0）から、減衰する小刻み振動（がたがた）と減衰する拡大（パンチ）を適用する。
+        private void ApplyShake(float phase, float amplitude, float sign)
+        {
+            if (_characterCard == null)
+            {
+                return;
+            }
+
+            // phase を減衰係数に使い、揺れ幅・拡大量ともに 0 へ収束させる。
+            float offsetX = sign * amplitude * phase * Mathf.Sin(phase * 42f);
+            float offsetY = amplitude * 0.6f * phase * Mathf.Cos(phase * 38f);
+            _characterCard.style.translate = new Translate(
+                new Length(offsetX, LengthUnit.Pixel),
+                new Length(offsetY, LengthUnit.Pixel));
+
+            float punch = 1f + 0.16f * phase;
+            _characterCard.style.scale = new Scale(new Vector3(punch, punch, 1f));
+        }
+
         private void OnTapClicked()
         {
             _tap.Tap();
+            ShakeCard();
             PlaySe(_soundStore?.Enter2SE);
         }
 
