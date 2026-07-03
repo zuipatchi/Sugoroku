@@ -36,6 +36,7 @@ namespace Main.Board
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
+        private VisualElement[] _cells;
         private VisualElement[] _pieces;
         private Sprite[] _pieceIcons;
         private Label _clearLabel;
@@ -146,6 +147,7 @@ namespace Main.Board
 
             _cellsBuilt = true;
             _cellCount = BoardMath.PerimeterCellCount(_columns, _rows);
+            _cells = new VisualElement[_cellCount];
 
             for (int i = 0; i < _cellCount; i++)
             {
@@ -163,6 +165,7 @@ namespace Main.Board
                 }
                 PlaceAtCell(cell, i);
                 _boardArea.Add(cell);
+                _cells[i] = cell;
             }
 
             // リング領域をグリッドのアスペクト比に合わせて中央配置する。画面比が変わっても
@@ -212,6 +215,28 @@ namespace Main.Board
             _boardArea.style.top = marginTop + (availableHeight - areaHeight) * 0.5f;
             _boardArea.style.width = areaWidth;
             _boardArea.style.height = areaHeight;
+
+            // 隣り合うマスがぴったり接するよう、マスの一辺をマス中心間隔に合わせる。
+            // リング領域はアスペクト比 (列-1):(行-1) を保つので横間隔＝縦間隔で一定になる。
+            ResizeCells(areaWidth / (_columns - 1));
+        }
+
+        /// <summary>各マスの一辺を <paramref name="cellSize"/>（マス中心間隔）に合わせ、隣接マスを接触させる。</summary>
+        private void ResizeCells(float cellSize)
+        {
+            if (_cells == null || cellSize <= 0f)
+            {
+                return;
+            }
+            foreach (VisualElement cell in _cells)
+            {
+                if (cell == null)
+                {
+                    continue;
+                }
+                cell.style.width = cellSize;
+                cell.style.height = cellSize;
+            }
         }
 
         /// <summary>

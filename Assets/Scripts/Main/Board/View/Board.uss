@@ -9,7 +9,9 @@
     position: absolute;
 }
 
-/* 外周のマス（コードで left/top に %座標を設定し、translate で自身の中心へ合わせる） */
+/* 外周のマス（コードで left/top に %座標を設定し、translate で自身の中心へ合わせる）。
+   width/height は隣接マスが接するよう BoardPresenter がマス間隔に合わせて動的設定する
+   （ここの値はロード直後の一瞬に使われるフォールバック）。 */
 .board-cell {
     position: absolute;
     width: 52px;
