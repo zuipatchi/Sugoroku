@@ -98,10 +98,17 @@ OptionPresenter
 - 使う側は `await _store.Loaded` で待機してから使用する
 
 ```csharp
-// 例: AudioManager (Title シーン)
+// 例: AudioManager (Title シーン)。動画と同時に Cheer を鳴らし、鳴り終わってから
+// タイトル BGM（光晴イズム）へ移る。
 public async UniTask StartAsync(CancellationToken cancellation = default)
 {
     await _soundStore.Loaded;
+    AudioClip cheer = _soundStore.CheerSE;
+    if (cheer != null)
+    {
+        _soundPlayer.PlaySE(cheer);
+        await UniTask.Delay(TimeSpan.FromSeconds(cheer.length), cancellationToken: cancellation);
+    }
     _soundPlayer.PlayBGM(_soundStore.TitleBGM);
 }
 ```

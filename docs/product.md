@@ -21,7 +21,7 @@
 
 このテンプレートをコピーして作るゲームでは、実装した機能をここに列挙し、詳細は各ドキュメントへのリンクに集約する。
 
-- タイトル画面の演出（背景動画を再生し、終了後に「ドラゴンファミリー/すごろく」を3行・1文字ずつ上から降らせて表示。初回再生開始から30秒おきに文言を隠して動画を最初から再生し直すループ。画面全体が「Press start」ボタンで、文言は点滅して入力を促す。動画は WebGL 対応のため StreamingAssets を `VideoPlayer` の URL 再生）→ [Assets/Scripts/Title/Video/](../Assets/Scripts/Title/Video/)
+- タイトル画面の演出（背景動画を再生し、終了後に「ドラゴンファミリー/すごろく」を3行・1文字ずつ上から降らせて表示。初回再生開始から30秒おきに文言を隠して動画を最初から再生し直すループ。画面全体が「Press start」ボタンで、文言は点滅して入力を促す。動画は WebGL 対応のため StreamingAssets を `VideoPlayer` の URL 再生。サウンドは動画再生と同時に歓声（Cheer）を鳴らし、鳴り終わってからタイトル BGM（光晴イズム）へ移る）→ [Assets/Scripts/Title/Video/](../Assets/Scripts/Title/Video/)
 - 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存で CPU と 1 対 1 のすごろく対戦）→ [architecture.md](architecture.md)「シーン構成」
 - クレジット表示（Home のクレジットボタンでモーダルを開き、制作・イラスト・使用技術などを表示）→ [Assets/Scripts/Home/](../Assets/Scripts/Home/)
 - キャラクター選択（一人用は Main の前に CharacterSelect で選ぶ。全8種。立ち絵を全画面背景、カード絵の選択スロットを下部に表示。戻る／決定ボタンは画面上部（右上のオプションアイコンを避けて中央寄せ）。キャラ名は各カード内に表示。選択は `CharacterSessionModel` に保持。画像は Addressables、現状オンライン非対応）→ [Assets/Scripts/CharacterSelect/](../Assets/Scripts/CharacterSelect/)
