@@ -58,6 +58,8 @@ namespace Main.Roulette
         [SerializeField] private float _minStopDuration = 2.5f;
         [Tooltip("離してから止まるまでの時間（秒・上限）。実際の停止時間は下限〜上限でランダムに決まる。")]
         [SerializeField] private float _maxStopDuration = 3.5f;
+        [Tooltip("止まってから円盤を隠すまでの待ち時間（秒）。出目を見せてから背後の盤面へ視線を戻す。")]
+        [SerializeField] private float _hideAfterStopSeconds = 1.2f;
 
         private RouletteModel _model;
         private BoardModel _board;
@@ -66,9 +68,15 @@ namespace Main.Roulette
 
         private UIDocument _uiDocument;
         private VisualElement _wheel;
+        // 円盤・タイトル・出目ラベルをまとめて表示/非表示する対象。回しているときだけ見せ、
+        // それ以外は隠して背後の盤面を見せる。スピンボタンは手番トリガーとして常に残す。
+        private VisualElement _wheelArea;
+        private Label _title;
         private Label _pointer;
         private Button _spinButton;
         private Label _resultLabel;
+        // 停止後に「少し待ってから隠す」遅延タスクのキャンセル用。再回転・手番リセットで打ち切る。
+        private CancellationTokenSource _hideCts;
         // 各セクターに貼るキャラアイコン（コイン）。円盤の子として一緒に周回し、逆回転で正立を保つ。数字は各アイコンの子バッジ。
         private readonly List<VisualElement> _characterIcons = new();
         private readonly List<AsyncOperationHandle<Sprite>> _iconHandles = new();
@@ -112,6 +120,10 @@ namespace Main.Roulette
                     PlayResultLabelPop();
                 }
             }));
+
+            // 回している間だけ円盤を見せる。回転開始（Spinning）で表示、停止（Stopped）で少し待って隠し、
+            // 手番リセット（Idle）で即座に隠す。人間・CPU どちらも BeginSpin を通るので同じ経路で表示される。
+            _disposables.Add(_model.State.Subscribe(OnRouletteStateChanged));
         }
 
         private void Awake()
@@ -129,16 +141,21 @@ namespace Main.Roulette
             }
 
             _wheel = root.Q<VisualElement>("Wheel");
+            _wheelArea = root.Q<VisualElement>("WheelArea");
+            _title = root.Q<Label>("Title");
             _pointer = root.Q<Label>("Pointer");
             _spinButton = root.Q<Button>("SpinButton");
             _resultLabel = root.Q<Label>("ResultLabel");
-            if (_wheel == null || _pointer == null || _spinButton == null || _resultLabel == null)
+            if (_wheel == null || _wheelArea == null || _title == null
+                || _pointer == null || _spinButton == null || _resultLabel == null)
             {
                 Debug.LogError("Roulette の UI 要素が見つかりませんでした。");
                 return;
             }
 
             BuildWheel();
+            // 初期は隠しておく（回し始めるまで盤面を見せる）。State 購読（Construct）でも同期される。
+            SetRouletteVisible(false);
             // 押し続けで回す方式のため clicked ではなく PointerDown/Up を使う。
             // Button 内部の Clickable は PointerDown を処理後に StopImmediatePropagation するため、
             // バブリング段階に後から登録したハンドラは呼ばれない。Clickable より先に走るよう
@@ -152,6 +169,7 @@ namespace Main.Roulette
         {
             _isHolding = false;
             _angularVelocity = 0f;
+            CancelPendingHide();
             _pointerBounceTween?.Kill();
             _pointerBounceTween = null;
             _wheelPulseTween?.Kill();
@@ -168,6 +186,7 @@ namespace Main.Roulette
 
         private void OnDestroy()
         {
+            CancelPendingHide();
             _disposables.Dispose();
             foreach (AsyncOperationHandle<Sprite> handle in _iconHandles)
             {
@@ -688,6 +707,83 @@ namespace Main.Roulette
                     1f,
                     0.4f)
                 .SetEase(Ease.OutBack);
+        }
+
+        /// <summary>
+        /// 状態に応じて円盤の表示/非表示を切り替える。回している間だけ見せ、それ以外は隠して盤面を見せる。
+        /// </summary>
+        private void OnRouletteStateChanged(RouletteState state)
+        {
+            switch (state)
+            {
+                case RouletteState.Spinning:
+                    // 回転開始。再回転なら停止後の隠し予約を取り消してから表示する。
+                    CancelPendingHide();
+                    SetRouletteVisible(true);
+                    break;
+                case RouletteState.Stopped:
+                    // 出た目を少し見せてから隠す。
+                    ScheduleHideAfterStop();
+                    break;
+                default:
+                    // Idle（手番リセット）。予約中の隠しを取り消して即座に隠す。
+                    CancelPendingHide();
+                    SetRouletteVisible(false);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 円盤・タイトル・出目ラベルをまとめて表示/非表示する。スピンボタンは対象外（手番トリガーとして常に残す）。
+        /// レイアウトを保って（＝ボタンが動かないよう）透明にする <c>visibility</c> で切り替え、
+        /// 隠している間は背後の盤面が透けて見える。
+        /// </summary>
+        private void SetRouletteVisible(bool visible)
+        {
+            Visibility visibility = visible ? Visibility.Visible : Visibility.Hidden;
+            if (_wheelArea != null)
+            {
+                _wheelArea.style.visibility = visibility;
+            }
+            if (_title != null)
+            {
+                _title.style.visibility = visibility;
+            }
+            if (_resultLabel != null)
+            {
+                _resultLabel.style.visibility = visibility;
+            }
+        }
+
+        /// <summary><see cref="_hideAfterStopSeconds"/> 秒後に円盤を隠す予約をする。前の予約は打ち切る。</summary>
+        private void ScheduleHideAfterStop()
+        {
+            CancelPendingHide();
+            _hideCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+            HideAfterStopAsync(_hideCts.Token).Forget();
+        }
+
+        private async UniTaskVoid HideAfterStopAsync(CancellationToken ct)
+        {
+            try
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(_hideAfterStopSeconds), cancellationToken: ct);
+                SetRouletteVisible(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        private void CancelPendingHide()
+        {
+            if (_hideCts == null)
+            {
+                return;
+            }
+            _hideCts.Cancel();
+            _hideCts.Dispose();
+            _hideCts = null;
         }
 
         /// <summary>
