@@ -77,6 +77,8 @@ namespace Main.Roulette
         private Label _resultLabel;
         // 停止後に「少し待ってから隠す」遅延タスクのキャンセル用。再回転・手番リセットで打ち切る。
         private CancellationTokenSource _hideCts;
+        // 円盤の表示状態。スピン後に「消えてからコマを動かす」ため、GameFlowController が非表示化を待てるようにする。
+        private readonly ReactiveProperty<bool> _visible = new(false);
         // 各セクターに貼るキャラアイコン（コイン）。円盤の子として一緒に周回し、逆回転で正立を保つ。数字は各アイコンの子バッジ。
         private readonly List<VisualElement> _characterIcons = new();
         private readonly List<AsyncOperationHandle<Sprite>> _iconHandles = new();
@@ -124,6 +126,7 @@ namespace Main.Roulette
             // 回している間だけ円盤を見せる。回転開始（Spinning）で表示、停止（Stopped）で少し待って隠し、
             // 手番リセット（Idle）で即座に隠す。人間・CPU どちらも BeginSpin を通るので同じ経路で表示される。
             _disposables.Add(_model.State.Subscribe(OnRouletteStateChanged));
+            _disposables.Add(_visible);
         }
 
         private void Awake()
@@ -753,6 +756,16 @@ namespace Main.Roulette
             {
                 _resultLabel.style.visibility = visibility;
             }
+            _visible.Value = visible;
+        }
+
+        /// <summary>
+        /// 円盤が隠れるまで待つ。<see cref="Turn.GameFlowController"/> が「ルーレットが消えてからコマを動かす」
+        /// ために、スピン停止後にこれを待ってから前進させる。すでに隠れていれば即座に返る。
+        /// </summary>
+        public async UniTask WaitForHideAsync(CancellationToken ct)
+        {
+            await _visible.Where(visible => !visible).FirstAsync(ct);
         }
 
         /// <summary><see cref="_hideAfterStopSeconds"/> 秒後に円盤を隠す予約をする。前の予約は打ち切る。</summary>
