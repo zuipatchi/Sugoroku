@@ -5,6 +5,7 @@ using VContainer;
 using VContainer.Unity;
 using Cysharp.Threading.Tasks;
 using System.Threading;
+using UnityEngine;
 
 namespace Title.Sound
 {
@@ -26,6 +27,16 @@ namespace Title.Sound
             try
             {
                 await _soundStore.Loaded.AttachExternalCancellation(cancellation);
+
+                // タイトル動画の再生開始と同時に歓声（Cheer）を鳴らし、鳴り終わってから
+                // タイトル BGM（光晴イズム）へ移る。Cheer が無ければそのまま BGM を流す。
+                AudioClip cheer = _soundStore.CheerSE;
+                if (cheer != null)
+                {
+                    _soundPlayer.PlaySE(cheer);
+                    await UniTask.Delay(TimeSpan.FromSeconds(cheer.length), cancellationToken: cancellation);
+                }
+
                 _soundPlayer.PlayBGM(_soundStore.TitleBGM);
             }
             catch (OperationCanceledException) { }

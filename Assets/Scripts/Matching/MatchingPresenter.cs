@@ -238,7 +238,7 @@ namespace Matching
         private async UniTask StartGameAsync()
         {
             _model.State.Value = MatchingState.Starting;
-            _soundPlayer.PlaySE(_soundStore.ResultSE);
+            _soundPlayer.PlaySE(_soundStore.DecisionSE);
             await _sceneTransitioner.Transit(Scenes.Main);
         }
 

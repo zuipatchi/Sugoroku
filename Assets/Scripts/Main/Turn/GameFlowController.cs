@@ -56,6 +56,8 @@ namespace Main.Turn
                 {
                     int player = _turn.CurrentPlayer.CurrentValue;
                     int result = await SpinForAsync(player, ct);
+                    // ルーレットが消えてからコマを動かす（停止 → 出目を見せて非表示 → 前進）。
+                    await _roulette.WaitForHideAsync(ct);
                     await _boardPresenter.AdvanceAsync(player, result, ct);
 
                     if (_board.IsFinished)

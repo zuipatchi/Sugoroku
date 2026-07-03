@@ -23,8 +23,9 @@ namespace Main.Board
     [RequireComponent(typeof(UIDocument))]
     public sealed class BoardPresenter : MonoBehaviour
     {
-        [SerializeField] private int _columns = 6;
-        [SerializeField] private int _rows = 5;
+        // 縦画面（ポートレート）向けに、幅より高さの大きい縦長リングにする（列 < 行）。周回マス数は 2*列+2*行-4。
+        [SerializeField] private int _columns = 5;
+        [SerializeField] private int _rows = 7;
         [SerializeField] private float _stepInterval = 0.18f;
 
         private BoardModel _model;
@@ -85,7 +86,7 @@ namespace Main.Board
                     return;
                 }
                 _clearLabel.text = WinnerText(winner);
-                PlaySe(_soundStore?.ResultSE);
+                PlaySe(_soundStore?.DecisionSE);
             }));
 
             // OnEnable が先に走っていれば、この時点でコマを構築できる。
@@ -163,6 +164,54 @@ namespace Main.Board
                 PlaceAtCell(cell, i);
                 _boardArea.Add(cell);
             }
+
+            // リング領域をグリッドのアスペクト比に合わせて中央配置する。画面比が変わっても
+            // マスが均等に並ぶよう、レイアウト確定（と以後のリサイズ）のたびに再計算する。
+            _boardArea.parent.RegisterCallback<GeometryChangedEvent>(_ => LayoutBoardArea());
+            LayoutBoardArea();
+        }
+
+        /// <summary>
+        /// 盤面リング領域を、グリッドの (列-1):(行-1) のアスペクト比を保って利用可能領域に内接させ、
+        /// 中央へ配置する。%指定のままだと縦横でマス間隔が不均一になるため、ここでピクセルで整える。
+        /// 上マージンを取り、右上のオプションアイコン（Common）を避ける。
+        /// </summary>
+        private void LayoutBoardArea()
+        {
+            VisualElement container = _boardArea?.parent;
+            if (container == null)
+            {
+                return;
+            }
+
+            float containerWidth = container.resolvedStyle.width;
+            float containerHeight = container.resolvedStyle.height;
+            if (containerWidth <= 0f || containerHeight <= 0f)
+            {
+                return;
+            }
+
+            // 余白（右上のオプションアイコンは上マージンで避ける）。
+            float marginX = containerWidth * 0.08f;
+            float marginTop = containerHeight * 0.12f;
+            float marginBottom = containerHeight * 0.08f;
+            float availableWidth = containerWidth - marginX * 2f;
+            float availableHeight = containerHeight - marginTop - marginBottom;
+
+            // グリッドのアスペクト比 (列-1):(行-1) を保って利用可能領域に内接させる。
+            float aspect = (float)(_columns - 1) / (_rows - 1); // 幅 / 高さ
+            float areaWidth = availableWidth;
+            float areaHeight = areaWidth / aspect;
+            if (areaHeight > availableHeight)
+            {
+                areaHeight = availableHeight;
+                areaWidth = areaHeight * aspect;
+            }
+
+            _boardArea.style.left = (containerWidth - areaWidth) * 0.5f;
+            _boardArea.style.top = marginTop + (availableHeight - areaHeight) * 0.5f;
+            _boardArea.style.width = areaWidth;
+            _boardArea.style.height = areaHeight;
         }
 
         /// <summary>
