@@ -22,7 +22,7 @@
 このテンプレートをコピーして作るゲームでは、実装した機能をここに列挙し、詳細は各ドキュメントへのリンクに集約する。
 
 - タイトル画面の演出（背景動画を再生し、終了後に「ドラゴンファミリー/すごろく」を3行・1文字ずつ上から降らせて表示。初回再生開始から30秒おきに文言を隠して動画を最初から再生し直すループ。画面全体が「Press start」ボタンで、文言は点滅して入力を促す。動画は WebGL 対応のため StreamingAssets を `VideoPlayer` の URL 再生）→ [Assets/Scripts/Title/Video/](../Assets/Scripts/Title/Video/)
-- 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存で CPU と 1 対 1 のすごろく対戦）→ [architecture.md](architecture.md)「シーン構成」
+- 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存で CPU と 1 対 1 のすごろく対戦。Home の背景はカタログからランダムに選んだ1キャラのカード絵を全画面表示し、暗いスクリムを重ねて前面 UI の視認性を確保）→ [architecture.md](architecture.md)「シーン構成」
 - クレジット表示（Home のクレジットボタンでモーダルを開き、制作・イラスト・使用技術などを表示）→ [Assets/Scripts/Home/](../Assets/Scripts/Home/)
 - キャラクター選択（一人用は Main の前に CharacterSelect で選ぶ。全8種。立ち絵を全画面背景、カード絵の選択スロットを下部に表示。戻る／決定ボタンは画面上部（右上のオプションアイコンを避けて中央寄せ）。キャラ名は各カード内に表示。選択は `CharacterSessionModel` に保持。画像は Addressables、現状オンライン非対応）→ [Assets/Scripts/CharacterSelect/](../Assets/Scripts/CharacterSelect/)
 - 円盤ルーレット（8分割・出目1〜8。ボタンを長押し中は加速して回転し、離すと離した瞬間の速度に依らず一定時間（2.5〜3.5 秒・ランダム）かけて ease-out で緩やかに減速して止まる（すぐ離しても長押しから離しても止まり方の印象が揃う）。止まった位置のセクターが出目になり移動マス数を決定。各セクターにキャラアイコンをコイン（ゴールド枠＋白座面）で表示し、出目の数字をコイン下部にバッジ表示。アイコンは円盤と一緒に周回しつつ常に正立。回転中はセクター境界を通過するたびにティック SE（Roulet）が鳴る。CPU の番は同じ円盤が自動で回る。Painter2D で描画・`Update` で角速度を加減速）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
