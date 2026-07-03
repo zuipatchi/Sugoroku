@@ -614,7 +614,7 @@ namespace Main.Roulette
             _angularVelocity = 0f;
             int value = RouletteMath.ResultFromRotation(_currentRotation, _sectorCount) + 1;
             _model.CompleteSpin(value);
-            PlaySe(_soundStore?.ResultSE);
+            PlaySe(_soundStore?.DecisionSE);
             ShowWinHighlight(value - 1);
         }
 

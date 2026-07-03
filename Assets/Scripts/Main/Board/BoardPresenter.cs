@@ -86,7 +86,7 @@ namespace Main.Board
                     return;
                 }
                 _clearLabel.text = WinnerText(winner);
-                PlaySe(_soundStore?.ResultSE);
+                PlaySe(_soundStore?.DecisionSE);
             }));
 
             // OnEnable が先に走っていれば、この時点でコマを構築できる。

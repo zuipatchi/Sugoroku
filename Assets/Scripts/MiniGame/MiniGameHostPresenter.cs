@@ -184,7 +184,7 @@ namespace MiniGame
                 }
 
                 _tap.Finish();
-                PlaySe(_soundStore?.ResultSE);
+                PlaySe(_soundStore?.DecisionSE);
 
                 int score = _tap.TapCount.CurrentValue;
                 _resultLabel.text = $"タップ数 {score} 回！";
