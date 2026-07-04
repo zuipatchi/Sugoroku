@@ -40,6 +40,7 @@ namespace Main.Board
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
+        private VisualElement _playerHeader;
         private VisualElement _linesElement;
         private VisualElement[] _cells;
         private VisualElement[] _pieces;
@@ -54,6 +55,7 @@ namespace Main.Board
         private bool _cellsBuilt;
         private bool _cellIconLoadStarted;
         private bool _piecesBuilt;
+        private bool _headerBuilt;
         private bool _iconLoadStarted;
         private CharacterId? _cpuCharacter;
         private CancellationToken _destroyCt;
@@ -100,8 +102,9 @@ namespace Main.Board
                 PlaySe(_soundStore?.DecisionSE);
             }));
 
-            // OnEnable が先に走っていれば、この時点でコマを構築できる。
+            // OnEnable が先に走っていれば、この時点でコマ・ヘッダーを構築できる。
             BuildPiecesIfReady();
+            BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
         }
 
@@ -117,6 +120,7 @@ namespace Main.Board
             _destroyCt = destroyCancellationToken;
             BuildCells();
             BuildPiecesIfReady();
+            BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
         }
 
@@ -182,6 +186,7 @@ namespace Main.Board
             }
 
             _boardArea = root.Q<VisualElement>("BoardArea");
+            _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _clearLabel = root.Q<Label>("ClearLabel");
             if (_boardArea == null || _clearLabel == null)
             {
@@ -446,6 +451,45 @@ namespace Main.Board
 
                 // アイコンのロードが先に終わっていれば、この時点で貼り付ける。
                 ApplyPieceIcon(player);
+            }
+        }
+
+        /// <summary>
+        /// 上部ヘッダーに自分（人間プレイヤー）のネームプレートだけを表示する。キャラ名は
+        /// 選択中のキャラ（コマと同じ <see cref="ResolveCharacter"/>）の表示名を使う。
+        /// マス（BuildCells）と injection（Construct）の両方がそろってから 1 度だけ構築する。
+        /// </summary>
+        private void BuildPlayerHeaderIfReady()
+        {
+            if (_headerBuilt || _playerHeader == null || _characterSession == null || _participants == null)
+            {
+                return;
+            }
+
+            _headerBuilt = true;
+
+            for (int player = 0; player < _participants.Count; player++)
+            {
+                if (_participants.KindOf(player) != PlayerKind.Human)
+                {
+                    continue; // 相手（CPU 等）は表示しない。自分の情報だけを出す。
+                }
+
+                CharacterId id = ResolveCharacter(player);
+                string characterName = CharacterCatalog.Find(id).DisplayName;
+
+                VisualElement plate = new() { pickingMode = PickingMode.Ignore };
+                plate.AddToClassList("board-nameplate");
+
+                Label role = new("YOU") { pickingMode = PickingMode.Ignore };
+                role.AddToClassList("board-nameplate__role");
+                plate.Add(role);
+
+                Label nameLabel = new(characterName) { pickingMode = PickingMode.Ignore };
+                nameLabel.AddToClassList("board-nameplate__name");
+                plate.Add(nameLabel);
+
+                _playerHeader.Add(plate);
             }
         }
 
