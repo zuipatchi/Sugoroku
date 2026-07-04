@@ -1,12 +1,9 @@
-using System;
 using System.Collections.Generic;
-using Common.GameSession;
 using Common.SceneManagement;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using R3;
-using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.UIElements;
 using VContainer;
@@ -14,15 +11,15 @@ using VContainer.Unity;
 
 namespace Matching
 {
+    /// <summary>
+    /// マッチング画面の UI バインド。UI 要素の取得・MatchingModel の購読→画面反映・
+    /// ボタン入力の MatchingFlow への転送のみを担当する。フロー制御は MatchingFlow を参照。
+    /// </summary>
     public class MatchingPresenter : MonoBehaviour, IStartable
     {
-        private static readonly TimeSpan _quickMatchTimeoutDuration = TimeSpan.FromSeconds(30);
-        private static readonly TimeSpan _createRoomTimeoutDuration = TimeSpan.FromSeconds(120);
-
         private MatchingModel _model;
-        private MatchingService _matchingService;
+        private MatchingFlow _flow;
         private SceneTransitioner _sceneTransitioner;
-        private GameSessionModel _gameSessionModel;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
 
@@ -43,16 +40,14 @@ namespace Matching
         [Inject]
         public void Construct(
             MatchingModel model,
-            MatchingService matchingService,
+            MatchingFlow flow,
             SceneTransitioner sceneTransitioner,
-            GameSessionModel gameSessionModel,
             SoundStore soundStore,
             SoundPlayer soundPlayer)
         {
             _model = model;
-            _matchingService = matchingService;
+            _flow = flow;
             _sceneTransitioner = sceneTransitioner;
-            _gameSessionModel = gameSessionModel;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
         }
@@ -87,22 +82,22 @@ namespace Matching
             _quickMatchButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                OnQuickMatchButtonClickedAsync().Forget();
+                _flow.QuickMatchAsync(destroyCancellationToken).Forget();
             };
             _createButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                OnCreateButtonClickedAsync().Forget();
+                _flow.CreateRoomAsync(destroyCancellationToken).Forget();
             };
             _cancelWaitButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Cancel1SE);
-                CancelWaitAsync().Forget();
+                _flow.CancelWaitAsync(destroyCancellationToken).Forget();
             };
             _retryButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                InitializeAsync(destroyCancellationToken).Forget();
+                _flow.InitializeAsync(destroyCancellationToken).Forget();
             };
             _backToTitleButton.clicked += () =>
             {
@@ -112,15 +107,22 @@ namespace Matching
             _closeErrorButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                InitializeAsync(destroyCancellationToken).Forget();
+                _flow.InitializeAsync(destroyCancellationToken).Forget();
             };
 
             _model.State
                 .Subscribe(ApplyState)
                 .AddTo(destroyCancellationToken);
 
-            InitializeAsync(destroyCancellationToken).Forget();
-            AutoRefreshLoopAsync(destroyCancellationToken).Forget();
+            // 初期値（空配列）はスキップし、フローがルーム一覧を取得したときだけ再構築する
+            // （従来の「取得成功のたびに RebuildRoomList」と同じタイミング）。
+            _model.Rooms
+                .Skip(1)
+                .Subscribe(RebuildRoomList)
+                .AddTo(destroyCancellationToken);
+
+            _flow.InitializeAsync(destroyCancellationToken).Forget();
+            _flow.AutoRefreshLoopAsync(destroyCancellationToken).Forget();
         }
 
         private void ApplyState(MatchingState state)
@@ -148,64 +150,14 @@ namespace Matching
                 _waitingLabel.text = state switch
                 {
                     MatchingState.TimedOut => "タイムアウトしました",
-                    MatchingState.WaitingForPlayer => $"プレイヤーを待っています...\n{(int)_quickMatchTimeoutDuration.TotalSeconds}秒でタイムアウトします",
-                    MatchingState.WaitingInCreatedRoom => $"プレイヤーを待っています...\n{(int)_createRoomTimeoutDuration.TotalMinutes}分で自動解散します",
+                    MatchingState.WaitingForPlayer => $"プレイヤーを待っています...\n{(int)MatchingFlow.QuickMatchTimeoutDuration.TotalSeconds}秒でタイムアウトします",
+                    MatchingState.WaitingInCreatedRoom => $"プレイヤーを待っています...\n{(int)MatchingFlow.CreateRoomTimeoutDuration.TotalMinutes}分で自動解散します",
                     _ => "プレイヤーを待っています..."
                 };
                 _cancelWaitButton.style.display = isTimedOut ? DisplayStyle.None : DisplayStyle.Flex;
                 _retryButton.style.display = isTimedOut ? DisplayStyle.Flex : DisplayStyle.None;
                 _backToTitleButton.style.display = isTimedOut ? DisplayStyle.Flex : DisplayStyle.None;
             }
-        }
-
-        private async UniTaskVoid InitializeAsync(System.Threading.CancellationToken ct)
-        {
-            try
-            {
-                _model.State.Value = MatchingState.Authenticating;
-                await _matchingService.AuthenticateAsync(ct);
-                await RefreshRoomsAsync(ct);
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception e)
-            {
-                Debug.LogError($"初期化に失敗: {e}");
-                _model.State.Value = MatchingState.Error;
-            }
-        }
-
-        private async UniTaskVoid AutoRefreshLoopAsync(System.Threading.CancellationToken ct)
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                try
-                {
-                    await UniTask.Delay(2000, cancellationToken: ct);
-                    if (_model.State.Value == MatchingState.BrowsingRooms)
-                    {
-                        await RefreshRoomsAsync(ct);
-                    }
-                }
-                catch (OperationCanceledException) { return; }
-                catch (Exception e)
-                {
-                    await HandleMatchingErrorAsync("自動更新", e);
-                }
-            }
-        }
-
-        private async UniTask RefreshRoomsAsync(System.Threading.CancellationToken ct)
-        {
-            IReadOnlyList<LobbyInfo> rooms = await _matchingService.GetRoomsAsync(ct);
-            // null は「取得できなかった（競合中・SDK 過渡期エラー）」を意味するので表示は据え置く。
-            if (rooms == null)
-            {
-                _model.State.Value = MatchingState.BrowsingRooms;
-                return;
-            }
-            _model.Rooms.Value = rooms;
-            _model.State.Value = MatchingState.BrowsingRooms;
-            RebuildRoomList(rooms);
         }
 
         private void RebuildRoomList(IReadOnlyList<LobbyInfo> rooms)
@@ -220,125 +172,21 @@ namespace Matching
             }
             foreach (LobbyInfo room in rooms)
             {
-                if (room.Name == MatchingService.QuickMatchRoomName) continue;
+                if (room.Name == MatchingService.QuickMatchRoomName)
+                {
+                    continue;
+                }
                 string sessionId = room.LobbyId;
                 Button roomButton = new Button(() =>
                 {
                     _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                    OnRoomSelectedAsync(sessionId).Forget();
+                    _flow.SelectRoomAsync(sessionId, destroyCancellationToken).Forget();
                 })
                 {
                     text = $"{room.Name}  {room.PlayerCount}/{room.MaxPlayers}"
                 };
                 roomButton.AddToClassList("room-item");
                 _roomList.Add(roomButton);
-            }
-        }
-
-        private async UniTask StartGameAsync()
-        {
-            _model.State.Value = MatchingState.Starting;
-            _soundPlayer.PlaySE(_soundStore.DecisionSE);
-            await _sceneTransitioner.Transit(Scenes.Main);
-        }
-
-        private async UniTask HandleMatchingErrorAsync(string context, Exception e)
-        {
-            Debug.LogError($"{context}に失敗: {e}");
-            _model.State.Value = MatchingState.Error;
-            await RefreshRoomsAsync(destroyCancellationToken);
-        }
-
-        private async UniTaskVoid OnQuickMatchButtonClickedAsync()
-        {
-            try
-            {
-                _model.State.Value = MatchingState.JoiningRoom;
-                LobbyInfo? room = await _matchingService.FindQuickMatchRoomAsync(destroyCancellationToken);
-
-                if (room.HasValue)
-                {
-                    await _matchingService.JoinRoomAsync(room.Value.LobbyId, destroyCancellationToken);
-                    await StartGameAsync();
-                }
-                else
-                {
-                    _model.State.Value = MatchingState.CreatingRoom;
-                    IHostSession session = await _matchingService.CreateRoomAsync(MatchingService.QuickMatchRoomName, destroyCancellationToken);
-                    _model.State.Value = MatchingState.WaitingForPlayer;
-
-                    bool found = await _matchingService.WaitForPlayerAsync(session, _quickMatchTimeoutDuration, destroyCancellationToken);
-                    if (found)
-                    {
-                        await StartGameAsync();
-                    }
-                    else
-                    {
-                        await _gameSessionModel.LeaveCurrentSessionAsync();
-                        _model.State.Value = MatchingState.TimedOut;
-                    }
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception e)
-            {
-                await HandleMatchingErrorAsync("クイックマッチ", e);
-            }
-        }
-
-        private async UniTaskVoid OnCreateButtonClickedAsync()
-        {
-            try
-            {
-                _model.State.Value = MatchingState.CreatingRoom;
-                IHostSession session = await _matchingService.CreateRoomAsync("Room", destroyCancellationToken);
-                _model.State.Value = MatchingState.WaitingInCreatedRoom;
-
-                bool found = await _matchingService.WaitForPlayerAsync(session, _createRoomTimeoutDuration, destroyCancellationToken);
-                if (found)
-                {
-                    await StartGameAsync();
-                }
-                else
-                {
-                    await _gameSessionModel.LeaveCurrentSessionAsync();
-                    _model.State.Value = MatchingState.TimedOut;
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception e)
-            {
-                await HandleMatchingErrorAsync("ルーム作成", e);
-            }
-        }
-
-        private async UniTaskVoid OnRoomSelectedAsync(string sessionId)
-        {
-            try
-            {
-                _model.State.Value = MatchingState.JoiningRoom;
-                await _matchingService.JoinRoomAsync(sessionId, destroyCancellationToken);
-                await StartGameAsync();
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception e)
-            {
-                await HandleMatchingErrorAsync("ルーム参加", e);
-            }
-        }
-
-        private async UniTaskVoid CancelWaitAsync()
-        {
-            try
-            {
-                await _gameSessionModel.LeaveCurrentSessionAsync();
-                await RefreshRoomsAsync(destroyCancellationToken);
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception e)
-            {
-                Debug.LogError($"キャンセルに失敗: {e}");
-                _model.State.Value = MatchingState.Error;
             }
         }
     }
