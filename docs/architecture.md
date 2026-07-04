@@ -185,7 +185,7 @@ Assets/Scripts/<Scene>/<Feature>/
 
 ## アセンブリ構成
 
-スクリプトは6つの Assembly Definition に分割されている。
+スクリプトは 7 つのランタイム Assembly Definition と、1 つのエディタ専用アセンブリに分割されている。
 
 | アセンブリ | パス | 依存 |
 |---|---|---|
@@ -196,8 +196,10 @@ Assets/Scripts/<Scene>/<Feature>/
 | `Matching` | `Assets/Scripts/Matching/` | VContainer / R3 / UniTask / Common / Unity.Services.Multiplayer / Unity.Netcode |
 | `Main` | `Assets/Scripts/Main/` | VContainer / R3 / UniTask / Common / Unity.Netcode / DOTween |
 | `MiniGame` | `Assets/Scripts/MiniGame/` | VContainer / R3 / UniTask / Addressables / Common |
+| `Main.Editor` | `Assets/Scripts/Main/Editor/` | Main / Common（`includePlatforms: ["Editor"]`＝ビルド非対象。盤面エディタ用） |
 
 - `Title` / `Home` / `CharacterSelect` / `Matching` / `Main` / `MiniGame` は `Common` に依存し、逆方向の依存は禁止
+- `Main.Editor` はエディタ専用（`Window > Sugoroku > Board Editor`）。参照は推移解決されないため対象ランタイム asmdef の GUID を明示する（[patterns.md](patterns.md) #11）
 - `autoReferenced: true` のため既存コードへの影響なし
 
 ---
