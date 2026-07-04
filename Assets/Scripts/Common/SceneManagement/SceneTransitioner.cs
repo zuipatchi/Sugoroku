@@ -17,7 +17,8 @@ namespace Common.SceneManagement
         Main = 3,
         Home = 4,
         MiniGame = 5,
-        CharacterSelect = 6
+        CharacterSelect = 6,
+        MiniGameTest = 7
     }
     /// <summary>
     /// アクティブシーンを変更するクラス

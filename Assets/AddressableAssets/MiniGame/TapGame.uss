@@ -56,12 +56,20 @@
 
 .tap-button:active {
     background-color: rgb(50, 65, 145);
-    scale: 0.97 0.97;
 }
 
 .tap-button:disabled {
     background-color: rgba(70, 90, 180, 0.35);
     color: rgba(255, 255, 255, 0.5);
+}
+
+.tap-character-card {
+    position: absolute;
+    width: 220px;
+    height: 300px;
+    background-color: rgba(0, 0, 0, 0);
+    -unity-background-scale-mode: scale-to-fit;
+    transform-origin: center;
 }
 
 .tap-center {
