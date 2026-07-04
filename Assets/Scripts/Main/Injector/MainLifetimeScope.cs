@@ -25,8 +25,6 @@ namespace Main.Injector
 
             builder.Register<BoardModel>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<BoardPresenter>().AsSelf();
-
-            builder.RegisterComponentInHierarchy<MiniGameTriggerPresenter>().AsSelf();
         }
     }
 }

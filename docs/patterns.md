@@ -211,15 +211,16 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 
 ## 8. 新しいミニゲームを追加する
 
-ミニゲームは `MiniGame` シーンを Main の上に Additive で重ねて動かす（`Transit` は使わない。詳細は [architecture.md](architecture.md)「シーン構成」）。新しい種類を足す手順:
+ミニゲームは `MiniGame` シーンを Main（や動作確認用の `MiniGameTest`）の上に Additive で重ねて動かす（`Transit` は使わない。詳細は [architecture.md](architecture.md)「シーン構成」）。新しい種類を足す手順:
 
 1. [MiniGameId.cs](../Assets/Scripts/Common/MiniGame/MiniGameId.cs) に種別を追加する（最大5種類想定）
 2. その種別の UI を `Assets/AddressableAssets/MiniGame/` に `.uxml` / `.uss` で作り、**Addressable アドレスを `MiniGame/<名前>`** に設定する
-3. [MiniGameHostPresenter.cs](../Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) の `AddressFor` に分岐を足し、進行ロジック（カウントダウン→計測→結果）を実装する。状態は純粋ロジックの Model（[TapGameModel.cs](../Assets/Scripts/MiniGame/TapGame/TapGameModel.cs) に倣う）に分け、EditMode テストを書く
-4. 起動は `MiniGameLauncher.PlayAsync(MiniGameId.<種別>, ct)`。結果は `MiniGameResult.Score` で受け取り、呼び出し側（例: [MiniGameTriggerPresenter.cs](../Assets/Scripts/Main/MiniGameTriggerPresenter.cs)）で盤面反映などを行う
-5. ホストは表示前に UXML をロードするため `ISceneReady` を実装している（ロード完了まで暗幕を維持）。`Report` で結果を返すとランチャーがシーンをアンロードする
+3. [MiniGameCatalog.cs](../Assets/Scripts/Common/MiniGame/MiniGameCatalog.cs) の `All` に 1 行足す（`MiniGameId` → 表示名・UXML アドレス）。`MiniGameHostPresenter.AddressFor` はカタログ引きなので分岐追加は不要で、**動作確認用の `MiniGameTest` シーンにもボタンが自動で並ぶ**
+4. [MiniGameHostPresenter.cs](../Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) に進行ロジック（カウントダウン→計測→結果）を実装する。状態は純粋ロジックの Model（[TapGameModel.cs](../Assets/Scripts/MiniGame/TapGame/TapGameModel.cs) に倣う）に分け、EditMode テストを書く
+5. 起動は `MiniGameLauncher.PlayAsync(MiniGameId.<種別>, ct)`。結果は `MiniGameResult.Score` で受け取る。動作確認は `MiniGameTest` シーン（[MiniGameTestPresenter.cs](../Assets/Scripts/MiniGame/Test/MiniGameTestPresenter.cs)）をエディタで直接開いて Play する
+6. ホストは表示前に UXML をロードするため `ISceneReady` を実装している（ロード完了まで暗幕を維持）。`Report` で結果を返すとランチャーがシーンをアンロードする
 
-> ローカル完結のため、現状「勝者」はしきい値で暫定判定している。全員同時プレイのスコア同期は今後の課題（[networking.md](networking.md) の永続ハンドラ方式に乗せる）。
+> ローカル完結のため、盤面反映やゲーム内トリガー（特殊マス・手番連携）はまだ Main に組み込んでいない。全員同時プレイのスコア同期も今後の課題（[networking.md](networking.md) の永続ハンドラ方式に乗せる）。
 
 ---
 

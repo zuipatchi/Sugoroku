@@ -5,7 +5,8 @@
         <ui:Label text="0" name="CountLabel" class="tap-count" />
         <ui:Label text="5.0" name="TimerLabel" class="tap-timer" />
         <ui:VisualElement name="PlayArea" class="tap-play-area">
-            <ui:Button name="TapButton" text="TAP!" class="tap-button" />
+            <ui:Button name="TapButton" class="tap-button" />
+            <ui:VisualElement name="CharacterCard" class="tap-character-card" picking-mode="Ignore" />
             <ui:Label text="準備…" name="CenterLabel" class="tap-center" />
         </ui:VisualElement>
         <ui:VisualElement name="ResultPanel" class="tap-result">
