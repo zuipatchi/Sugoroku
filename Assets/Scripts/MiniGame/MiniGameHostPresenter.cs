@@ -1,76 +1,43 @@
 using System;
 using System.Threading;
-using Common.Character;
 using Common.MiniGame;
 using Common.SceneManagement;
-using Common.SoundManagement;
-using Common.Store;
 using Cysharp.Threading.Tasks;
-using DG.Tweening;
 using MiniGame.RaceGame;
 using MiniGame.TapGame;
-using R3;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 
 namespace MiniGame
 {
     /// <summary>
-    /// ミニゲームシーンのホスト。<see cref="MiniGameSessionModel.CurrentGame"/> に応じた UI を
-    /// Addressables でロードして表示し、ゲームを進行させて結果を <see cref="MiniGameSessionModel.Report"/> で返す。
-    /// 現状はタップ連打のみ実装。新しいゲームはここに分岐を足し、対応する UXML を Addressables に登録する。
+    /// ミニゲームシーンのホスト。<see cref="MiniGameSessionModel.CurrentGame"/> に応じた UXML を
+    /// Addressables でロードして表示し、対応するゲーム進行クラス（<see cref="TapGamePlay"/> /
+    /// <see cref="RaceGamePlay"/>）へ委譲して、結果を <see cref="MiniGameSessionModel.Report"/> で返す。
+    /// 新しいゲームはここに分岐を足し、対応する UXML を Addressables に登録する。
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public sealed class MiniGameHostPresenter : MonoBehaviour, ISceneReady
     {
-        private const float PlayDurationSeconds = 5f;
-        private const int RevealLeadInMs = 500;
-        private const int CountdownStepMs = 700;
-        private const int StartFlashMs = 500;
-
         private MiniGameSessionModel _session;
-        private TapGameModel _tap;
+        private TapGamePlay _tap;
         private RaceGamePlay _race;
-        private SoundStore _soundStore;
-        private SoundPlayer _soundPlayer;
-        private CharacterSessionModel _characterSession;
 
         private UIDocument _uiDocument;
-        private Label _timerLabel;
-        private Label _countLabel;
-        private Label _centerLabel;
-        private Button _tapButton;
-        private VisualElement _characterCard;
-        private VisualElement _resultPanel;
-        private Label _resultLabel;
-        private Button _closeButton;
-
-        private AsyncOperationHandle<Sprite> _cardHandle;
-        private Tween _shakeTween;
-        private float _shakePhase;
 
         private CancellationToken _destroyCt;
-        private bool _uiReady;
-        private readonly CompositeDisposable _disposables = new();
 
         [Inject]
         public void Construct(
             MiniGameSessionModel session,
-            TapGameModel tap,
-            RaceGamePlay race,
-            SoundStore soundStore,
-            SoundPlayer soundPlayer,
-            CharacterSessionModel characterSession)
+            TapGamePlay tap,
+            RaceGamePlay race)
         {
             _session = session;
             _tap = tap;
             _race = race;
-            _soundStore = soundStore;
-            _soundPlayer = soundPlayer;
-            _characterSession = characterSession;
         }
 
         private void Awake()
@@ -84,17 +51,7 @@ namespace MiniGame
             _destroyCt = destroyCancellationToken;
         }
 
-        private void OnDestroy()
-        {
-            _shakeTween?.Kill();
-            _shakeTween = null;
-            if (_cardHandle.IsValid())
-            {
-                Addressables.Release(_cardHandle);
-            }
-            // RaceGamePlay は DI（Scoped）が所有・破棄するためここでは触らない。
-            _disposables.Dispose();
-        }
+        // TapGamePlay / RaceGamePlay は DI（Scoped）が所有・破棄するためここでは触らない。
 
         // SceneTransitioner / MiniGameLauncher がフェードイン前に待つ。
         // UI 構築（Addressables ロード）が終わってから画面を見せる。
@@ -114,240 +71,29 @@ namespace MiniGame
             root.Clear();
             tree.CloneTree(root);
 
-            // CurrentGame でゲームごとの分岐へ。Race は専用の RaceGamePlay へ委譲する。
+            // CurrentGame でゲームごとの進行クラスへ委譲する。
+            // フェードイン後にプレイ入力の待機・進行が始まるよう、RunAsync は別タスクで走らせる。
             if (_session.CurrentGame == MiniGameId.Race)
             {
                 await _race.BuildAsync(root, ct);
-                // フェードイン後にプレイ入力の待機・進行が始まるよう別タスクで走らせる。
-                ReportRaceAsync(_destroyCt).Forget();
+                ReportAsync(_race.RunAsync, _destroyCt).Forget();
                 return;
             }
 
-            BuildTapUi(root);
-            if (!_uiReady)
-            {
-                return;
-            }
-            await ApplyCharacterCardAsync(ct);
-            // フェードイン後に演出が始まるよう、ゲーム進行はリードインを挟んで別タスクで走らせる。
-            GameLoopAsync(_destroyCt).Forget();
+            await _tap.BuildAsync(root, ct);
+            ReportAsync(_tap.RunAsync, _destroyCt).Forget();
         }
 
-        private async UniTaskVoid ReportRaceAsync(CancellationToken ct)
+        private async UniTaskVoid ReportAsync(Func<CancellationToken, UniTask<int>> runAsync, CancellationToken ct)
         {
             try
             {
-                int score = await _race.RunAsync(ct);
+                int score = await runAsync(ct);
+                // 結果を起動側（Main）へ返す。これを受けて MiniGameLauncher がシーンをアンロードする。
                 _session.Report(score);
             }
             catch (OperationCanceledException)
             {
-            }
-        }
-
-        private void BuildTapUi(VisualElement root)
-        {
-            _timerLabel = root.Q<Label>("TimerLabel");
-            _countLabel = root.Q<Label>("CountLabel");
-            _centerLabel = root.Q<Label>("CenterLabel");
-            _tapButton = root.Q<Button>("TapButton");
-            _characterCard = root.Q<VisualElement>("CharacterCard");
-            _resultPanel = root.Q<VisualElement>("ResultPanel");
-            _resultLabel = root.Q<Label>("ResultLabel");
-            _closeButton = root.Q<Button>("CloseButton");
-            if (_timerLabel == null || _countLabel == null || _centerLabel == null
-                || _tapButton == null || _resultPanel == null || _resultLabel == null || _closeButton == null)
-            {
-                Debug.LogError("TapGame の UI 要素が見つかりませんでした。");
-                return;
-            }
-
-            _tapButton.clicked += OnTapClicked;
-            _closeButton.clicked += OnCloseClicked;
-
-            // Model を source of truth として UI へ反映する。
-            _disposables.Add(_tap.TapCount.Subscribe(count =>
-            {
-                if (_countLabel != null)
-                {
-                    _countLabel.text = count.ToString();
-                }
-            }));
-            _disposables.Add(_tap.RemainingSeconds.Subscribe(secs =>
-            {
-                if (_timerLabel != null)
-                {
-                    _timerLabel.text = secs.ToString("0.0");
-                }
-            }));
-            _disposables.Add(_tap.Phase.Subscribe(ApplyPhase));
-
-            _uiReady = true;
-        }
-
-        private void ApplyPhase(TapGamePhase phase)
-        {
-            if (_tapButton == null)
-            {
-                return;
-            }
-            _tapButton.SetEnabled(phase == TapGamePhase.Playing);
-            _centerLabel.style.display =
-                (phase == TapGamePhase.Ready || phase == TapGamePhase.Countdown)
-                    ? DisplayStyle.Flex
-                    : DisplayStyle.None;
-            _resultPanel.style.display = phase == TapGamePhase.Finished ? DisplayStyle.Flex : DisplayStyle.None;
-        }
-
-        private async UniTaskVoid GameLoopAsync(CancellationToken ct)
-        {
-            try
-            {
-                _centerLabel.text = "準備…";
-                await UniTask.Delay(RevealLeadInMs, cancellationToken: ct);
-
-                _tap.BeginCountdown();
-                for (int n = 3; n >= 1; n--)
-                {
-                    _centerLabel.text = n.ToString();
-                    PlaySe(_soundStore?.Enter1SE);
-                    await UniTask.Delay(CountdownStepMs, cancellationToken: ct);
-                }
-
-                _centerLabel.text = "スタート！";
-                PlaySe(_soundStore?.Enter2SE);
-                await UniTask.Delay(StartFlashMs, cancellationToken: ct);
-
-                _tap.StartPlaying(PlayDurationSeconds);
-
-                float elapsed = 0f;
-                while (elapsed < PlayDurationSeconds)
-                {
-                    await UniTask.Yield(PlayerLoopTiming.Update, ct);
-                    elapsed += Time.deltaTime;
-                    _tap.UpdateRemaining(PlayDurationSeconds - elapsed);
-                }
-
-                _tap.Finish();
-                PlaySe(_soundStore?.DecisionSE);
-
-                int score = _tap.TapCount.CurrentValue;
-                _resultLabel.text = $"タップ数 {score} 回！";
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-
-        // 選択中キャラのカード絵を読み込んで中央に表示する。未配置ならプレースホルダ（色面）にフォールバックする。
-        private async UniTask ApplyCharacterCardAsync(CancellationToken ct)
-        {
-            if (_characterCard == null)
-            {
-                return;
-            }
-
-            CharacterId id = _characterSession.Selected;
-            CharacterDefinition definition = CharacterCatalog.Find(id);
-
-            try
-            {
-                _cardHandle = Addressables.LoadAssetAsync<Sprite>(definition.CardAddress);
-                Sprite card = await _cardHandle.ToUniTask(cancellationToken: ct);
-                _characterCard.style.backgroundImage = new StyleBackground(card);
-            }
-            catch (OperationCanceledException)
-            {
-                if (_cardHandle.IsValid())
-                {
-                    Addressables.Release(_cardHandle);
-                }
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"キャラカード '{definition.CardAddress}' のロードに失敗。プレースホルダ表示にします: {e.Message}");
-                if (_cardHandle.IsValid())
-                {
-                    Addressables.Release(_cardHandle);
-                }
-                _characterCard.style.backgroundImage = StyleKeyword.None;
-                _characterCard.style.backgroundColor = PlaceholderColor(CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count);
-            }
-        }
-
-        private static Color PlaceholderColor(int index, int count)
-        {
-            float hue = (count <= 0) ? 0f : (float)index / count;
-            return Color.HSVToRGB(hue, 0.45f, 0.65f);
-        }
-
-        // タップのたびにカードを弾ませる。「がたがた」（減衰する小刻みな振動）と「パンチ」（ぷにっと拡大→戻る）を合わせた演出。
-        // 位相 1→0 を 1 本の Tween で流し、その位相から毎フレーム位置と拡大を計算する。
-        private void ShakeCard()
-        {
-            if (_characterCard == null)
-            {
-                return;
-            }
-
-            _shakeTween?.Kill();
-
-            float amplitude = UnityEngine.Random.Range(9f, 13f);
-            float sign = (UnityEngine.Random.value < 0.5f) ? -1f : 1f;
-
-            _shakePhase = 1f;
-            ApplyShake(1f, amplitude, sign);
-
-            _shakeTween = DOTween.To(
-                    () => _shakePhase,
-                    p =>
-                    {
-                        _shakePhase = p;
-                        ApplyShake(p, amplitude, sign);
-                    },
-                    0f,
-                    0.4f)
-                .SetEase(Ease.Linear);
-        }
-
-        // 位相 phase（1→0）から、減衰する小刻み振動（がたがた）と減衰する拡大（パンチ）を適用する。
-        private void ApplyShake(float phase, float amplitude, float sign)
-        {
-            if (_characterCard == null)
-            {
-                return;
-            }
-
-            // phase を減衰係数に使い、揺れ幅・拡大量ともに 0 へ収束させる。
-            float offsetX = sign * amplitude * phase * Mathf.Sin(phase * 42f);
-            float offsetY = amplitude * 0.6f * phase * Mathf.Cos(phase * 38f);
-            _characterCard.style.translate = new Translate(
-                new Length(offsetX, LengthUnit.Pixel),
-                new Length(offsetY, LengthUnit.Pixel));
-
-            float punch = 1f + 0.16f * phase;
-            _characterCard.style.scale = new Scale(new Vector3(punch, punch, 1f));
-        }
-
-        private void OnTapClicked()
-        {
-            _tap.Tap();
-            ShakeCard();
-            PlaySe(_soundStore?.Enter2SE);
-        }
-
-        private void OnCloseClicked()
-        {
-            // 結果を起動側（Main）へ返す。これを受けて MiniGameLauncher がシーンをアンロードする。
-            _session.Report(_tap.TapCount.CurrentValue);
-        }
-
-        private void PlaySe(AudioClip clip)
-        {
-            if (_soundPlayer != null && clip != null)
-            {
-                _soundPlayer.PlaySE(clip);
             }
         }
 
