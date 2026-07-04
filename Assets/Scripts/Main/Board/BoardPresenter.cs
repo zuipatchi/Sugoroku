@@ -23,10 +23,14 @@ namespace Main.Board
     [RequireComponent(typeof(UIDocument))]
     public sealed class BoardPresenter : MonoBehaviour
     {
-        // 縦画面（ポートレート）向けに、幅より高さの大きい縦長リングにする（列 < 行）。周回マス数は 2*列+2*行-4。
+        // 盤面データ（形・経路・イベント・見た目）。未割り当てなら下の _columns/_rows から矩形リングを生成する。
+        [SerializeField] private BoardDefinition _definition;
+        // _definition 未割り当て時のフォールバック用。縦画面向けに幅より高さの大きい縦長リング（列 < 行）。周回マス数は 2*列+2*行-4。
         [SerializeField] private int _columns = 5;
         [SerializeField] private int _rows = 7;
         [SerializeField] private float _stepInterval = 0.18f;
+        // マスの一辺をマス中心間隔の何割にするか。1 未満にすると隣接マスの間に隙間が空き、そこを接続線でつなぐ。
+        [SerializeField, Range(0.3f, 1f)] private float _cellFillRatio = 0.62f;
 
         private BoardModel _model;
         private SoundStore _soundStore;
@@ -36,13 +40,19 @@ namespace Main.Board
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
+        private VisualElement _linesElement;
         private VisualElement[] _cells;
         private VisualElement[] _pieces;
         private Sprite[] _pieceIcons;
         private Label _clearLabel;
+        private BoardDefinition _boardDef;
+        private bool _ownsBoardDef;
+        private int _gridColumns;
+        private int _gridRows;
         private int _cellCount;
         private int _pieceCount;
         private bool _cellsBuilt;
+        private bool _cellIconLoadStarted;
         private bool _piecesBuilt;
         private bool _iconLoadStarted;
         private CharacterId? _cpuCharacter;
@@ -121,6 +131,40 @@ namespace Main.Board
                 }
             }
             _iconHandles.Clear();
+
+            // フォールバックで生成した盤面データ（アセットではない）は明示的に破棄する。
+            if (_ownsBoardDef && _boardDef != null)
+            {
+                Destroy(_boardDef);
+                _boardDef = null;
+            }
+        }
+
+        /// <summary>
+        /// 描画に使う盤面データを解決する。アセット（<see cref="_definition"/>）が割り当てられていればそれを、
+        /// 無ければ <see cref="_columns"/>/<see cref="_rows"/> から従来の矩形リングを生成して使う。
+        /// </summary>
+        private void ResolveDefinition()
+        {
+            if (_boardDef != null)
+            {
+                return;
+            }
+
+            if (_definition != null && _definition.CellCount > 0)
+            {
+                _boardDef = _definition;
+                _ownsBoardDef = false;
+            }
+            else
+            {
+                _boardDef = BoardDefinition.CreateRectangular(_columns, _rows);
+                _ownsBoardDef = true;
+            }
+
+            _gridColumns = _boardDef.GridColumns;
+            _gridRows = _boardDef.GridRows;
+            _cellCount = _boardDef.CellCount;
         }
 
         private void BuildCells()
@@ -145,12 +189,21 @@ namespace Main.Board
                 return;
             }
 
+            ResolveDefinition();
+
             _cellsBuilt = true;
-            _cellCount = BoardMath.PerimeterCellCount(_columns, _rows);
             _cells = new VisualElement[_cellCount];
+
+            // マス同士をつなぐ接続線。マス・コマより先に追加して背後に描く。
+            _linesElement = new VisualElement();
+            _linesElement.AddToClassList("board-lines");
+            _linesElement.pickingMode = PickingMode.Ignore;
+            _linesElement.generateVisualContent += DrawConnectingLines;
+            _boardArea.Add(_linesElement);
 
             for (int i = 0; i < _cellCount; i++)
             {
+                BoardCellDefinition definition = _boardDef.Cell(i);
                 VisualElement cell = new();
                 cell.AddToClassList("board-cell");
                 cell.pickingMode = PickingMode.Ignore;
@@ -163,15 +216,91 @@ namespace Main.Board
                 {
                     cell.Add(new Label(i.ToString()) { pickingMode = PickingMode.Ignore });
                 }
+                ApplyCellAppearance(cell, definition);
                 PlaceAtCell(cell, i);
                 _boardArea.Add(cell);
                 _cells[i] = cell;
             }
 
+            StartLoadingCellIcons();
+
             // リング領域をグリッドのアスペクト比に合わせて中央配置する。画面比が変わっても
             // マスが均等に並ぶよう、レイアウト確定（と以後のリサイズ）のたびに再計算する。
             _boardArea.parent.RegisterCallback<GeometryChangedEvent>(_ => LayoutBoardArea());
             LayoutBoardArea();
+        }
+
+        /// <summary>マスの塗り色・イベント表示を <paramref name="definition"/> に合わせて設定する。</summary>
+        private void ApplyCellAppearance(VisualElement cell, BoardCellDefinition definition)
+        {
+            if (definition.HasCustomColor)
+            {
+                cell.style.backgroundColor = definition.Color;
+            }
+
+            string marker = EventMarker(definition);
+            if (marker == null)
+            {
+                return;
+            }
+
+            Label eventLabel = new(marker) { pickingMode = PickingMode.Ignore };
+            eventLabel.AddToClassList("board-cell__event");
+            cell.Add(eventLabel);
+        }
+
+        /// <summary>イベントをマス上に表示する短い記号。<see cref="BoardCellEvent.None"/> なら null。</summary>
+        private static string EventMarker(BoardCellDefinition definition)
+        {
+            switch (definition.Event)
+            {
+                case BoardCellEvent.Forward:
+                    return $"▲{definition.Amount}";
+                case BoardCellEvent.Back:
+                    return $"▼{definition.Amount}";
+                case BoardCellEvent.Rest:
+                    return "休";
+                case BoardCellEvent.MiniGame:
+                    return "MG";
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>アイコンアドレスを持つマスの画像を Addressables から読み込んで貼り付ける（1 度だけ）。</summary>
+        private void StartLoadingCellIcons()
+        {
+            if (_cellIconLoadStarted || _boardDef == null)
+            {
+                return;
+            }
+            _cellIconLoadStarted = true;
+            LoadCellIconsAsync(_destroyCt).Forget();
+        }
+
+        private async UniTaskVoid LoadCellIconsAsync(CancellationToken ct)
+        {
+            try
+            {
+                for (int i = 0; i < _cellCount; i++)
+                {
+                    BoardCellDefinition definition = _boardDef.Cell(i);
+                    if (!definition.HasIcon)
+                    {
+                        continue;
+                    }
+                    Sprite sprite = await TryLoadSpriteAsync(definition.IconAddress, ct);
+                    if (sprite == null || _cells == null || i >= _cells.Length || _cells[i] == null)
+                    {
+                        continue;
+                    }
+                    _cells[i].style.backgroundImage = new StyleBackground(sprite);
+                    _cells[i].AddToClassList("board-cell--icon");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         /// <summary>
@@ -201,27 +330,32 @@ namespace Main.Board
             float availableWidth = containerWidth - marginX * 2f;
             float availableHeight = containerHeight - marginTop - marginBottom;
 
-            // グリッドのアスペクト比 (列-1):(行-1) を保って利用可能領域に内接させる。
-            float aspect = (float)(_columns - 1) / (_rows - 1); // 幅 / 高さ
-            float areaWidth = availableWidth;
-            float areaHeight = areaWidth / aspect;
-            if (areaHeight > availableHeight)
-            {
-                areaHeight = availableHeight;
-                areaWidth = areaHeight * aspect;
-            }
+            // マス中心間隔 spacing を、マスの実寸まで含めた盤面が利用可能領域に収まるように決める。
+            // 最外周マスは領域端から半マス（= spacing * _cellFillRatio / 2）ずつ外へはみ出すので、
+            // 端の 1 マスぶん（両側で _cellFillRatio）を余分に見込む。これで画面端に余白が残る。
+            float spanColumns = (_gridColumns - 1) + _cellFillRatio;
+            float spanRows = (_gridRows - 1) + _cellFillRatio;
+            float spacing = Mathf.Min(availableWidth / spanColumns, availableHeight / spanRows);
 
-            _boardArea.style.left = (containerWidth - areaWidth) * 0.5f;
-            _boardArea.style.top = marginTop + (availableHeight - areaHeight) * 0.5f;
+            float cellSize = spacing * _cellFillRatio;
+            float areaWidth = spacing * (_gridColumns - 1);   // リング領域＝マス中心の矩形
+            float areaHeight = spacing * (_gridRows - 1);
+            float boundingWidth = areaWidth + cellSize;        // マスの実寸まで含めた見た目の外形
+            float boundingHeight = areaHeight + cellSize;
+
+            // 外形を余白内で中央寄せし、リング領域（マス中心の矩形）は半マス内側へ置く。
+            _boardArea.style.left = (containerWidth - boundingWidth) * 0.5f + cellSize * 0.5f;
+            _boardArea.style.top = marginTop + (availableHeight - boundingHeight) * 0.5f + cellSize * 0.5f;
             _boardArea.style.width = areaWidth;
             _boardArea.style.height = areaHeight;
 
-            // 隣り合うマスがぴったり接するよう、マスの一辺をマス中心間隔に合わせる。
-            // リング領域はアスペクト比 (列-1):(行-1) を保つので横間隔＝縦間隔で一定になる。
-            ResizeCells(areaWidth / (_columns - 1));
+            ResizeCells(cellSize);
+
+            // 接続線はマス中心を結ぶので、領域サイズが変わったら再描画する。
+            _linesElement?.MarkDirtyRepaint();
         }
 
-        /// <summary>各マスの一辺を <paramref name="cellSize"/>（マス中心間隔）に合わせ、隣接マスを接触させる。</summary>
+        /// <summary>各マスの一辺を <paramref name="cellSize"/> に合わせる（マス中心間隔より小さくして隙間を作る）。</summary>
         private void ResizeCells(float cellSize)
         {
             if (_cells == null || cellSize <= 0f)
@@ -237,6 +371,46 @@ namespace Main.Board
                 cell.style.width = cellSize;
                 cell.style.height = cellSize;
             }
+        }
+
+        /// <summary>マス中心を経路順に結ぶ接続線を描く（最後のマスからスタートへ戻ってループを閉じる）。</summary>
+        private void DrawConnectingLines(MeshGenerationContext context)
+        {
+            if (_boardDef == null || _cellCount < 2)
+            {
+                return;
+            }
+
+            Rect content = context.visualElement.contentRect;
+            if (content.width <= 0f || content.height <= 0f)
+            {
+                return;
+            }
+
+            float spacing = _gridColumns > 1 ? content.width / (_gridColumns - 1) : content.width;
+            Painter2D painter = context.painter2D;
+            painter.lineWidth = Mathf.Clamp(spacing * 0.1f, 2f, 8f);
+            painter.strokeColor = new Color(1f, 1f, 1f, 0.35f);
+            painter.lineCap = LineCap.Round;
+            painter.lineJoin = LineJoin.Round;
+
+            painter.BeginPath();
+            painter.MoveTo(CellCenterPixels(0, content));
+            for (int i = 1; i < _cellCount; i++)
+            {
+                painter.LineTo(CellCenterPixels(i, content));
+            }
+            painter.LineTo(CellCenterPixels(0, content)); // ループを閉じる
+            painter.Stroke();
+        }
+
+        /// <summary>マス <paramref name="index"/> の中心を、線描画領域 <paramref name="content"/> 内のピクセル座標で返す。</summary>
+        private Vector2 CellCenterPixels(int index, Rect content)
+        {
+            Vector2Int grid = _boardDef.Cell(index).Grid;
+            float x = _gridColumns > 1 ? grid.x / (float)(_gridColumns - 1) * content.width : content.width * 0.5f;
+            float y = _gridRows > 1 ? grid.y / (float)(_gridRows - 1) * content.height : content.height * 0.5f;
+            return new Vector2(x, y);
         }
 
         /// <summary>
@@ -299,7 +473,7 @@ namespace Main.Board
                 {
                     CharacterId id = ResolveCharacter(player);
                     string address = CharacterCatalog.Find(id).PieceIconAddress;
-                    Sprite sprite = await TryLoadPieceIconAsync(address, ct);
+                    Sprite sprite = await TryLoadSpriteAsync(address, ct);
                     if (sprite == null)
                     {
                         continue; // 未配置のキャラは従来の色コマにフォールバック
@@ -339,7 +513,7 @@ namespace Main.Board
             return all[(humanIndex + offset) % all.Count].Id;
         }
 
-        private async UniTask<Sprite> TryLoadPieceIconAsync(string address, CancellationToken ct)
+        private async UniTask<Sprite> TryLoadSpriteAsync(string address, CancellationToken ct)
         {
             AsyncOperationHandle<Sprite> handle = default;
             try
@@ -359,7 +533,7 @@ namespace Main.Board
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"コマ画像 '{address}' のロードに失敗。色コマ表示にします: {e.Message}");
+                Debug.LogWarning($"盤面画像 '{address}' のロードに失敗。色表示にフォールバックします: {e.Message}");
                 if (handle.IsValid())
                 {
                     Addressables.Release(handle);
@@ -422,9 +596,13 @@ namespace Main.Board
         /// <summary>マス index <paramref name="index"/> の中心（%座標）に要素を配置する。</summary>
         private void PlaceAtCell(VisualElement element, int index)
         {
-            (int column, int row) = BoardMath.CellGridPosition(index, _columns, _rows);
-            float left = _columns > 1 ? column / (float)(_columns - 1) * 100f : 50f;
-            float top = _rows > 1 ? row / (float)(_rows - 1) * 100f : 50f;
+            if (_boardDef == null || index < 0 || index >= _boardDef.CellCount)
+            {
+                return;
+            }
+            Vector2Int grid = _boardDef.Cell(index).Grid;
+            float left = _gridColumns > 1 ? grid.x / (float)(_gridColumns - 1) * 100f : 50f;
+            float top = _gridRows > 1 ? grid.y / (float)(_gridRows - 1) * 100f : 50f;
             element.style.left = Length.Percent(left);
             element.style.top = Length.Percent(top);
         }
