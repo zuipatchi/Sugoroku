@@ -7,13 +7,14 @@ namespace Common.Character
     /// </summary>
     public sealed class CharacterDefinition
     {
-        public CharacterDefinition(CharacterId id, string displayName, string cardAddress, string pieceIconAddress, string portraitAddress)
+        public CharacterDefinition(CharacterId id, string displayName, string cardAddress, string pieceIconAddress, string portraitAddress, string runAddress)
         {
             Id = id;
             DisplayName = displayName;
             CardAddress = cardAddress;
             PieceIconAddress = pieceIconAddress;
             PortraitAddress = portraitAddress;
+            RunAddress = runAddress;
         }
 
         public CharacterId Id { get; }
@@ -29,6 +30,9 @@ namespace Common.Character
 
         /// <summary>選択時に表示する大きい立ち絵の Addressable アドレス。未配置ならプレースホルダ表示にフォールバックする。</summary>
         public string PortraitAddress { get; }
+
+        /// <summary>2D レースミニゲームで使う走行スプライトの Addressable アドレス。未配置ならプレースホルダ（色面）にフォールバックする。</summary>
+        public string RunAddress { get; }
     }
 
     /// <summary>
@@ -39,14 +43,14 @@ namespace Common.Character
     {
         public static readonly IReadOnlyList<CharacterDefinition> All = new[]
         {
-            new CharacterDefinition(CharacterId.Character1, "のらどっく", "Character/Character1/Card", "Character/Character1/Icon", "Character/Character1/Portrait"),
-            new CharacterDefinition(CharacterId.Character2, "ザニザニマン", "Character/Character2/Card", "Character/Character2/Icon", "Character/Character2/Portrait"),
-            new CharacterDefinition(CharacterId.Character3, "D.O.M", "Character/Character3/Card", "Character/Character3/Icon", "Character/Character3/Portrait"),
-            new CharacterDefinition(CharacterId.Character4, "アリマ", "Character/Character4/Card", "Character/Character4/Icon", "Character/Character4/Portrait"),
-            new CharacterDefinition(CharacterId.Character5, "モナカ", "Character/Character5/Card", "Character/Character5/Icon", "Character/Character5/Portrait"),
-            new CharacterDefinition(CharacterId.Character6, "ずいさん", "Character/Character6/Card", "Character/Character6/Icon", "Character/Character6/Portrait"),
-            new CharacterDefinition(CharacterId.Character7, "釈迦パッチ", "Character/Character7/Card", "Character/Character7/Icon", "Character/Character7/Portrait"),
-            new CharacterDefinition(CharacterId.Character8, "タロー", "Character/Character8/Card", "Character/Character8/Icon", "Character/Character8/Portrait"),
+            new CharacterDefinition(CharacterId.Character1, "のらどっく", "Character/Character1/Card", "Character/Character1/Icon", "Character/Character1/Portrait", "Image/BirdRun"),
+            new CharacterDefinition(CharacterId.Character2, "ザニザニマン", "Character/Character2/Card", "Character/Character2/Icon", "Character/Character2/Portrait", "Image/CatRun"),
+            new CharacterDefinition(CharacterId.Character3, "D.O.M", "Character/Character3/Card", "Character/Character3/Icon", "Character/Character3/Portrait", "Image/CattleRun"),
+            new CharacterDefinition(CharacterId.Character4, "アリマ", "Character/Character4/Card", "Character/Character4/Icon", "Character/Character4/Portrait", "Image/ChameleonRun"),
+            new CharacterDefinition(CharacterId.Character5, "モナカ", "Character/Character5/Card", "Character/Character5/Icon", "Character/Character5/Portrait", "Image/CrayfishRun"),
+            new CharacterDefinition(CharacterId.Character6, "ずいさん", "Character/Character6/Card", "Character/Character6/Icon", "Character/Character6/Portrait", "Image/DogRun"),
+            new CharacterDefinition(CharacterId.Character7, "釈迦パッチ", "Character/Character7/Card", "Character/Character7/Icon", "Character/Character7/Portrait", "Image/DragonRun"),
+            new CharacterDefinition(CharacterId.Character8, "タロー", "Character/Character8/Card", "Character/Character8/Icon", "Character/Character8/Portrait", "Image/HorseRun"),
         };
 
         /// <summary>既定（先頭）のキャラクター。</summary>

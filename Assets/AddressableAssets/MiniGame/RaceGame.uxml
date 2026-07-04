@@ -1,0 +1,37 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="RaceGame.uss" />
+    <ui:VisualElement name="RaceRoot" class="race-root">
+        <ui:Label text="2Dレース" name="TitleLabel" class="race-title" />
+
+        <ui:VisualElement name="Track" class="race-track">
+            <ui:VisualElement name="FinishLine" class="race-finish" picking-mode="Ignore" />
+            <ui:VisualElement name="PlayerLane" class="race-lane">
+                <ui:Label text="YOU" class="race-lane__tag race-lane__tag--player" />
+                <ui:VisualElement name="PlayerRunner" class="race-runner" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="CpuLane" class="race-lane">
+                <ui:Label text="CPU" class="race-lane__tag race-lane__tag--cpu" />
+                <ui:VisualElement name="CpuRunner" class="race-runner" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:Label text="3" name="CountdownLabel" class="race-countdown" />
+        <ui:Label text="" name="JudgeLabel" class="race-judge" />
+
+        <ui:VisualElement name="MeterPanel" class="race-meter" picking-mode="Ignore">
+            <ui:VisualElement name="MeterBar" class="race-meter__bar" picking-mode="Ignore">
+                <ui:VisualElement name="MeterGood" class="race-meter__good" picking-mode="Ignore" />
+                <ui:VisualElement name="MeterGreat" class="race-meter__great" picking-mode="Ignore" />
+                <ui:VisualElement name="MeterMarker" class="race-meter__marker" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:Label text="タップでメーターを止めろ！" class="race-meter__hint" />
+        </ui:VisualElement>
+
+        <ui:Button name="TapButton" class="race-tap-button" />
+
+        <ui:VisualElement name="ResultPanel" class="race-result">
+            <ui:Label text="結果" name="ResultLabel" class="race-result__label" />
+            <ui:Button name="CloseButton" text="結果を反映" class="race-close-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

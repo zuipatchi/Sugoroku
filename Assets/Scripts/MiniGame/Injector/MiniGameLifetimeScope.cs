@@ -1,3 +1,4 @@
+using MiniGame.RaceGame;
 using MiniGame.TapGame;
 using VContainer;
 using VContainer.Unity;
@@ -10,6 +11,8 @@ namespace MiniGame.Injector
         protected override void Configure(IContainerBuilder builder)
         {
             builder.Register<TapGameModel>(Lifetime.Scoped);
+            builder.Register<RaceGameModel>(Lifetime.Scoped);
+            builder.Register<RaceGamePlay>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<MiniGameHostPresenter>().AsSelf();
         }
     }

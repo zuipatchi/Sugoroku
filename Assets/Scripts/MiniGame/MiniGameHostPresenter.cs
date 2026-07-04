@@ -7,6 +7,7 @@ using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using MiniGame.RaceGame;
 using MiniGame.TapGame;
 using R3;
 using UnityEngine;
@@ -32,6 +33,7 @@ namespace MiniGame
 
         private MiniGameSessionModel _session;
         private TapGameModel _tap;
+        private RaceGamePlay _race;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
         private CharacterSessionModel _characterSession;
@@ -58,12 +60,14 @@ namespace MiniGame
         public void Construct(
             MiniGameSessionModel session,
             TapGameModel tap,
+            RaceGamePlay race,
             SoundStore soundStore,
             SoundPlayer soundPlayer,
             CharacterSessionModel characterSession)
         {
             _session = session;
             _tap = tap;
+            _race = race;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _characterSession = characterSession;
@@ -88,23 +92,13 @@ namespace MiniGame
             {
                 Addressables.Release(_cardHandle);
             }
+            // RaceGamePlay は DI（Scoped）が所有・破棄するためここでは触らない。
             _disposables.Dispose();
         }
 
         // SceneTransitioner / MiniGameLauncher がフェードイン前に待つ。
         // UI 構築（Addressables ロード）が終わってから画面を見せる。
         public async UniTask ReadyAsync(CancellationToken ct)
-        {
-            await BuildUiAsync(ct);
-            if (!_uiReady)
-            {
-                return;
-            }
-            // フェードイン後に演出が始まるよう、ゲーム進行はリードインを挟んで別タスクで走らせる。
-            GameLoopAsync(_destroyCt).Forget();
-        }
-
-        private async UniTask BuildUiAsync(CancellationToken ct)
         {
             VisualElement root = _uiDocument.rootVisualElement;
             if (root == null)
@@ -120,6 +114,39 @@ namespace MiniGame
             root.Clear();
             tree.CloneTree(root);
 
+            // CurrentGame でゲームごとの分岐へ。Race は専用の RaceGamePlay へ委譲する。
+            if (_session.CurrentGame == MiniGameId.Race)
+            {
+                await _race.BuildAsync(root, ct);
+                // フェードイン後にプレイ入力の待機・進行が始まるよう別タスクで走らせる。
+                ReportRaceAsync(_destroyCt).Forget();
+                return;
+            }
+
+            BuildTapUi(root);
+            if (!_uiReady)
+            {
+                return;
+            }
+            await ApplyCharacterCardAsync(ct);
+            // フェードイン後に演出が始まるよう、ゲーム進行はリードインを挟んで別タスクで走らせる。
+            GameLoopAsync(_destroyCt).Forget();
+        }
+
+        private async UniTaskVoid ReportRaceAsync(CancellationToken ct)
+        {
+            try
+            {
+                int score = await _race.RunAsync(ct);
+                _session.Report(score);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        private void BuildTapUi(VisualElement root)
+        {
             _timerLabel = root.Q<Label>("TimerLabel");
             _countLabel = root.Q<Label>("CountLabel");
             _centerLabel = root.Q<Label>("CenterLabel");
@@ -134,8 +161,6 @@ namespace MiniGame
                 Debug.LogError("TapGame の UI 要素が見つかりませんでした。");
                 return;
             }
-
-            await ApplyCharacterCardAsync(ct);
 
             _tapButton.clicked += OnTapClicked;
             _closeButton.clicked += OnCloseClicked;

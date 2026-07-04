@@ -110,6 +110,51 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a1b2c3d4e5f60718293a4b5c6d7e8f90
+    m_Address: MiniGame/RaceGame
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: deb6fec6c5acc054395221b9215549e5
+    m_Address: Image/BirdRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ad904927bf3f8bf40b1ea0c2bdcc15d1
+    m_Address: Image/CatRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2d78966c2919703428890f9310e27297
+    m_Address: Image/CattleRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ac06208370c95a34793f77dabf3a231e
+    m_Address: Image/ChameleonRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: daff4a9874134e34185f21899dac6cf2
+    m_Address: Image/CrayfishRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2ed41ad7b64eb9045a2073820dce97ab
+    m_Address: Image/DogRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a450d432e1c26ac4e92555c6afaabe42
+    m_Address: Image/DragonRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 12f2852a6b123f5438e24c391fa50e82
+    m_Address: Image/HorseRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e2da3b54201021a4ca0b48b4e7ed0105
     m_Address: Sound/SE/Enter1
     m_ReadOnly: 0

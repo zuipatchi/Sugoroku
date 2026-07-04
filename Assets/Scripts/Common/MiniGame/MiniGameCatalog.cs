@@ -33,6 +33,7 @@ namespace Common.MiniGame
         public static readonly IReadOnlyList<MiniGameDefinition> All = new[]
         {
             new MiniGameDefinition(MiniGameId.Tap, "タップ連打", "MiniGame/TapGame"),
+            new MiniGameDefinition(MiniGameId.Race, "2Dレース", "MiniGame/RaceGame"),
         };
 
         public static MiniGameDefinition Find(MiniGameId id)
