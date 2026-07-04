@@ -8,8 +8,6 @@ using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 
@@ -37,7 +35,7 @@ namespace Home.Presenter
         private VisualElement _creditOverlay;
         private bool _transiting;
 
-        private readonly List<AsyncOperationHandle<Sprite>> _handles = new();
+        private readonly AddressableSpriteLoader _spriteLoader = new();
         private UniTask _backgroundInitTask;
         private bool _backgroundInitStarted;
 
@@ -131,7 +129,7 @@ namespace Home.Presenter
                 int index = UnityEngine.Random.Range(0, all.Count);
                 CharacterDefinition definition = all[index];
 
-                Sprite card = await TryLoadAsync(definition.CardAddress, ct);
+                Sprite card = await _spriteLoader.TryLoadAsync(definition.CardAddress, "カード画像", ct);
 
                 if (this == null)
                 {
@@ -145,48 +143,13 @@ namespace Home.Presenter
                 else
                 {
                     // カード未配置時は色面プレースホルダ。
-                    heroImage.style.backgroundColor = PlaceholderColor(index, all.Count);
+                    heroImage.style.backgroundColor = CharacterPalette.PlaceholderColor(index, all.Count);
                 }
             }
             catch (OperationCanceledException)
             {
                 // シーン破棄時のキャンセル。ハンドルは OnDestroy で解放する。
             }
-        }
-
-        private async UniTask<Sprite> TryLoadAsync(string address, CancellationToken ct)
-        {
-            AsyncOperationHandle<Sprite> handle = default;
-            try
-            {
-                handle = Addressables.LoadAssetAsync<Sprite>(address);
-                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
-                _handles.Add(handle);
-                return sprite;
-            }
-            catch (OperationCanceledException)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"カード画像 '{address}' のロードに失敗。プレースホルダ表示にします: {e.Message}");
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                return null;
-            }
-        }
-
-        private static Color PlaceholderColor(int index, int count)
-        {
-            float hue = (count <= 0) ? 0f : (float)index / count;
-            return Color.HSVToRGB(hue, 0.45f, 0.65f);
         }
 
         private void OnSinglePlayerClicked()
@@ -235,14 +198,7 @@ namespace Home.Presenter
 
         private void OnDestroy()
         {
-            foreach (AsyncOperationHandle<Sprite> handle in _handles)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-            _handles.Clear();
+            _spriteLoader.Dispose();
         }
     }
 }

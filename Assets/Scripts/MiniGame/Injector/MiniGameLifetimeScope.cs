@@ -11,6 +11,7 @@ namespace MiniGame.Injector
         protected override void Configure(IContainerBuilder builder)
         {
             builder.Register<TapGameModel>(Lifetime.Scoped);
+            builder.Register<TapGamePlay>(Lifetime.Scoped);
             builder.Register<RaceGameModel>(Lifetime.Scoped);
             builder.Register<RaceGamePlay>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<MiniGameHostPresenter>().AsSelf();

@@ -5,12 +5,9 @@ using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
-using DG.Tweening;
 using Main.Board;
 using R3;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 using Random = UnityEngine.Random;
@@ -18,35 +15,15 @@ using Random = UnityEngine.Random;
 namespace Main.Roulette
 {
     /// <summary>
-    /// 円盤ルーレットの UI。Painter2D で円盤を描画し、<see cref="Update"/> で角速度を加減速して回転させる。
-    /// ボタンを押し続けている間は加速、離すと減速して自然に停止し、針の真下のセクターが出目になる。
+    /// 円盤ルーレットの UI。手番連携 API（<see cref="SetInteractable"/>／<see cref="WaitForManualSpinAsync"/>／
+    /// <see cref="AutoSpinAsync"/>／<see cref="WaitForHideAsync"/>）と R3 購読・UI 要素の組み立てを担い、
+    /// 円盤描画は <see cref="RouletteWheelRenderer"/>、回転の角速度シミュレーションは <see cref="RouletteSpinPhysics"/>、
+    /// キャラアイコンのロードは <see cref="RouletteIconLoader"/>、DOTween 演出は <see cref="RouletteEffects"/> に委譲する。
     /// 状態遷移は <see cref="RouletteModel"/> が担い、出目の算出（停止角度 → セクター）はここで行う。
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public sealed class RoulettePresenter : MonoBehaviour
     {
-        // ポップなボードゲーム調の配色。セクター色は数字ごとに HSV で虹色に振り分ける（_sectorCount に追随）。
-        private static readonly Color _dividerColor = new(1f, 1f, 1f, 0.9f);
-        private static readonly Color _ringColor = new(1f, 1f, 1f, 0.95f);
-        private static readonly Color _winOutlineColor = new(235f / 255f, 200f / 255f, 90f / 255f);
-        private static readonly Color _hubOuterColor = new(45f / 255f, 45f / 255f, 70f / 255f);
-        private static readonly Color _hubInnerColor = new(245f / 255f, 245f / 255f, 250f / 255f);
-        private static readonly Color _hubAccentColor = new(235f / 255f, 200f / 255f, 90f / 255f);
-        // キャラアイコンの下地（コイン風）。白い座面をゴールドのリングで縁取り、虹色セクター上でアバターを浮き立たせる。
-        private static readonly Color _coinBaseColor = new(250f / 255f, 250f / 255f, 252f / 255f);
-        private static readonly Color _coinRingColor = new(235f / 255f, 200f / 255f, 90f / 255f);
-
-        // セクター中心線上でのアバター配置半径（円盤半径に対する比）。数字はアバターの子バッジなので独立配置は不要。
-        private const float IconRadiusFactor = 0.62f;
-        // 隣のコインと重ならないよう、コイン直径を隣接中心間距離（弦長）のこの割合までに収める。
-        private const float CoinChordFillRatio = 0.88f;
-        // セクター数が少ないときにコインが大きくなりすぎないよう、直径を円盤半径のこの割合で頭打ちにする。
-        private const float CoinDiameterCapRatio = 0.62f;
-        // 白座面の外に出すゴールドリングの太さ（px）。
-        private const float CoinRingWidth = 3f;
-        // アバター画像はコイン白座面のさらに内側に収める割合。
-        private const float AvatarInsetRatio = 0.84f;
-
         [SerializeField] private int _sectorCount = 8;
         [Tooltip("押し始めの初速（度/秒）。一瞬のタップでも最低これだけ回る。")]
         [SerializeField] private float _minSpinSpeed = 360f;
@@ -81,22 +58,17 @@ namespace Main.Roulette
         private readonly ReactiveProperty<bool> _visible = new(false);
         // 各セクターに貼るキャラアイコン（コイン）。円盤の子として一緒に周回し、逆回転で正立を保つ。数字は各アイコンの子バッジ。
         private readonly List<VisualElement> _characterIcons = new();
-        private readonly List<AsyncOperationHandle<Sprite>> _iconHandles = new();
+        private readonly RouletteIconLoader _iconLoader = new();
         private readonly CompositeDisposable _disposables = new();
 
-        private float _currentRotation;
+        // 分割した協調クラス。renderer/physics はシリアライズ値が確定した Awake で、effects は UI 要素取得後（OnEnable）で生成する。
+        private RouletteWheelRenderer _wheelRenderer;
+        private RouletteSpinPhysics _spinPhysics;
+        private RouletteEffects _effects;
+
+        // ティック演出（セクター境界の通過検出）用に、前フレームで表示へ反映した角度を覚えておく。
         private float _lastAngle;
-        private float _angularVelocity;
-        private bool _isHolding;
-        // 離した瞬間の速度と、停止までの経過・目標時間。ease-out 減速に使う。
-        private float _decelStartVelocity;
-        private float _decelElapsed;
-        private float _stopDuration;
-        private Tween _pointerBounceTween;
-        private Tween _wheelPulseTween;
-        private Tween _resultTween;
         private bool _wheelBuilt;
-        private int _highlightIndex = -1;
         // 手番制御。ゲーム進行（GameFlowController）が現在の手番プレイヤーに応じて切り替える。
         // false の間は手動スピン不可（CPU の番・自分の番でないときなど）。
         private bool _turnInteractable;
@@ -119,7 +91,7 @@ namespace Main.Roulette
                 if (_resultLabel != null && value > 0)
                 {
                     _resultLabel.text = $"出た目: {value}";
-                    PlayResultLabelPop();
+                    _effects?.PlayResultLabelPop();
                 }
             }));
 
@@ -132,6 +104,8 @@ namespace Main.Roulette
         private void Awake()
         {
             _uiDocument = GetComponent<UIDocument>();
+            _wheelRenderer = new RouletteWheelRenderer(_sectorCount);
+            _spinPhysics = new RouletteSpinPhysics(_minSpinSpeed, _maxSpinSpeed, _spinAcceleration);
         }
 
         private void OnEnable()
@@ -156,6 +130,9 @@ namespace Main.Roulette
                 return;
             }
 
+            // 再有効化で UI 要素を取り直すため、演出も現在の要素で作り直す（前回の Tween は OnDisable で Kill 済み）。
+            _effects = new RouletteEffects(_wheel, _pointer, _resultLabel);
+
             BuildWheel();
             // 初期は隠しておく（回し始めるまで盤面を見せる）。State 購読（Construct）でも同期される。
             SetRouletteVisible(false);
@@ -170,15 +147,9 @@ namespace Main.Roulette
 
         private void OnDisable()
         {
-            _isHolding = false;
-            _angularVelocity = 0f;
+            _spinPhysics?.Halt();
             CancelPendingHide();
-            _pointerBounceTween?.Kill();
-            _pointerBounceTween = null;
-            _wheelPulseTween?.Kill();
-            _wheelPulseTween = null;
-            _resultTween?.Kill();
-            _resultTween = null;
+            _effects?.KillAll();
             if (_spinButton != null)
             {
                 _spinButton.UnregisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
@@ -191,14 +162,7 @@ namespace Main.Roulette
         {
             CancelPendingHide();
             _disposables.Dispose();
-            foreach (AsyncOperationHandle<Sprite> handle in _iconHandles)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-            _iconHandles.Clear();
+            _iconLoader.ReleaseAll();
         }
 
         private void Update()
@@ -209,34 +173,13 @@ namespace Main.Roulette
                 return;
             }
 
-            float dt = Time.deltaTime;
-
-            if (_isHolding)
+            if (_spinPhysics.Tick(Time.deltaTime))
             {
-                // 押下中は加速。
-                _angularVelocity = Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * dt);
-            }
-            else
-            {
-                // 離したら、離した瞬間の速度から _stopDuration 秒かけて ease-out（終盤ほど緩やか）で 0 まで落とす。
-                // 停止までの時間は速度に依存しないため、すぐ離しても長押しから離しても止まり方の印象が揃う。
-                _decelElapsed += dt;
-                float u = _stopDuration > 0f ? Mathf.Clamp01(_decelElapsed / _stopDuration) : 1f;
-                _angularVelocity = _decelStartVelocity * (1f - u) * (1f - u);
-                if (u >= 1f)
-                {
-                    _angularVelocity = 0f;
-                }
-            }
-
-            if (_angularVelocity > 0f)
-            {
-                _currentRotation += _angularVelocity * dt;
-                ApplyAngle(_currentRotation);
+                ApplyAngle(_spinPhysics.CurrentRotation);
             }
 
             // 減速し切って速度が尽きたら停止して出目を確定する。
-            if (!_isHolding && _angularVelocity <= 0f)
+            if (_spinPhysics.HasStopped)
             {
                 FinalizeSpin();
             }
@@ -251,7 +194,7 @@ namespace Main.Roulette
             }
             _wheelBuilt = true;
 
-            _wheel.generateVisualContent += DrawWheel;
+            _wheel.generateVisualContent += _wheelRenderer.Draw;
 
             _characterIcons.Clear();
             for (int i = 0; i < _sectorCount; i++)
@@ -259,7 +202,7 @@ namespace Main.Roulette
                 // セクターごとのキャラアイコン（コイン）。画像ロード前はプレースホルダ色。
                 VisualElement icon = new() { pickingMode = PickingMode.Ignore };
                 icon.AddToClassList("roulette-character");
-                icon.style.backgroundColor = PlaceholderColor(i, _sectorCount);
+                icon.style.backgroundColor = CharacterPalette.PlaceholderColor(i, _sectorCount);
                 _wheel.Add(icon);
                 _characterIcons.Add(icon);
 
@@ -274,69 +217,7 @@ namespace Main.Roulette
             // レイアウト確定後にアイコン（コイン）を配置する。数字は子バッジなので一緒に付いてくる。
             _wheel.RegisterCallback<GeometryChangedEvent>(_ => PositionSectorContents());
             // キャラ画像は非同期ロード。破棄・遷移で自然に止まるよう destroyCancellationToken を渡す。
-            LoadCharacterIconsAsync(destroyCancellationToken).Forget();
-        }
-
-        // 各セクターのアイコンにキャラ画像を貼る。未配置・失敗はプレースホルダ色のまま残す。
-        private async UniTaskVoid LoadCharacterIconsAsync(CancellationToken ct)
-        {
-            for (int i = 0; i < _characterIcons.Count; i++)
-            {
-                CharacterId id = RouletteMath.CharacterForSector(i);
-                CharacterDefinition definition = CharacterCatalog.Find(id);
-                // コインには盤面コマと同じ丸バッジ画像（PieceIconAddress）を使う。
-                Sprite icon = await TryLoadIconAsync(definition.PieceIconAddress, ct);
-                if (icon != null)
-                {
-                    _characterIcons[i].style.backgroundImage = new StyleBackground(icon);
-                    // 画像を貼れたらプレースホルダ色は消す（透過部分に色が透けないように）。
-                    _characterIcons[i].style.backgroundColor = new StyleColor(Color.clear);
-                }
-            }
-        }
-
-        private async UniTask<Sprite> TryLoadIconAsync(string address, CancellationToken ct)
-        {
-            AsyncOperationHandle<Sprite> handle = default;
-            try
-            {
-                handle = Addressables.LoadAssetAsync<Sprite>(address);
-                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
-                _iconHandles.Add(handle);
-                return sprite;
-            }
-            catch (OperationCanceledException)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"ルーレットのキャラ画像 '{address}' のロードに失敗。プレースホルダ表示にします: {e.Message}");
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                return null;
-            }
-        }
-
-        private static Color PlaceholderColor(int index, int count)
-        {
-            float hue = (count <= 0) ? 0f : (float)index / count;
-            return Color.HSVToRGB(hue, 0.45f, 0.65f);
-        }
-
-        // 隣り合うコインが重ならないコイン直径（px）を、円盤半径とセクター数から求める。
-        // 隣接するアイコン中心間の弦長 = 2r·sin(π/n)。その一定割合をコイン直径とし、少数セクターでは上限で頭打ちにする。
-        private float CoinDiameter(float wheelRadius)
-        {
-            float iconRadius = wheelRadius * IconRadiusFactor;
-            float chord = 2f * iconRadius * Mathf.Sin(Mathf.PI / _sectorCount);
-            return Mathf.Min(chord * CoinChordFillRatio, wheelRadius * CoinDiameterCapRatio);
+            _iconLoader.LoadCharacterIconsAsync(_characterIcons, destroyCancellationToken).Forget();
         }
 
         // キャラアイコン（コイン）をセクター中心線上に配置し、セクター数に応じたサイズに整える。
@@ -352,10 +233,10 @@ namespace Main.Roulette
 
             Vector2 center = new(width * 0.5f, height * 0.5f);
             float radius = Mathf.Min(width, height) * 0.5f;
-            float iconRadius = radius * IconRadiusFactor;
+            float iconRadius = _wheelRenderer.IconRadius(radius);
             float sector = RouletteMath.SectorAngle(_sectorCount);
             // アバター画像はコイン白座面の内側に収める。コインの縁取り（ゴールド＋白）は Painter2D 側で描く。
-            float avatarSize = CoinDiameter(radius) * AvatarInsetRatio;
+            float avatarSize = _wheelRenderer.AvatarSize(radius);
 
             for (int i = 0; i < _characterIcons.Count; i++)
             {
@@ -374,7 +255,7 @@ namespace Main.Roulette
             }
 
             // 停止中も現在の回転ぶん逆回転させて、アイコンの顔（と子の数字）を正立させておく。
-            CounterRotateCharacterIcons(_currentRotation);
+            CounterRotateCharacterIcons(_spinPhysics.CurrentRotation);
         }
 
         // 4 隅の border-radius をまとめて設定して円形にする。
@@ -397,152 +278,6 @@ namespace Main.Roulette
             }
         }
 
-        private void DrawWheel(MeshGenerationContext mgc)
-        {
-            Rect rect = mgc.visualElement.contentRect;
-            if (rect.width <= 0f || rect.height <= 0f)
-            {
-                return;
-            }
-
-            Painter2D painter = mgc.painter2D;
-            Vector2 center = rect.center;
-            float radius = Mathf.Min(rect.width, rect.height) * 0.5f;
-            float sector = RouletteMath.SectorAngle(_sectorCount);
-
-            // 1) セクター（数字ごとに虹色。当たりセクターは彩度・明度を上げて強調）。
-            for (int i = 0; i < _sectorCount; i++)
-            {
-                float startFromTop = i * sector;
-                float endFromTop = (i + 1) * sector;
-                int steps = Mathf.Max(2, Mathf.CeilToInt(sector / 5f));
-
-                painter.fillColor = SectorColor(i, _sectorCount, i == _highlightIndex);
-                painter.BeginPath();
-                painter.MoveTo(center);
-                for (int s = 0; s <= steps; s++)
-                {
-                    float a = Mathf.Lerp(startFromTop, endFromTop, s / (float)steps) * Mathf.Deg2Rad;
-                    Vector2 edge = center + new Vector2(Mathf.Sin(a), -Mathf.Cos(a)) * radius;
-                    painter.LineTo(edge);
-                }
-                painter.ClosePath();
-                painter.Fill();
-            }
-
-            // 2) セクター境界の放射状の区切り線。
-            painter.strokeColor = _dividerColor;
-            painter.lineWidth = 5f;
-            for (int i = 0; i < _sectorCount; i++)
-            {
-                float a = i * sector * Mathf.Deg2Rad;
-                Vector2 edge = center + new Vector2(Mathf.Sin(a), -Mathf.Cos(a)) * radius;
-                painter.BeginPath();
-                painter.MoveTo(center);
-                painter.LineTo(edge);
-                painter.Stroke();
-            }
-
-            // 3) 外周のリング。
-            painter.strokeColor = _ringColor;
-            painter.lineWidth = 8f;
-            StrokeArc(painter, center, radius - 4f, 0f, 360f);
-
-            // 4) 当たりセクターの強調アウトライン（ゴールドの太い縁取り）。
-            if (_highlightIndex >= 0 && _highlightIndex < _sectorCount)
-            {
-                float start = _highlightIndex * sector;
-                float end = (_highlightIndex + 1) * sector;
-                painter.strokeColor = _winOutlineColor;
-                painter.lineWidth = 6f;
-                painter.BeginPath();
-                painter.MoveTo(center);
-                int steps = Mathf.Max(2, Mathf.CeilToInt(sector / 5f));
-                for (int s = 0; s <= steps; s++)
-                {
-                    float a = Mathf.Lerp(start, end, s / (float)steps) * Mathf.Deg2Rad;
-                    Vector2 edge = center + new Vector2(Mathf.Sin(a), -Mathf.Cos(a)) * (radius - 3f);
-                    painter.LineTo(edge);
-                }
-                painter.ClosePath();
-                painter.Stroke();
-            }
-
-            // 5) キャラアイコンの下地コイン（ゴールドのリング → 白い座面）。アイコン要素はこの上（子要素）に描画される。
-            //    円形なので円盤が回転しても見た目は変わらない（周回はするが傾かない）。数字バッジはアイコン側（USS）で描く。
-            float iconRadius = radius * IconRadiusFactor;
-            float coinRingRadius = CoinDiameter(radius) * 0.5f;
-            float coinBaseRadius = coinRingRadius - CoinRingWidth;
-            for (int i = 0; i < _sectorCount; i++)
-            {
-                float angleFromTop = (i + 0.5f) * sector * Mathf.Deg2Rad;
-                Vector2 dir = new(Mathf.Sin(angleFromTop), -Mathf.Cos(angleFromTop));
-                Vector2 iconCenter = center + dir * iconRadius;
-                painter.fillColor = _coinRingColor;
-                FillCircle(painter, iconCenter, coinRingRadius);
-                painter.fillColor = _coinBaseColor;
-                FillCircle(painter, iconCenter, coinBaseRadius);
-            }
-
-            // 6) 中心ハブ（軸キャップ）。暗→明→ゴールドの三重円で立体感を出す。
-            float hubR = radius * 0.16f;
-            painter.fillColor = _hubOuterColor;
-            FillCircle(painter, center, hubR);
-            painter.fillColor = _hubInnerColor;
-            FillCircle(painter, center, hubR * 0.72f);
-            painter.fillColor = _hubAccentColor;
-            FillCircle(painter, center, hubR * 0.34f);
-        }
-
-        private static Color SectorColor(int index, int count, bool highlight)
-        {
-            float hue = (count <= 0) ? 0f : (float)index / count;
-            float saturation = highlight ? 0.85f : 0.6f;
-            float value = highlight ? 1f : 0.86f;
-            return Color.HSVToRGB(hue, saturation, value);
-        }
-
-        private static void StrokeArc(Painter2D painter, Vector2 center, float radius, float startDeg, float endDeg)
-        {
-            int steps = 72;
-            painter.BeginPath();
-            for (int s = 0; s <= steps; s++)
-            {
-                float a = Mathf.Lerp(startDeg, endDeg, s / (float)steps) * Mathf.Deg2Rad;
-                Vector2 p = center + new Vector2(Mathf.Sin(a), -Mathf.Cos(a)) * radius;
-                if (s == 0)
-                {
-                    painter.MoveTo(p);
-                }
-                else
-                {
-                    painter.LineTo(p);
-                }
-            }
-            painter.Stroke();
-        }
-
-        private static void FillCircle(Painter2D painter, Vector2 center, float radius)
-        {
-            int steps = 40;
-            painter.BeginPath();
-            for (int s = 0; s <= steps; s++)
-            {
-                float a = (s / (float)steps) * 360f * Mathf.Deg2Rad;
-                Vector2 p = center + new Vector2(Mathf.Sin(a), -Mathf.Cos(a)) * radius;
-                if (s == 0)
-                {
-                    painter.MoveTo(p);
-                }
-                else
-                {
-                    painter.LineTo(p);
-                }
-            }
-            painter.ClosePath();
-            painter.Fill();
-        }
-
         private void OnPointerDown(PointerDownEvent evt)
         {
             if (!CanStartSpin())
@@ -559,14 +294,12 @@ namespace Main.Roulette
         {
             // 前回の当たり強調・祝い演出を消してから回し始める（パルス途中で再回転されても残らないように）。
             ClearHighlight();
-            _wheelPulseTween?.Kill();
-            _wheel.style.scale = new Scale(Vector3.one);
+            _effects.ResetWheelPulse();
 
-            _isHolding = true;
-            _angularVelocity = _minSpinSpeed;
-            _lastAngle = _currentRotation;
+            _spinPhysics.BeginHold();
+            _lastAngle = _spinPhysics.CurrentRotation;
             _model.BeginSpin();
-            PlaySe(_soundStore?.Enter1SE);
+            _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
         }
 
         private void OnPointerUp(PointerUpEvent evt)
@@ -582,21 +315,16 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 押下解除。離した瞬間の速度に関わらず <see cref="_stopDuration"/> 秒
-        /// （<see cref="_minStopDuration"/>〜<see cref="_maxStopDuration"/> のランダム）かけて
-        /// ease-out で減速して止める。これによりすぐ離しても長押しから離しても止まり方の印象が揃う。
+        /// 押下解除。離した瞬間の速度に関わらず <see cref="_minStopDuration"/>〜<see cref="_maxStopDuration"/> の
+        /// ランダムな時間をかけて ease-out で減速して止める（詳細は <see cref="RouletteSpinPhysics.Release"/>）。
         /// </summary>
         private void ReleaseHold()
         {
-            if (!_isHolding)
+            if (!_spinPhysics.IsHolding)
             {
                 return;
             }
-            _isHolding = false;
-
-            _decelStartVelocity = _angularVelocity;
-            _decelElapsed = 0f;
-            _stopDuration = Random.Range(_minStopDuration, _maxStopDuration);
+            _spinPhysics.Release(Random.Range(_minStopDuration, _maxStopDuration));
         }
 
         private bool CanStartSpin()
@@ -611,10 +339,10 @@ namespace Main.Roulette
 
         private void FinalizeSpin()
         {
-            _angularVelocity = 0f;
-            int value = RouletteMath.ResultFromRotation(_currentRotation, _sectorCount) + 1;
+            _spinPhysics.Halt();
+            int value = RouletteMath.ResultFromRotation(_spinPhysics.CurrentRotation, _sectorCount) + 1;
             _model.CompleteSpin(value);
-            PlaySe(_soundStore?.DecisionSE);
+            _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
             ShowWinHighlight(value - 1);
         }
 
@@ -630,86 +358,31 @@ namespace Main.Roulette
             int curBucket = Mathf.FloorToInt(v / sector);
             if (curBucket != prevBucket)
             {
-                BouncePointer();
+                _effects.BouncePointer();
                 // 長押し中の高速回転も含め、セクター境界を通過するたびにティック SE を鳴らす
                 // （高速時は 1 フレームに複数境界を跨ぐが、鳴るのはフレームあたり 1 回）。
-                PlaySe(_soundStore?.RouletteSE);
+                _soundPlayer.PlaySafe(_soundStore?.RouletteSE);
             }
             _lastAngle = v;
         }
 
-        /// <summary>針が「カチッ」と弾む演出（縦方向にスカッシュして戻す）。</summary>
-        private void BouncePointer()
-        {
-            if (_pointer == null)
-            {
-                return;
-            }
-            _pointerBounceTween?.Kill();
-            float squash = 1.45f;
-            _pointer.style.scale = new Scale(new Vector3(1f, squash, 1f));
-            _pointerBounceTween = DOTween.To(
-                    () => squash,
-                    s =>
-                    {
-                        squash = s;
-                        _pointer.style.scale = new Scale(new Vector3(1f, s, 1f));
-                    },
-                    1f,
-                    0.12f)
-                .SetEase(Ease.OutBack);
-        }
-
         private void ShowWinHighlight(int index)
         {
-            _highlightIndex = index;
+            _wheelRenderer.HighlightIndex = index;
             _wheel.MarkDirtyRepaint();
 
             // 当たりの瞬間に円盤をひと突き拡大して祝う。
-            _wheelPulseTween?.Kill();
-            float pulse = 1.06f;
-            _wheel.style.scale = new Scale(new Vector3(pulse, pulse, 1f));
-            _wheelPulseTween = DOTween.To(
-                    () => pulse,
-                    p =>
-                    {
-                        pulse = p;
-                        _wheel.style.scale = new Scale(new Vector3(p, p, 1f));
-                    },
-                    1f,
-                    0.35f)
-                .SetEase(Ease.OutBack);
+            _effects.PulseWheelOnWin();
         }
 
         private void ClearHighlight()
         {
-            if (_highlightIndex < 0)
+            if (_wheelRenderer.HighlightIndex < 0)
             {
                 return;
             }
-            _highlightIndex = -1;
+            _wheelRenderer.HighlightIndex = -1;
             _wheel.MarkDirtyRepaint();
-        }
-
-        private void PlayResultLabelPop()
-        {
-            if (_resultLabel == null)
-            {
-                return;
-            }
-            _resultTween?.Kill();
-            float s = 0.5f;
-            _resultLabel.style.scale = new Scale(new Vector3(s, s, 1f));
-            _resultTween = DOTween.To(
-                    () => s,
-                    v =>
-                    {
-                        s = v;
-                        _resultLabel.style.scale = new Scale(new Vector3(v, v, 1f));
-                    },
-                    1f,
-                    0.4f)
-                .SetEase(Ease.OutBack);
         }
 
         /// <summary>
@@ -847,12 +520,5 @@ namespace Main.Roulette
             _spinButton.SetEnabled(canPress);
         }
 
-        private void PlaySe(AudioClip clip)
-        {
-            if (_soundPlayer != null && clip != null)
-            {
-                _soundPlayer.PlaySE(clip);
-            }
-        }
     }
 }

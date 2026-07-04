@@ -1,4 +1,3 @@
-using Common.MiniGame;
 using Main.Board;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -12,11 +11,11 @@ namespace Main.EditorTools
     /// 方眼をクリックして経路順にマスを置き（クリック順が経路。0＝スタート＝ゴール）、
     /// 選択したマスのイベント・数値・色・アイコンアドレスを右パネルで編集する。
     /// メニュー「Window > Sugoroku > Board Editor」で開く。
+    /// 方眼グリッドの描画は <see cref="BoardEditorGridView"/>、右パネルの編集 UI は
+    /// <see cref="BoardCellInspector"/> に委譲し、本体はツールバーとアセット操作・状態の統括を担う。
     /// </summary>
     public sealed class BoardEditorWindow : EditorWindow
     {
-        private const int CellSize = 26;
-
         private BoardDefinition _target;
         private int _selectedIndex = -1;
 
@@ -24,8 +23,8 @@ namespace Main.EditorTools
         private IntegerField _columnsField;
         private IntegerField _rowsField;
         private Label _infoLabel;
-        private VisualElement _gridContainer;
-        private VisualElement _inspector;
+        private BoardEditorGridView _gridView;
+        private BoardCellInspector _cellInspector;
 
         [MenuItem("Window/Sugoroku/Board Editor")]
         public static void Open()
@@ -51,14 +50,17 @@ namespace Main.EditorTools
             body.style.marginTop = 8f;
             root.Add(body);
 
-            _gridContainer = new VisualElement();
-            _gridContainer.style.flexGrow = 1f;
-            body.Add(_gridContainer);
+            VisualElement gridContainer = new();
+            gridContainer.style.flexGrow = 1f;
+            body.Add(gridContainer);
 
-            _inspector = new VisualElement();
-            _inspector.style.width = 220f;
-            _inspector.style.marginLeft = 8f;
-            body.Add(_inspector);
+            VisualElement inspectorContainer = new();
+            inspectorContainer.style.width = 220f;
+            inspectorContainer.style.marginLeft = 8f;
+            body.Add(inspectorContainer);
+
+            _gridView = new BoardEditorGridView(gridContainer, OnGridCellClicked);
+            _cellInspector = new BoardCellInspector(inspectorContainer, Rebuild, RebuildGrid, RemoveSelected);
 
             Rebuild();
         }
@@ -193,8 +195,14 @@ namespace Main.EditorTools
         private void Rebuild()
         {
             RebuildGrid();
-            RebuildInspector();
+            _cellInspector.Rebuild(_target, _selectedIndex);
             UpdateInfo();
+        }
+
+        /// <summary>方眼グリッドのみ再描画する（数値・色の変更など、選択やインスペクタが変わらないとき）。</summary>
+        private void RebuildGrid()
+        {
+            _gridView.Rebuild(_target, _selectedIndex);
         }
 
         private void UpdateInfo()
@@ -205,70 +213,6 @@ namespace Main.EditorTools
                 return;
             }
             _infoLabel.text = $"マス数: {_target.CellCount}（方眼のマスをクリックで経路に追加／既存マスをクリックで選択）";
-        }
-
-        private void RebuildGrid()
-        {
-            _gridContainer.Clear();
-            if (_target == null)
-            {
-                return;
-            }
-
-            for (int row = 0; row < _target.GridRows; row++)
-            {
-                VisualElement rowElement = new();
-                rowElement.style.flexDirection = FlexDirection.Row;
-                for (int column = 0; column < _target.GridColumns; column++)
-                {
-                    rowElement.Add(BuildGridCell(new Vector2Int(column, row)));
-                }
-                _gridContainer.Add(rowElement);
-            }
-        }
-
-        private VisualElement BuildGridCell(Vector2Int grid)
-        {
-            int pathIndex = _target.IndexOfGrid(grid);
-
-            Button cell = new(() => OnGridCellClicked(grid));
-            cell.text = pathIndex >= 0 ? (pathIndex == 0 ? "S/G" : pathIndex.ToString()) : string.Empty;
-            cell.style.width = CellSize;
-            cell.style.height = CellSize;
-            cell.style.marginLeft = 1f;
-            cell.style.marginRight = 1f;
-            cell.style.marginTop = 1f;
-            cell.style.marginBottom = 1f;
-            cell.style.fontSize = 9f;
-
-            Color background;
-            if (pathIndex < 0)
-            {
-                background = new Color(0.2f, 0.2f, 0.24f);
-            }
-            else
-            {
-                BoardCellDefinition definition = _target.Cell(pathIndex);
-                background = definition.HasCustomColor
-                    ? definition.Color
-                    : (pathIndex == 0 ? new Color(0.27f, 0.35f, 0.7f) : new Color(0.35f, 0.45f, 0.55f));
-            }
-            cell.style.backgroundColor = background;
-
-            bool selected = pathIndex >= 0 && pathIndex == _selectedIndex;
-            float borderWidth = selected ? 2f : 1f;
-            Color borderColor = selected ? Color.white
-                : (pathIndex == 0 ? new Color(1f, 0.85f, 0.4f) : new Color(0f, 0f, 0f, 0.4f));
-            cell.style.borderLeftWidth = borderWidth;
-            cell.style.borderRightWidth = borderWidth;
-            cell.style.borderTopWidth = borderWidth;
-            cell.style.borderBottomWidth = borderWidth;
-            cell.style.borderLeftColor = borderColor;
-            cell.style.borderRightColor = borderColor;
-            cell.style.borderTopColor = borderColor;
-            cell.style.borderBottomColor = borderColor;
-
-            return cell;
         }
 
         private void OnGridCellClicked(Vector2Int grid)
@@ -291,92 +235,6 @@ namespace Main.EditorTools
             EditorUtility.SetDirty(_target);
             _selectedIndex = _target.CellCount - 1;
             Rebuild();
-        }
-
-        private void RebuildInspector()
-        {
-            _inspector.Clear();
-            if (_target == null || _selectedIndex < 0 || _selectedIndex >= _target.CellCount)
-            {
-                return;
-            }
-
-            BoardCellDefinition cell = _target.Cell(_selectedIndex);
-
-            Label title = new(_selectedIndex == 0 ? "マス 0（スタート＝ゴール）" : $"マス {_selectedIndex}");
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.marginBottom = 4f;
-            _inspector.Add(title);
-
-            EnumField eventField = new("イベント", cell.Event);
-            eventField.RegisterValueChangedCallback(evt =>
-            {
-                Undo.RecordObject(_target, "イベント変更");
-                cell.SetEvent((BoardCellEvent)evt.newValue);
-                EditorUtility.SetDirty(_target);
-                Rebuild();
-            });
-            _inspector.Add(eventField);
-
-            if (cell.Event == BoardCellEvent.Forward
-                || cell.Event == BoardCellEvent.Back
-                || cell.Event == BoardCellEvent.Rest
-                || cell.Event == BoardCellEvent.MoneyUp
-                || cell.Event == BoardCellEvent.MoneyDown)
-            {
-                IntegerField amountField = new(AmountLabel(cell.Event)) { value = cell.Amount };
-                amountField.RegisterValueChangedCallback(evt =>
-                {
-                    Undo.RecordObject(_target, "数値変更");
-                    cell.SetAmount(Mathf.Max(1, evt.newValue));
-                    EditorUtility.SetDirty(_target);
-                    RebuildGrid();
-                });
-                _inspector.Add(amountField);
-            }
-
-            if (cell.Event == BoardCellEvent.MiniGame)
-            {
-                EnumField miniGameField = new("ミニゲーム", cell.MiniGame);
-                miniGameField.RegisterValueChangedCallback(evt =>
-                {
-                    Undo.RecordObject(_target, "ミニゲーム変更");
-                    cell.SetMiniGame((MiniGameId)evt.newValue);
-                    EditorUtility.SetDirty(_target);
-                });
-                _inspector.Add(miniGameField);
-            }
-
-            ColorField colorField = new("色") { value = cell.HasCustomColor ? cell.Color : BoardCellDefinition.UnsetColor };
-            colorField.RegisterValueChangedCallback(evt =>
-            {
-                Undo.RecordObject(_target, "色変更");
-                cell.SetColor(evt.newValue);
-                EditorUtility.SetDirty(_target);
-                RebuildGrid();
-            });
-            _inspector.Add(colorField);
-
-            TextField iconField = new("アイコンアドレス") { value = cell.IconAddress };
-            iconField.RegisterValueChangedCallback(evt =>
-            {
-                Undo.RecordObject(_target, "アイコン変更");
-                cell.SetIconAddress(evt.newValue);
-                EditorUtility.SetDirty(_target);
-            });
-            _inspector.Add(iconField);
-
-            Button removeButton = new(RemoveSelected) { text = "このマスを削除" };
-            removeButton.style.marginTop = 8f;
-            _inspector.Add(removeButton);
-        }
-
-        /// <summary>数値フィールドのラベル。お金イベントは「金額」、それ以外は汎用の「数値」。</summary>
-        private static string AmountLabel(BoardCellEvent cellEvent)
-        {
-            return cellEvent == BoardCellEvent.MoneyUp || cellEvent == BoardCellEvent.MoneyDown
-                ? "金額"
-                : "数値";
         }
 
         private void RemoveSelected()

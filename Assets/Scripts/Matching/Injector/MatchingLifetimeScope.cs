@@ -10,6 +10,7 @@ namespace Matching.Injector
         {
             builder.Register<MatchingModel>(Lifetime.Scoped).AsSelf();
             builder.Register<MatchingService>(Lifetime.Scoped).AsSelf();
+            builder.Register<MatchingFlow>(Lifetime.Scoped).AsSelf();
             builder.RegisterComponentInHierarchy<MatchingPresenter>().AsSelf().AsImplementedInterfaces();
         }
     }
