@@ -5,6 +5,7 @@ using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
+using Main.Money;
 using Main.Turn;
 using R3;
 using UnityEngine;
@@ -37,9 +38,11 @@ namespace Main.Board
         private SoundPlayer _soundPlayer;
         private CharacterSessionModel _characterSession;
         private GameParticipants _participants;
+        private MoneyModel _money;
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
+        private VisualElement _playerHeader;
         private VisualElement _linesElement;
         private VisualElement[] _cells;
         private VisualElement[] _pieces;
@@ -54,6 +57,7 @@ namespace Main.Board
         private bool _cellsBuilt;
         private bool _cellIconLoadStarted;
         private bool _piecesBuilt;
+        private bool _headerBuilt;
         private bool _iconLoadStarted;
         private CharacterId? _cpuCharacter;
         private CancellationToken _destroyCt;
@@ -66,13 +70,15 @@ namespace Main.Board
             SoundStore soundStore,
             SoundPlayer soundPlayer,
             CharacterSessionModel characterSession,
-            GameParticipants participants)
+            GameParticipants participants,
+            MoneyModel money)
         {
             _model = model;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _characterSession = characterSession;
             _participants = participants;
+            _money = money;
 
             // コマ位置は Model を source of truth とし、Position を購読して描画へ反映する。
             // 購読と UI 構築（OnEnable / injection）の順序が不定のため、_pieces を null ガードする。
@@ -100,8 +106,9 @@ namespace Main.Board
                 PlaySe(_soundStore?.DecisionSE);
             }));
 
-            // OnEnable が先に走っていれば、この時点でコマを構築できる。
+            // OnEnable が先に走っていれば、この時点でコマ・ヘッダーを構築できる。
             BuildPiecesIfReady();
+            BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
         }
 
@@ -117,6 +124,7 @@ namespace Main.Board
             _destroyCt = destroyCancellationToken;
             BuildCells();
             BuildPiecesIfReady();
+            BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
         }
 
@@ -182,6 +190,7 @@ namespace Main.Board
             }
 
             _boardArea = root.Q<VisualElement>("BoardArea");
+            _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _clearLabel = root.Q<Label>("ClearLabel");
             if (_boardArea == null || _clearLabel == null)
             {
@@ -262,6 +271,10 @@ namespace Main.Board
                     return "休";
                 case BoardCellEvent.MiniGame:
                     return "MG";
+                case BoardCellEvent.MoneyUp:
+                    return $"$+{definition.Amount}";
+                case BoardCellEvent.MoneyDown:
+                    return $"$-{definition.Amount}";
                 default:
                     return null;
             }
@@ -447,6 +460,75 @@ namespace Main.Board
                 // アイコンのロードが先に終わっていれば、この時点で貼り付ける。
                 ApplyPieceIcon(player);
             }
+        }
+
+        /// <summary>
+        /// 上部ヘッダーに自分（人間プレイヤー）のネームプレートだけを表示する。キャラ名は
+        /// 選択中のキャラ（コマと同じ <see cref="ResolveCharacter"/>）の表示名を、所持金は
+        /// <see cref="MoneyModel"/> を購読して表示する。
+        /// マス（BuildCells）と injection（Construct）の両方がそろってから 1 度だけ構築する。
+        /// </summary>
+        private void BuildPlayerHeaderIfReady()
+        {
+            if (_headerBuilt || _playerHeader == null || _characterSession == null
+                || _participants == null || _money == null)
+            {
+                return;
+            }
+
+            _headerBuilt = true;
+
+            for (int player = 0; player < _participants.Count; player++)
+            {
+                if (_participants.KindOf(player) != PlayerKind.Human)
+                {
+                    continue; // 相手（CPU 等）は表示しない。自分の情報だけを出す。
+                }
+
+                CharacterId id = ResolveCharacter(player);
+                string characterName = CharacterCatalog.Find(id).DisplayName;
+
+                VisualElement plate = new() { pickingMode = PickingMode.Ignore };
+                plate.AddToClassList("board-nameplate");
+
+                Label role = new("YOU") { pickingMode = PickingMode.Ignore };
+                role.AddToClassList("board-nameplate__role");
+                plate.Add(role);
+
+                Label nameLabel = new(characterName) { pickingMode = PickingMode.Ignore };
+                nameLabel.AddToClassList("board-nameplate__name");
+                plate.Add(nameLabel);
+
+                plate.Add(BuildMoneyRow(player));
+
+                _playerHeader.Add(plate);
+            }
+        }
+
+        /// <summary>
+        /// ネームプレート内の所持金表示（コイン風バッジ＋金額）。プレイヤー <paramref name="player"/> の
+        /// <see cref="MoneyModel.Money"/> を購読してリアルタイムに更新し、マイナス時は赤字にする。
+        /// </summary>
+        private VisualElement BuildMoneyRow(int player)
+        {
+            VisualElement moneyRow = new() { pickingMode = PickingMode.Ignore };
+            moneyRow.AddToClassList("board-nameplate__money");
+
+            VisualElement coin = new() { pickingMode = PickingMode.Ignore };
+            coin.AddToClassList("board-nameplate__coin");
+            moneyRow.Add(coin);
+
+            Label moneyValue = new() { pickingMode = PickingMode.Ignore };
+            moneyValue.AddToClassList("board-nameplate__money-value");
+            moneyRow.Add(moneyValue);
+
+            _disposables.Add(_money.Money(player).Subscribe(value =>
+            {
+                moneyValue.text = value.ToString("N0");
+                moneyValue.EnableInClassList("board-nameplate__money-value--negative", value < 0);
+            }));
+
+            return moneyRow;
         }
 
         /// <summary>
@@ -652,9 +734,46 @@ namespace Main.Board
 
                 // 勝者表示は Winner 購読が行う。
                 _model.CompleteMove(player, clears);
+
+                // ゴールで終了した手番は発動しない。止まったマスのお金イベントを反映する。
+                if (!clears)
+                {
+                    ApplyLandingEvent(player);
+                }
             }
             catch (OperationCanceledException)
             {
+            }
+        }
+
+        /// <summary>
+        /// コマが止まったマスのイベントを発動する。現状はお金イベント（増減）のみ扱い、
+        /// 進む／戻る／休み／ミニゲームは従来どおり表示のみで未発動。
+        /// </summary>
+        private void ApplyLandingEvent(int player)
+        {
+            if (_boardDef == null || _money == null)
+            {
+                return;
+            }
+
+            int position = _model.Position(player).CurrentValue;
+            if (position < 0 || position >= _boardDef.CellCount)
+            {
+                return;
+            }
+
+            BoardCellDefinition cell = _boardDef.Cell(position);
+            switch (cell.Event)
+            {
+                case BoardCellEvent.MoneyUp:
+                    _money.Add(player, cell.Amount);
+                    PlaySe(_soundStore?.Enter3SE);
+                    break;
+                case BoardCellEvent.MoneyDown:
+                    _money.Add(player, -cell.Amount);
+                    PlaySe(_soundStore?.Cancel1SE);
+                    break;
             }
         }
 

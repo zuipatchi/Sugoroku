@@ -2,8 +2,8 @@ namespace Main.Board
 {
     /// <summary>
     /// すごろくのマスに割り当てるイベントの種類。盤面データ（<see cref="BoardDefinition"/>）が
-    /// 保持し、盤面エディタで編集する。今は表示のみで、実際の発動（コマ移動・休み・ミニゲーム起動）は
-    /// 将来対応する。
+    /// 保持し、盤面エディタで編集する。お金イベント（<see cref="MoneyUp"/> / <see cref="MoneyDown"/>）は
+    /// 着地時に所持金を増減する。それ以外（コマ移動・休み・ミニゲーム起動）は今は表示のみで将来対応する。
     /// </summary>
     public enum BoardCellEvent
     {
@@ -20,6 +20,12 @@ namespace Main.Board
         Rest = 3,
 
         /// <summary>止まるとミニゲームが発生する。</summary>
-        MiniGame = 4
+        MiniGame = 4,
+
+        /// <summary>止まると所持金が N（= <see cref="BoardCellDefinition.Amount"/>）増える。</summary>
+        MoneyUp = 5,
+
+        /// <summary>止まると所持金が N 減る。</summary>
+        MoneyDown = 6
     }
 }

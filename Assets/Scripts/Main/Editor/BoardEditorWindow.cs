@@ -320,9 +320,11 @@ namespace Main.EditorTools
 
             if (cell.Event == BoardCellEvent.Forward
                 || cell.Event == BoardCellEvent.Back
-                || cell.Event == BoardCellEvent.Rest)
+                || cell.Event == BoardCellEvent.Rest
+                || cell.Event == BoardCellEvent.MoneyUp
+                || cell.Event == BoardCellEvent.MoneyDown)
             {
-                IntegerField amountField = new("数値") { value = cell.Amount };
+                IntegerField amountField = new(AmountLabel(cell.Event)) { value = cell.Amount };
                 amountField.RegisterValueChangedCallback(evt =>
                 {
                     Undo.RecordObject(_target, "数値変更");
@@ -367,6 +369,14 @@ namespace Main.EditorTools
             Button removeButton = new(RemoveSelected) { text = "このマスを削除" };
             removeButton.style.marginTop = 8f;
             _inspector.Add(removeButton);
+        }
+
+        /// <summary>数値フィールドのラベル。お金イベントは「金額」、それ以外は汎用の「数値」。</summary>
+        private static string AmountLabel(BoardCellEvent cellEvent)
+        {
+            return cellEvent == BoardCellEvent.MoneyUp || cellEvent == BoardCellEvent.MoneyDown
+                ? "金額"
+                : "数値";
         }
 
         private void RemoveSelected()

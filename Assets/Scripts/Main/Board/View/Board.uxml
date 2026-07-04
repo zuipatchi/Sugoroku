@@ -4,6 +4,8 @@
     <ui:VisualElement name="BoardRoot" class="board-root" picking-mode="Ignore">
         <!-- 外周マスとコマを絶対配置するリング領域。中央寄せ＆マージンで右上アイコンを避ける -->
         <ui:VisualElement name="BoardArea" class="board-area" picking-mode="Ignore" />
+        <!-- 自分（YOU）のネームプレートを載せる上部ヘッダー。中身は BoardPresenter が生成する -->
+        <ui:VisualElement name="PlayerHeader" class="player-header" picking-mode="Ignore" />
         <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

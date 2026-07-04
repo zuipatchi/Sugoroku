@@ -130,6 +130,112 @@
     -unity-text-align: middle-center;
 }
 
+/* 自分（YOU）のネームプレートを載せる上部ヘッダー。左右に 64px の内側余白を取り、
+   右上のオプションアイコン（60×60）を避けつつ中央寄せする。 */
+.player-header {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 14px;
+    padding-left: 64px;
+    padding-right: 64px;
+}
+
+/* 自分のネームプレート。暗いカードに上辺の金アクセント（自分のコマ --p0 と同色）を載せる。 */
+.board-nameplate {
+    min-width: 104px;
+    max-width: 168px;
+    padding-top: 7px;
+    padding-right: 12px;
+    padding-bottom: 9px;
+    padding-left: 12px;
+    align-items: center;
+    overflow: hidden;
+    background-color: rgba(18, 18, 30, 0.92);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-top-width: 3px;
+    border-left-color: rgba(255, 255, 255, 0.15);
+    border-right-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgb(255, 225, 120);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+/* ロールタグ（YOU）。金のピルに濃色文字を載せる（自分のコマ --p0 と同色）。 */
+.board-nameplate__role {
+    margin-bottom: 4px;
+    padding-top: 1px;
+    padding-right: 8px;
+    padding-bottom: 1px;
+    padding-left: 8px;
+    font-size: 10px;
+    color: rgb(24, 24, 36);
+    background-color: rgb(235, 200, 90);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    -unity-text-align: middle-center;
+}
+
+/* キャラ名。長い名前は省略記号でクリップして横幅を守る。 */
+.board-nameplate__name {
+    font-size: 15px;
+    color: rgb(240, 240, 255);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 144px;
+    -unity-text-align: middle-center;
+}
+
+/* 所持金の行（コイン風バッジ＋金額）。キャラ名の下に置く。 */
+.board-nameplate__money {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 5px;
+}
+
+/* コイン風の金色バッジ（グリフに頼らず USS の円で描く）。 */
+.board-nameplate__coin {
+    width: 13px;
+    height: 13px;
+    margin-right: 5px;
+    background-color: rgb(240, 200, 70);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(180, 140, 30);
+    border-right-color: rgb(180, 140, 30);
+    border-top-color: rgb(180, 140, 30);
+    border-bottom-color: rgb(180, 140, 30);
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    border-bottom-left-radius: 7px;
+    border-bottom-right-radius: 7px;
+}
+
+/* 所持金の金額。3 桁区切りで表示。マイナス（借金）時は赤字にする。 */
+.board-nameplate__money-value {
+    font-size: 15px;
+    color: rgb(255, 226, 140);
+    -unity-text-align: middle-center;
+}
+
+.board-nameplate__money-value--negative {
+    color: rgb(240, 130, 130);
+}
+
 /* クリア表示。リング中央に重ねる。 */
 .board-clear {
     position: absolute;
