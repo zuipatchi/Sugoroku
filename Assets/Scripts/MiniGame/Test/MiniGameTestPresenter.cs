@@ -91,7 +91,7 @@ namespace MiniGame
             _busy = true;
             try
             {
-                PlaySe(_soundStore?.Enter1SE);
+                _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
 
                 MiniGameResult result = await _launcher.PlayAsync(id, _destroyCt);
 
@@ -109,12 +109,5 @@ namespace MiniGame
             }
         }
 
-        private void PlaySe(AudioClip clip)
-        {
-            if (_soundPlayer != null && clip != null)
-            {
-                _soundPlayer.PlaySE(clip);
-            }
-        }
     }
 }

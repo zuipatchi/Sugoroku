@@ -100,7 +100,7 @@ namespace Main.Board
                     return;
                 }
                 _clearLabel.text = WinnerText(winner);
-                PlaySe(_soundStore?.DecisionSE);
+                _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
             }));
 
             // OnEnable が先に走っていれば、この時点でコマ・ヘッダーを構築できる。
@@ -455,7 +455,7 @@ namespace Main.Board
 
                     int next = BoardMath.Advance(_model.Position(player).CurrentValue, 1, _cellCount);
                     _model.SetPosition(player, next); // Position 購読がコマの描画を更新する
-                    PlaySe(_soundStore?.Enter2SE);
+                    _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
                 }
 
                 // 勝者表示は Winner 購読が行う。
@@ -497,15 +497,7 @@ namespace Main.Board
             }
 
             _money.Add(player, delta);
-            PlaySe(cell.Event == BoardCellEvent.MoneyUp ? _soundStore?.Enter3SE : _soundStore?.Cancel1SE);
-        }
-
-        private void PlaySe(AudioClip clip)
-        {
-            if (_soundPlayer != null && clip != null)
-            {
-                _soundPlayer.PlaySE(clip);
-            }
+            _soundPlayer.PlaySafe(cell.Event == BoardCellEvent.MoneyUp ? _soundStore?.Enter3SE : _soundStore?.Cancel1SE);
         }
     }
 }

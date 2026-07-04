@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using Common.Character;
@@ -7,8 +6,6 @@ using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 
@@ -38,7 +35,7 @@ namespace CharacterSelect.Presenter
 
         private readonly Dictionary<CharacterId, VisualElement> _cards = new();
         private readonly Dictionary<CharacterId, Sprite> _portraits = new();
-        private readonly List<AsyncOperationHandle<Sprite>> _handles = new();
+        private readonly AddressableSpriteLoader _spriteLoader = new();
         private CharacterId _selected;
         private bool _transiting;
 
@@ -100,8 +97,8 @@ namespace CharacterSelect.Presenter
                 CharacterDefinition definition = all[i];
 
                 // クリック用のカード絵と、選択時に表示する立ち絵を両方ロードする。
-                Sprite icon = await TryLoadAsync(definition.CardAddress, ct);
-                _portraits[definition.Id] = await TryLoadAsync(definition.PortraitAddress, ct);
+                Sprite icon = await _spriteLoader.TryLoadAsync(definition.CardAddress, "キャラ画像", ct);
+                _portraits[definition.Id] = await _spriteLoader.TryLoadAsync(definition.PortraitAddress, "キャラ画像", ct);
 
                 Button card = new();
                 card.AddToClassList("character-card");
@@ -114,7 +111,7 @@ namespace CharacterSelect.Presenter
                 }
                 else
                 {
-                    iconView.style.backgroundColor = PlaceholderColor(i, all.Count);
+                    iconView.style.backgroundColor = CharacterPalette.PlaceholderColor(i, all.Count);
                 }
                 card.Add(iconView);
 
@@ -128,41 +125,6 @@ namespace CharacterSelect.Presenter
                 _grid.Add(card);
                 _cards[id] = card;
             }
-        }
-
-        private async UniTask<Sprite> TryLoadAsync(string address, CancellationToken ct)
-        {
-            AsyncOperationHandle<Sprite> handle = default;
-            try
-            {
-                handle = Addressables.LoadAssetAsync<Sprite>(address);
-                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
-                _handles.Add(handle);
-                return sprite;
-            }
-            catch (OperationCanceledException)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"キャラ画像 '{address}' のロードに失敗。プレースホルダ表示にします: {e.Message}");
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                return null;
-            }
-        }
-
-        private static Color PlaceholderColor(int index, int count)
-        {
-            float hue = (count <= 0) ? 0f : (float)index / count;
-            return Color.HSVToRGB(hue, 0.45f, 0.65f);
         }
 
         private void OnCardClicked(CharacterId id)
@@ -194,7 +156,7 @@ namespace CharacterSelect.Presenter
             {
                 // 立ち絵未配置時はプレースホルダ（色面）。
                 _portraitView.style.backgroundImage = StyleKeyword.None;
-                _portraitView.style.backgroundColor = PlaceholderColor(CharacterCatalog.IndexOf(_selected), CharacterCatalog.All.Count);
+                _portraitView.style.backgroundColor = CharacterPalette.PlaceholderColor(CharacterCatalog.IndexOf(_selected), CharacterCatalog.All.Count);
             }
         }
 
@@ -235,14 +197,7 @@ namespace CharacterSelect.Presenter
 
         private void OnDestroy()
         {
-            foreach (AsyncOperationHandle<Sprite> handle in _handles)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-            _handles.Clear();
+            _spriteLoader.Dispose();
         }
     }
 }

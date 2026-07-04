@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
@@ -201,7 +202,7 @@ namespace Main.Roulette
                 // セクターごとのキャラアイコン（コイン）。画像ロード前はプレースホルダ色。
                 VisualElement icon = new() { pickingMode = PickingMode.Ignore };
                 icon.AddToClassList("roulette-character");
-                icon.style.backgroundColor = RouletteWheelRenderer.PlaceholderColor(i, _sectorCount);
+                icon.style.backgroundColor = CharacterPalette.PlaceholderColor(i, _sectorCount);
                 _wheel.Add(icon);
                 _characterIcons.Add(icon);
 
@@ -298,7 +299,7 @@ namespace Main.Roulette
             _spinPhysics.BeginHold();
             _lastAngle = _spinPhysics.CurrentRotation;
             _model.BeginSpin();
-            PlaySe(_soundStore?.Enter1SE);
+            _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
         }
 
         private void OnPointerUp(PointerUpEvent evt)
@@ -341,7 +342,7 @@ namespace Main.Roulette
             _spinPhysics.Halt();
             int value = RouletteMath.ResultFromRotation(_spinPhysics.CurrentRotation, _sectorCount) + 1;
             _model.CompleteSpin(value);
-            PlaySe(_soundStore?.DecisionSE);
+            _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
             ShowWinHighlight(value - 1);
         }
 
@@ -360,7 +361,7 @@ namespace Main.Roulette
                 _effects.BouncePointer();
                 // 長押し中の高速回転も含め、セクター境界を通過するたびにティック SE を鳴らす
                 // （高速時は 1 フレームに複数境界を跨ぐが、鳴るのはフレームあたり 1 回）。
-                PlaySe(_soundStore?.RouletteSE);
+                _soundPlayer.PlaySafe(_soundStore?.RouletteSE);
             }
             _lastAngle = v;
         }
@@ -519,12 +520,5 @@ namespace Main.Roulette
             _spinButton.SetEnabled(canPress);
         }
 
-        private void PlaySe(AudioClip clip)
-        {
-            if (_soundPlayer != null && clip != null)
-            {
-                _soundPlayer.PlaySE(clip);
-            }
-        }
     }
 }

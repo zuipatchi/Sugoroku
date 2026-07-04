@@ -1,21 +1,19 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
+using Common.Store;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Main.Board
 {
     /// <summary>
-    /// 盤面のマス画像・コマのキャラアイコンを Addressables から読み込み、ハンドルを保持して
-    /// <see cref="Dispose"/> でまとめて解放する。ロード失敗（未配置等）は null を返して
+    /// 盤面のマス画像・コマのキャラアイコンのロードを担う。ロードの実体とハンドル管理は
+    /// <see cref="AddressableSpriteLoader"/> に委ね、ロード失敗（未配置等）は
     /// 呼び出し元の色面フォールバックに任せる。キャンセル（シーン破棄）は静かに打ち切る。
     /// </summary>
     public sealed class BoardIconLoader : IDisposable
     {
-        private readonly List<AsyncOperationHandle<Sprite>> _iconHandles = new();
+        private readonly AddressableSpriteLoader _spriteLoader = new();
 
         /// <summary>
         /// アイコンアドレスを持つマスの画像を経路順に読み込み、成功するたびに
@@ -35,7 +33,7 @@ namespace Main.Board
                     {
                         continue;
                     }
-                    Sprite sprite = await TryLoadSpriteAsync(cell.IconAddress, ct);
+                    Sprite sprite = await _spriteLoader.TryLoadAsync(cell.IconAddress, "盤面画像", ct);
                     if (sprite == null)
                     {
                         continue;
@@ -63,7 +61,7 @@ namespace Main.Board
             {
                 for (int player = 0; player < pieceCount; player++)
                 {
-                    Sprite sprite = await TryLoadSpriteAsync(addressOf(player), ct);
+                    Sprite sprite = await _spriteLoader.TryLoadAsync(addressOf(player), "盤面画像", ct);
                     if (sprite == null)
                     {
                         continue; // 未配置のキャラは従来の色コマにフォールバック
@@ -76,49 +74,9 @@ namespace Main.Board
             }
         }
 
-        /// <summary>
-        /// スプライト 1 枚を読み込む。成功したらハンドルを保持して Sprite を、失敗したら null を返す。
-        /// キャンセル時はハンドルを解放して <see cref="OperationCanceledException"/> を伝播する。
-        /// </summary>
-        public async UniTask<Sprite> TryLoadSpriteAsync(string address, CancellationToken ct)
-        {
-            AsyncOperationHandle<Sprite> handle = default;
-            try
-            {
-                handle = Addressables.LoadAssetAsync<Sprite>(address);
-                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
-                _iconHandles.Add(handle);
-                return sprite;
-            }
-            catch (OperationCanceledException)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"盤面画像 '{address}' のロードに失敗。色表示にフォールバックします: {e.Message}");
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                return null;
-            }
-        }
-
         public void Dispose()
         {
-            foreach (AsyncOperationHandle<Sprite> handle in _iconHandles)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-            _iconHandles.Clear();
+            _spriteLoader.Dispose();
         }
     }
 }

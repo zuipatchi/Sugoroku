@@ -54,13 +54,6 @@ namespace Main.Roulette
             return CoinDiameter(wheelRadius) * AvatarInsetRatio;
         }
 
-        /// <summary>キャラ画像ロード前のプレースホルダ色（セクターごとに虹色）。</summary>
-        public static Color PlaceholderColor(int index, int count)
-        {
-            float hue = (count <= 0) ? 0f : (float)index / count;
-            return Color.HSVToRGB(hue, 0.45f, 0.65f);
-        }
-
         public void Draw(MeshGenerationContext mgc)
         {
             Rect rect = mgc.visualElement.contentRect;

@@ -7,8 +7,6 @@ using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using R3;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 
 namespace MiniGame.TapGame
@@ -23,8 +21,6 @@ namespace MiniGame.TapGame
     {
         private const float PlayDurationSeconds = 5f;
         private const int RevealLeadInMs = 500;
-        private const int CountdownStepMs = 700;
-        private const int StartFlashMs = 500;
 
         private readonly TapGameModel _model;
         private readonly SoundStore _soundStore;
@@ -41,7 +37,7 @@ namespace MiniGame.TapGame
         private Label _resultLabel;
         private Button _closeButton;
 
-        private AsyncOperationHandle<Sprite> _cardHandle;
+        private readonly AddressableSpriteLoader _spriteLoader = new();
         private Tween _shakeTween;
         private float _shakePhase;
 
@@ -121,16 +117,7 @@ namespace MiniGame.TapGame
             await UniTask.Delay(RevealLeadInMs, cancellationToken: ct);
 
             _model.BeginCountdown();
-            for (int n = 3; n >= 1; n--)
-            {
-                _centerLabel.text = n.ToString();
-                PlaySe(_soundStore?.Enter1SE);
-                await UniTask.Delay(CountdownStepMs, cancellationToken: ct);
-            }
-
-            _centerLabel.text = "スタート！";
-            PlaySe(_soundStore?.Enter2SE);
-            await UniTask.Delay(StartFlashMs, cancellationToken: ct);
+            await MiniGameCountdown.RunAsync(_centerLabel, _soundStore, _soundPlayer, ct);
 
             _model.StartPlaying(PlayDurationSeconds);
 
@@ -143,7 +130,7 @@ namespace MiniGame.TapGame
             }
 
             _model.Finish();
-            PlaySe(_soundStore?.DecisionSE);
+            _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
 
             int score = _model.TapCount.CurrentValue;
             _resultLabel.text = $"タップ数 {score} 回！";
@@ -164,10 +151,7 @@ namespace MiniGame.TapGame
             {
                 _closeButton.clicked -= OnCloseClicked;
             }
-            if (_cardHandle.IsValid())
-            {
-                Addressables.Release(_cardHandle);
-            }
+            _spriteLoader.Dispose();
             _disposables.Dispose();
         }
 
@@ -196,36 +180,16 @@ namespace MiniGame.TapGame
             CharacterId id = _characterSession.Selected;
             CharacterDefinition definition = CharacterCatalog.Find(id);
 
-            try
+            Sprite card = await _spriteLoader.TryLoadAsync(definition.CardAddress, "キャラカード", ct);
+            if (card != null)
             {
-                _cardHandle = Addressables.LoadAssetAsync<Sprite>(definition.CardAddress);
-                Sprite card = await _cardHandle.ToUniTask(cancellationToken: ct);
                 _characterCard.style.backgroundImage = new StyleBackground(card);
             }
-            catch (OperationCanceledException)
+            else
             {
-                if (_cardHandle.IsValid())
-                {
-                    Addressables.Release(_cardHandle);
-                }
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"キャラカード '{definition.CardAddress}' のロードに失敗。プレースホルダ表示にします: {e.Message}");
-                if (_cardHandle.IsValid())
-                {
-                    Addressables.Release(_cardHandle);
-                }
                 _characterCard.style.backgroundImage = StyleKeyword.None;
-                _characterCard.style.backgroundColor = PlaceholderColor(CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count);
+                _characterCard.style.backgroundColor = CharacterPalette.PlaceholderColor(CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count);
             }
-        }
-
-        private static Color PlaceholderColor(int index, int count)
-        {
-            float hue = (count <= 0) ? 0f : (float)index / count;
-            return Color.HSVToRGB(hue, 0.45f, 0.65f);
         }
 
         // タップのたびにカードを弾ませる。「がたがた」（減衰する小刻みな振動）と「パンチ」（ぷにっと拡大→戻る）を合わせた演出。
@@ -280,21 +244,13 @@ namespace MiniGame.TapGame
         {
             _model.Tap();
             ShakeCard();
-            PlaySe(_soundStore?.Enter2SE);
+            _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
         }
 
         private void OnCloseClicked()
         {
             // 結果を起動側（Main）へ返すため、RunAsync の待機を解く。
             _closeSource?.TrySetResult();
-        }
-
-        private void PlaySe(AudioClip clip)
-        {
-            if (_soundPlayer != null && clip != null)
-            {
-                _soundPlayer.PlaySE(clip);
-            }
         }
     }
 }
