@@ -6,6 +6,9 @@ namespace Common.MiniGame
     public enum MiniGameId
     {
         /// <summary>5 秒間のタップ連打数を競う。</summary>
-        Tap = 0
+        Tap = 0,
+
+        /// <summary>メーターのタイミングで前進する CPU との 2D レース。</summary>
+        Race = 1
     }
 }
