@@ -16,8 +16,8 @@
 - R3
 - UniTask
 - VContainer
-- DoTween
-- UnityGamingService
+- DOTween
+- Unity Gaming Services (UGS)
 - Netcode for GameObjects (NGO)
 - Live2D Cubism SDK（`Assets/Live2D/`、Git 管理対象）
 

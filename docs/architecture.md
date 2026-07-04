@@ -20,6 +20,8 @@ Common (常駐)
   ├── TransitionPresenter
   ├── OptionPresenter / OptionModalPresenter / OptionModel
   ├── GameSessionModel
+  ├── CharacterSessionModel
+  ├── MiniGameLauncher / MiniGameSessionModel
   └── Store 群（SoundStore / ModalStore ← AssetStoreBase を継承）
 
 Title → Home ┬─（一人用モード）→ CharacterSelect ─→ Main
@@ -40,7 +42,7 @@ Title → Home ┬─（一人用モード）→ CharacterSelect ─→ Main
 - `Main` の `NetworkSessionStartup` は `GameSessionModel.Mode == SinglePlayer` のとき NGO を起動せず即 `Connected` 扱いにする（一人用モードはネットワーク非依存）
 - **手番進行は `GameFlowController`（`Main/Turn/`）が統括する**。参加者は `GameParticipants` が `GameMode` から決める（一人用＝`[Human, Cpu]` の 1 対 1、オンライン＝`[Human]` の単独プレイ）。`GameFlowController` は接続完了を待ってから「手番プレイヤーを見る → 人間なら手動スピンの停止を待つ／CPU なら円盤を自動で回す → ルーレットが消える（`WaitForHideAsync`）のを待ってから出目ぶんそのプレイヤーのコマを進める → 勝者（1 周ゴール）が出るまで `TurnModel.Next()` で交代」というループを回す。コマ位置は `BoardModel` がプレイヤーごとに保持し、勝者は最初に 1 周した 1 人で確定する（`BoardModel.Winner` / `IsFinished`）。これまで各 Presenter に散在していた「ルーレット停止→コマ前進」「移動完了→ボタン再有効化」の購読チェーンを、このオーケストレータに集約した
 - **所持金は `MoneyModel`（`Main/Money/`）がプレイヤーごとに保持する**（Scoped・初期 1000・マイナス＝借金も許容）。マスのお金イベント（`BoardCellEvent.MoneyUp` / `MoneyDown`）にコマが止まると `BoardPresenter` が `MoneyModel.Add(player, ±Amount)` で増減させる（周回ゴールで終了した手番は発動しない）。盤面上部の自分ネームプレートが人間プレイヤーの所持金を購読して表示する（CPU の所持金も内部では増減するが表示は自分のみ）。将来のミニゲーム報酬も `MoneyModel.Add` を呼ぶだけの拡張点として空けてある。お金以外のマスイベント（進む/戻る/休み/ミニゲーム）は現状も表示のみで未発動
-- **ミニゲームは `Transit` を使わない**。`Transit` は Common 以外の全シーンをアンロードするため、Main を経由すると盤面状態・NGO 接続が破棄される。`MiniGameLauncher.PlayAsync` が `MiniGame` シーンを **今のシーン（Main や動作確認用の `MiniGameTest`）を残したまま Additive で重ね**、終了後にミニゲームシーンだけをアンロードする（ランチャーは Common 依存のみでシーン非依存）。起動側（`MiniGameLauncher`）とミニゲームシーンのホスト（`MiniGameHostPresenter`）は Common シングルトンの `MiniGameSessionModel` を介して「遊ぶゲームの指定」と「結果の受け渡し」を行う。ミニゲームの中身（UXML）は `MiniGameId` の種別に対応する Addressable アドレスを `MiniGameCatalog` から引いてロードする（将来最大5種類。現状はタップ連打・2Dレースの2種）。`MiniGameHostPresenter` は `CurrentGame` で分岐するディスパッチャで、タップ連打は自前で進行し、2Dレースは専用の `RaceGamePlay`（DI Scoped）へ委譲する。動作確認は `MiniGameTest` シーン（カタログを自動でボタン一覧）から行い、本番フローには出さない。現状はローカル完結でスコア同期はしない
+- **ミニゲームは `Transit` を使わない**。`Transit` は Common 以外の全シーンをアンロードするため、Main を経由すると盤面状態・NGO 接続が破棄される。`MiniGameLauncher.PlayAsync` が `MiniGame` シーンを **今のシーン（Main や動作確認用の `MiniGameTest`）を残したまま Additive で重ね**、終了後にミニゲームシーンだけをアンロードする（ランチャーは Common 依存のみでシーン非依存）。起動側（`MiniGameLauncher`）とミニゲームシーンのホスト（`MiniGameHostPresenter`）は Common シングルトンの `MiniGameSessionModel` を介して「遊ぶゲームの指定」と「結果の受け渡し」を行う。ミニゲームの中身（UXML）は `MiniGameId` の種別に対応する Addressable アドレスを `MiniGameCatalog` から引いてロードする（将来最大5種類。現状はタップ連打・2Dレースの2種）。`MiniGameHostPresenter` は `CurrentGame` で分岐するディスパッチャで、タップ連打は `TapGamePlay`、2Dレースは `RaceGamePlay`（いずれも DI Scoped のプレーンクラス）へ委譲する。動作確認は `MiniGameTest` シーン（カタログを自動でボタン一覧）から行い、本番フローには出さない。現状はローカル完結でスコア同期はしない
 
 ### なぜアディティブか
 
@@ -52,9 +54,11 @@ Title → Home ┬─（一人用モード）→ CharacterSelect ─→ Main
 ## 依存性注入（VContainer）
 
 ```
-CommonLifetimeScope   全シーン共通のシングルトンを登録
+CommonLifeTimeScope   全シーン共通のシングルトンを登録
   ├── GameSessionModel
   ├── CharacterSessionModel
+  ├── MiniGameSessionModel
+  ├── MiniGameLauncher
   ├── ModalStore
   ├── OptionPresenter
   ├── OptionModel

@@ -72,7 +72,8 @@ Title → Home →（オンラインプレイ）→ Matching → Main
 | クラス | 責務 |
 |---|---|
 | `MatchingModel` | マッチング状態を `ReactiveProperty` で管理 |
-| `MatchingPresenter` | UI とマッチング状態のバインド（`IStartable` 実装）。2秒ごとの自動ルーム更新ループを持つ |
+| `MatchingPresenter` | UI とマッチング状態のバインド（`IStartable` 実装）。入力を `MatchingFlow` へ転送する |
+| `MatchingFlow` | フロー制御（認証・2秒ごとの自動ルーム更新ループ・クイックマッチ・ルーム作成/参加・相手待ち・ゲーム開始） |
 | `MatchingService` | UGS Session API 呼び出し |
 | `MatchingStateExtensions` | `IsLoading()` / `IsWaiting()` 拡張メソッドで状態グループ判定を一元化 |
 | `MatchingLifetimeScope` | Matching シーン固有 DI 登録 |
@@ -81,12 +82,13 @@ Title → Home →（オンラインプレイ）→ Matching → Main
 ### DI 登録
 
 ```
-CommonLifetimeScope（Common シーン常駐）
+CommonLifeTimeScope（Common シーン常駐）
   └── GameSessionModel（Singleton）
 
 MatchingLifetimeScope（Matching シーン）
   ├── MatchingModel
   ├── MatchingService
+  ├── MatchingFlow
   └── MatchingPresenter（IStartable）
 ```
 
@@ -119,7 +121,7 @@ Unity の `Start()` が先に呼ばれる。VContainer の `IStartable.Start()` 
 
 `GetRoomsAsync` は `QuerySessionsAsync` の結果を `LobbyInfo` 一覧に変換して返す。
 
-- **取得できなかったときは `null` を返す**（「本当に 0 件」と区別するため）。呼び出し側（`MatchingPresenter.RefreshRoomsAsync`）は `null` のとき表示を更新せず据え置く。`null` になるのは次の 2 ケース:
+- **取得できなかったときは `null` を返す**（「本当に 0 件」と区別するため）。呼び出し側（`MatchingFlow.RefreshRoomsAsync`）は `null` のとき表示を更新せず据え置く。`null` になるのは次の 2 ケース:
   - クエリが既に実行中（`_isQuerying` ガード）— 自動更新と手動更新の競合時など
   - `SessionException`（UGS SDK がセッション離脱直後の過渡期に投げる NullRef の回避。次のリフレッシュで再試行）
 - 変換ロジックは純メソッド `MatchingService.MapSessionsToRooms(IList<ISessionInfo>)` に分離してある。満室（`AvailableSlots == 0`）を除外し、`PlayerCount = MaxPlayers - AvailableSlots` を算出する。EditMode テスト（`MatchingServiceTests`）の対象。
@@ -174,6 +176,7 @@ Assets/Scripts/
     View/
       Matching.uxml
     LobbyInfo.cs                # ルーム情報の値型
+    MatchingFlow.cs             # フロー制御（認証・自動更新・マッチ・待機）
     MatchingModel.cs
     MatchingPresenter.cs
     MatchingService.cs
@@ -186,5 +189,5 @@ Assets/Scenes/
 
 ## 未決事項
 
-- [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）
+- [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）※接続の土台（セッション接続・メッセージ送受信）のみ。ゲーム内容（手番・出目）の同期は未実装（[product.md](product.md)「未実装」参照）
 - [x] オフライン時のフォールバック
