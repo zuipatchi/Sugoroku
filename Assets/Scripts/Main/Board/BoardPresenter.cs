@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Common.Character;
 using Common.SoundManagement;
@@ -9,8 +8,6 @@ using Main.Money;
 using Main.Turn;
 using R3;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 using VContainer;
 
@@ -20,6 +17,9 @@ namespace Main.Board
     /// すごろく盤（ループ）の UI。外周にマスを並べて参加者ぶんのコマを描画し、
     /// 出目に応じてコマを 1 マスずつ移動させる。手番進行は <see cref="Turn.GameFlowController"/> が担い、
     /// 位置・状態は <see cref="BoardModel"/> が持つ。
+    /// レイアウト計算は <see cref="BoardLayoutCalculator"/>、画像ロードは <see cref="BoardIconLoader"/>、
+    /// キャラ解決は <see cref="CpuCharacterPicker"/>、ネームプレートは <see cref="PlayerNameplateView"/>、
+    /// お金イベント判定は <see cref="CellEventResolver"/> に分担し、ここでは購読・構築・移動演出を統括する。
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public sealed class BoardPresenter : MonoBehaviour
@@ -36,22 +36,20 @@ namespace Main.Board
         private BoardModel _model;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
-        private CharacterSessionModel _characterSession;
-        private GameParticipants _participants;
         private MoneyModel _money;
+        private CpuCharacterPicker _characterPicker;
+        private PlayerNameplateView _nameplateView;
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
         private VisualElement _playerHeader;
-        private VisualElement _linesElement;
         private VisualElement[] _cells;
         private VisualElement[] _pieces;
         private Sprite[] _pieceIcons;
         private Label _clearLabel;
         private BoardDefinition _boardDef;
+        private BoardLayoutCalculator _layout;
         private bool _ownsBoardDef;
-        private int _gridColumns;
-        private int _gridRows;
         private int _cellCount;
         private int _pieceCount;
         private bool _cellsBuilt;
@@ -59,10 +57,9 @@ namespace Main.Board
         private bool _piecesBuilt;
         private bool _headerBuilt;
         private bool _iconLoadStarted;
-        private CharacterId? _cpuCharacter;
         private CancellationToken _destroyCt;
         private readonly CompositeDisposable _disposables = new();
-        private readonly List<AsyncOperationHandle<Sprite>> _iconHandles = new();
+        private readonly BoardIconLoader _iconLoader = new();
 
         [Inject]
         public void Construct(
@@ -76,9 +73,9 @@ namespace Main.Board
             _model = model;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
-            _characterSession = characterSession;
-            _participants = participants;
             _money = money;
+            _characterPicker = new CpuCharacterPicker(participants, characterSession);
+            _nameplateView = new PlayerNameplateView(participants, money, _characterPicker, _disposables);
 
             // コマ位置は Model を source of truth とし、Position を購読して描画へ反映する。
             // 購読と UI 構築（OnEnable / injection）の順序が不定のため、_pieces を null ガードする。
@@ -90,7 +87,7 @@ namespace Main.Board
                 {
                     if (_pieces != null && player < _pieces.Length && _pieces[player] != null)
                     {
-                        PlaceAtCell(_pieces[player], position);
+                        _layout?.PlaceAtCell(_pieces[player], position);
                     }
                 }));
             }
@@ -131,14 +128,7 @@ namespace Main.Board
         private void OnDestroy()
         {
             _disposables.Dispose();
-            foreach (AsyncOperationHandle<Sprite> handle in _iconHandles)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-            _iconHandles.Clear();
+            _iconLoader.Dispose();
 
             // フォールバックで生成した盤面データ（アセットではない）は明示的に破棄する。
             if (_ownsBoardDef && _boardDef != null)
@@ -170,8 +160,6 @@ namespace Main.Board
                 _ownsBoardDef = true;
             }
 
-            _gridColumns = _boardDef.GridColumns;
-            _gridRows = _boardDef.GridRows;
             _cellCount = _boardDef.CellCount;
         }
 
@@ -204,11 +192,12 @@ namespace Main.Board
             _cells = new VisualElement[_cellCount];
 
             // マス同士をつなぐ接続線。マス・コマより先に追加して背後に描く。
-            _linesElement = new VisualElement();
-            _linesElement.AddToClassList("board-lines");
-            _linesElement.pickingMode = PickingMode.Ignore;
-            _linesElement.generateVisualContent += DrawConnectingLines;
-            _boardArea.Add(_linesElement);
+            VisualElement linesElement = new();
+            linesElement.AddToClassList("board-lines");
+            linesElement.pickingMode = PickingMode.Ignore;
+            _layout = new BoardLayoutCalculator(_boardDef, _boardArea, linesElement, _cells, _cellFillRatio);
+            linesElement.generateVisualContent += _layout.DrawConnectingLines;
+            _boardArea.Add(linesElement);
 
             for (int i = 0; i < _cellCount; i++)
             {
@@ -226,7 +215,7 @@ namespace Main.Board
                     cell.Add(new Label(i.ToString()) { pickingMode = PickingMode.Ignore });
                 }
                 ApplyCellAppearance(cell, definition);
-                PlaceAtCell(cell, i);
+                _layout.PlaceAtCell(cell, i);
                 _boardArea.Add(cell);
                 _cells[i] = cell;
             }
@@ -235,8 +224,8 @@ namespace Main.Board
 
             // リング領域をグリッドのアスペクト比に合わせて中央配置する。画面比が変わっても
             // マスが均等に並ぶよう、レイアウト確定（と以後のリサイズ）のたびに再計算する。
-            _boardArea.parent.RegisterCallback<GeometryChangedEvent>(_ => LayoutBoardArea());
-            LayoutBoardArea();
+            _boardArea.parent.RegisterCallback<GeometryChangedEvent>(_ => _layout.LayoutBoardArea());
+            _layout.LayoutBoardArea();
         }
 
         /// <summary>マスの塗り色・イベント表示を <paramref name="definition"/> に合わせて設定する。</summary>
@@ -288,142 +277,15 @@ namespace Main.Board
                 return;
             }
             _cellIconLoadStarted = true;
-            LoadCellIconsAsync(_destroyCt).Forget();
-        }
-
-        private async UniTaskVoid LoadCellIconsAsync(CancellationToken ct)
-        {
-            try
+            _iconLoader.LoadCellIconsAsync(_boardDef, (index, sprite) =>
             {
-                for (int i = 0; i < _cellCount; i++)
+                if (_cells == null || index >= _cells.Length || _cells[index] == null)
                 {
-                    BoardCellDefinition definition = _boardDef.Cell(i);
-                    if (!definition.HasIcon)
-                    {
-                        continue;
-                    }
-                    Sprite sprite = await TryLoadSpriteAsync(definition.IconAddress, ct);
-                    if (sprite == null || _cells == null || i >= _cells.Length || _cells[i] == null)
-                    {
-                        continue;
-                    }
-                    _cells[i].style.backgroundImage = new StyleBackground(sprite);
-                    _cells[i].AddToClassList("board-cell--icon");
+                    return;
                 }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-
-        /// <summary>
-        /// 盤面リング領域を、グリッドの (列-1):(行-1) のアスペクト比を保って利用可能領域に内接させ、
-        /// 中央へ配置する。%指定のままだと縦横でマス間隔が不均一になるため、ここでピクセルで整える。
-        /// 上マージンを取り、右上のオプションアイコン（Common）を避ける。
-        /// </summary>
-        private void LayoutBoardArea()
-        {
-            VisualElement container = _boardArea?.parent;
-            if (container == null)
-            {
-                return;
-            }
-
-            float containerWidth = container.resolvedStyle.width;
-            float containerHeight = container.resolvedStyle.height;
-            if (containerWidth <= 0f || containerHeight <= 0f)
-            {
-                return;
-            }
-
-            // 余白（右上のオプションアイコンは上マージンで避ける）。
-            float marginX = containerWidth * 0.08f;
-            float marginTop = containerHeight * 0.12f;
-            float marginBottom = containerHeight * 0.08f;
-            float availableWidth = containerWidth - marginX * 2f;
-            float availableHeight = containerHeight - marginTop - marginBottom;
-
-            // マス中心間隔 spacing を、マスの実寸まで含めた盤面が利用可能領域に収まるように決める。
-            // 最外周マスは領域端から半マス（= spacing * _cellFillRatio / 2）ずつ外へはみ出すので、
-            // 端の 1 マスぶん（両側で _cellFillRatio）を余分に見込む。これで画面端に余白が残る。
-            float spanColumns = (_gridColumns - 1) + _cellFillRatio;
-            float spanRows = (_gridRows - 1) + _cellFillRatio;
-            float spacing = Mathf.Min(availableWidth / spanColumns, availableHeight / spanRows);
-
-            float cellSize = spacing * _cellFillRatio;
-            float areaWidth = spacing * (_gridColumns - 1);   // リング領域＝マス中心の矩形
-            float areaHeight = spacing * (_gridRows - 1);
-            float boundingWidth = areaWidth + cellSize;        // マスの実寸まで含めた見た目の外形
-            float boundingHeight = areaHeight + cellSize;
-
-            // 外形を余白内で中央寄せし、リング領域（マス中心の矩形）は半マス内側へ置く。
-            _boardArea.style.left = (containerWidth - boundingWidth) * 0.5f + cellSize * 0.5f;
-            _boardArea.style.top = marginTop + (availableHeight - boundingHeight) * 0.5f + cellSize * 0.5f;
-            _boardArea.style.width = areaWidth;
-            _boardArea.style.height = areaHeight;
-
-            ResizeCells(cellSize);
-
-            // 接続線はマス中心を結ぶので、領域サイズが変わったら再描画する。
-            _linesElement?.MarkDirtyRepaint();
-        }
-
-        /// <summary>各マスの一辺を <paramref name="cellSize"/> に合わせる（マス中心間隔より小さくして隙間を作る）。</summary>
-        private void ResizeCells(float cellSize)
-        {
-            if (_cells == null || cellSize <= 0f)
-            {
-                return;
-            }
-            foreach (VisualElement cell in _cells)
-            {
-                if (cell == null)
-                {
-                    continue;
-                }
-                cell.style.width = cellSize;
-                cell.style.height = cellSize;
-            }
-        }
-
-        /// <summary>マス中心を経路順に結ぶ接続線を描く（最後のマスからスタートへ戻ってループを閉じる）。</summary>
-        private void DrawConnectingLines(MeshGenerationContext context)
-        {
-            if (_boardDef == null || _cellCount < 2)
-            {
-                return;
-            }
-
-            Rect content = context.visualElement.contentRect;
-            if (content.width <= 0f || content.height <= 0f)
-            {
-                return;
-            }
-
-            float spacing = _gridColumns > 1 ? content.width / (_gridColumns - 1) : content.width;
-            Painter2D painter = context.painter2D;
-            painter.lineWidth = Mathf.Clamp(spacing * 0.1f, 2f, 8f);
-            painter.strokeColor = new Color(1f, 1f, 1f, 0.35f);
-            painter.lineCap = LineCap.Round;
-            painter.lineJoin = LineJoin.Round;
-
-            painter.BeginPath();
-            painter.MoveTo(CellCenterPixels(0, content));
-            for (int i = 1; i < _cellCount; i++)
-            {
-                painter.LineTo(CellCenterPixels(i, content));
-            }
-            painter.LineTo(CellCenterPixels(0, content)); // ループを閉じる
-            painter.Stroke();
-        }
-
-        /// <summary>マス <paramref name="index"/> の中心を、線描画領域 <paramref name="content"/> 内のピクセル座標で返す。</summary>
-        private Vector2 CellCenterPixels(int index, Rect content)
-        {
-            Vector2Int grid = _boardDef.Cell(index).Grid;
-            float x = _gridColumns > 1 ? grid.x / (float)(_gridColumns - 1) * content.width : content.width * 0.5f;
-            float y = _gridRows > 1 ? grid.y / (float)(_gridRows - 1) * content.height : content.height * 0.5f;
-            return new Vector2(x, y);
+                _cells[index].style.backgroundImage = new StyleBackground(sprite);
+                _cells[index].AddToClassList("board-cell--icon");
+            }, _destroyCt).Forget();
         }
 
         /// <summary>
@@ -453,7 +315,7 @@ namespace Main.Board
                 piece.Add(tag);
 
                 ApplyPieceOffset(piece, player);
-                PlaceAtCell(piece, _model.Position(player).CurrentValue);
+                _layout?.PlaceAtCell(piece, _model.Position(player).CurrentValue);
                 _boardArea.Add(piece);
                 _pieces[player] = piece;
 
@@ -463,72 +325,19 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 上部ヘッダーに自分（人間プレイヤー）のネームプレートだけを表示する。キャラ名は
-        /// 選択中のキャラ（コマと同じ <see cref="ResolveCharacter"/>）の表示名を、所持金は
-        /// <see cref="MoneyModel"/> を購読して表示する。
+        /// 上部ヘッダーに自分（人間プレイヤー）のネームプレートだけを表示する。
+        /// 構築の本体は <see cref="PlayerNameplateView"/> が担う。
         /// マス（BuildCells）と injection（Construct）の両方がそろってから 1 度だけ構築する。
         /// </summary>
         private void BuildPlayerHeaderIfReady()
         {
-            if (_headerBuilt || _playerHeader == null || _characterSession == null
-                || _participants == null || _money == null)
+            if (_headerBuilt || _playerHeader == null || _nameplateView == null)
             {
                 return;
             }
 
             _headerBuilt = true;
-
-            for (int player = 0; player < _participants.Count; player++)
-            {
-                if (_participants.KindOf(player) != PlayerKind.Human)
-                {
-                    continue; // 相手（CPU 等）は表示しない。自分の情報だけを出す。
-                }
-
-                CharacterId id = ResolveCharacter(player);
-                string characterName = CharacterCatalog.Find(id).DisplayName;
-
-                VisualElement plate = new() { pickingMode = PickingMode.Ignore };
-                plate.AddToClassList("board-nameplate");
-
-                Label role = new("YOU") { pickingMode = PickingMode.Ignore };
-                role.AddToClassList("board-nameplate__role");
-                plate.Add(role);
-
-                Label nameLabel = new(characterName) { pickingMode = PickingMode.Ignore };
-                nameLabel.AddToClassList("board-nameplate__name");
-                plate.Add(nameLabel);
-
-                plate.Add(BuildMoneyRow(player));
-
-                _playerHeader.Add(plate);
-            }
-        }
-
-        /// <summary>
-        /// ネームプレート内の所持金表示（コイン風バッジ＋金額）。プレイヤー <paramref name="player"/> の
-        /// <see cref="MoneyModel.Money"/> を購読してリアルタイムに更新し、マイナス時は赤字にする。
-        /// </summary>
-        private VisualElement BuildMoneyRow(int player)
-        {
-            VisualElement moneyRow = new() { pickingMode = PickingMode.Ignore };
-            moneyRow.AddToClassList("board-nameplate__money");
-
-            VisualElement coin = new() { pickingMode = PickingMode.Ignore };
-            coin.AddToClassList("board-nameplate__coin");
-            moneyRow.Add(coin);
-
-            Label moneyValue = new() { pickingMode = PickingMode.Ignore };
-            moneyValue.AddToClassList("board-nameplate__money-value");
-            moneyRow.Add(moneyValue);
-
-            _disposables.Add(_money.Money(player).Subscribe(value =>
-            {
-                moneyValue.text = value.ToString("N0");
-                moneyValue.EnableInClassList("board-nameplate__money-value--negative", value < 0);
-            }));
-
-            return moneyRow;
+            _nameplateView.Build(_playerHeader);
         }
 
         /// <summary>
@@ -537,91 +346,22 @@ namespace Main.Board
         /// </summary>
         private void StartLoadingPieceIconsIfReady()
         {
-            if (_iconLoadStarted || _model == null || _characterSession == null || _participants == null)
+            if (_iconLoadStarted || _model == null || _characterPicker == null)
             {
                 return;
             }
 
             _iconLoadStarted = true;
             _pieceIcons = new Sprite[_model.PlayerCount];
-            LoadPieceIconsAsync(destroyCancellationToken).Forget();
-        }
-
-        private async UniTaskVoid LoadPieceIconsAsync(CancellationToken ct)
-        {
-            try
-            {
-                for (int player = 0; player < _pieceIcons.Length; player++)
+            _iconLoader.LoadPieceIconsAsync(
+                _pieceIcons.Length,
+                player => CharacterCatalog.Find(_characterPicker.ResolveCharacter(player)).PieceIconAddress,
+                (player, sprite) =>
                 {
-                    CharacterId id = ResolveCharacter(player);
-                    string address = CharacterCatalog.Find(id).PieceIconAddress;
-                    Sprite sprite = await TryLoadSpriteAsync(address, ct);
-                    if (sprite == null)
-                    {
-                        continue; // 未配置のキャラは従来の色コマにフォールバック
-                    }
                     _pieceIcons[player] = sprite;
                     ApplyPieceIcon(player);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-
-        /// <summary>プレイヤー <paramref name="player"/> のコマに割り当てるキャラを解決する。</summary>
-        private CharacterId ResolveCharacter(int player)
-        {
-            if (_participants.KindOf(player) == PlayerKind.Human)
-            {
-                return _characterSession.Selected;
-            }
-
-            // CPU は人間と違うキャラをランダムに選ぶ。1 度だけ決めてゲーム中は固定する。
-            if (_cpuCharacter == null)
-            {
-                _cpuCharacter = PickCpuCharacter(_characterSession.Selected);
-            }
-            return _cpuCharacter.Value;
-        }
-
-        /// <summary>人間の選択キャラ <paramref name="human"/> を除いた残りから等確率で 1 体選ぶ。</summary>
-        private static CharacterId PickCpuCharacter(CharacterId human)
-        {
-            IReadOnlyList<CharacterDefinition> all = CharacterCatalog.All;
-            int humanIndex = CharacterCatalog.IndexOf(human);
-            // オフセット 1..(Count-1) を足すことで、必ず人間と別のキャラ index になる。
-            int offset = UnityEngine.Random.Range(1, all.Count);
-            return all[(humanIndex + offset) % all.Count].Id;
-        }
-
-        private async UniTask<Sprite> TryLoadSpriteAsync(string address, CancellationToken ct)
-        {
-            AsyncOperationHandle<Sprite> handle = default;
-            try
-            {
-                handle = Addressables.LoadAssetAsync<Sprite>(address);
-                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
-                _iconHandles.Add(handle);
-                return sprite;
-            }
-            catch (OperationCanceledException)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                throw;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"盤面画像 '{address}' のロードに失敗。色表示にフォールバックします: {e.Message}");
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-                return null;
-            }
+                },
+                destroyCancellationToken).Forget();
         }
 
         /// <summary>ロード済みのアイコンをコマへ貼り付ける。コマ・アイコンのどちらか未準備なら何もしない。</summary>
@@ -673,20 +413,6 @@ namespace Main.Board
             float x = player == 0 ? -70f : -30f;
             float y = player == 0 ? -40f : -60f;
             piece.style.translate = new Translate(Length.Percent(x), Length.Percent(y));
-        }
-
-        /// <summary>マス index <paramref name="index"/> の中心（%座標）に要素を配置する。</summary>
-        private void PlaceAtCell(VisualElement element, int index)
-        {
-            if (_boardDef == null || index < 0 || index >= _boardDef.CellCount)
-            {
-                return;
-            }
-            Vector2Int grid = _boardDef.Cell(index).Grid;
-            float left = _gridColumns > 1 ? grid.x / (float)(_gridColumns - 1) * 100f : 50f;
-            float top = _gridRows > 1 ? grid.y / (float)(_gridRows - 1) * 100f : 50f;
-            element.style.left = Length.Percent(left);
-            element.style.top = Length.Percent(top);
         }
 
         /// <summary>
@@ -749,6 +475,7 @@ namespace Main.Board
         /// <summary>
         /// コマが止まったマスのイベントを発動する。現状はお金イベント（増減）のみ扱い、
         /// 進む／戻る／休み／ミニゲームは従来どおり表示のみで未発動。
+        /// 変化量の判定は <see cref="CellEventResolver"/>、加算は <see cref="MoneyModel"/> が担う。
         /// </summary>
         private void ApplyLandingEvent(int player)
         {
@@ -764,17 +491,13 @@ namespace Main.Board
             }
 
             BoardCellDefinition cell = _boardDef.Cell(position);
-            switch (cell.Event)
+            if (!CellEventResolver.TryGetMoneyDelta(cell.Event, cell.Amount, out int delta))
             {
-                case BoardCellEvent.MoneyUp:
-                    _money.Add(player, cell.Amount);
-                    PlaySe(_soundStore?.Enter3SE);
-                    break;
-                case BoardCellEvent.MoneyDown:
-                    _money.Add(player, -cell.Amount);
-                    PlaySe(_soundStore?.Cancel1SE);
-                    break;
+                return;
             }
+
+            _money.Add(player, delta);
+            PlaySe(cell.Event == BoardCellEvent.MoneyUp ? _soundStore?.Enter3SE : _soundStore?.Cancel1SE);
         }
 
         private void PlaySe(AudioClip clip)
