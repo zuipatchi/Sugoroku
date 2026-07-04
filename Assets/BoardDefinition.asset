@@ -23,49 +23,49 @@ MonoBehaviour:
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 1, y: 0}
-    _event: 0
+    _event: 5
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 2, y: 0}
-    _event: 0
+    _event: 5
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 3, y: 0}
-    _event: 0
+    _event: 5
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 3, y: 1}
-    _event: 0
+    _event: 5
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 3, y: 2}
-    _event: 0
+    _event: 6
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 2, y: 2}
-    _event: 0
+    _event: 6
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 2, y: 3}
-    _event: 0
+    _event: 6
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
     _iconAddress: 
   - _grid: {x: 3, y: 3}
-    _event: 0
+    _event: 6
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
