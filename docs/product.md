@@ -29,7 +29,9 @@
 - CPU 対戦のターン進行（一人用モード。あなたが先攻で以降交互。人間の番は手動でルーレット、CPU の番は同じ円盤が自動で回る。ルーレットが消えてから手番プレイヤーのコマが出目ぶん進み、先に 1 周ゴールした方が勝ち。`GameFlowController` が統括し、オンラインは参加者 1 人で従来どおり単独プレイ）→ [Assets/Scripts/Main/Turn/](../Assets/Scripts/Main/Turn/)
 - すごろくのループ盤面（盤面データ `BoardDefinition`（未割り当てなら既定5列×7行＝周回20マスの矩形リング）を読んで描画。マスはマス間隔より小さくして隙間を作り、マス中心を経路順に結ぶ接続線でつなぐ。最外周マスの実寸まで見込んで配置し画面端に余白を残す。手番プレイヤーのコマをルーレットの出目ぶん1マスずつ移動し、1周してゴール＝スタートに到達すると勝ち。コマは各プレイヤーのキャラの丸アイコン画像で描画（YOU＝選択キャラ、CPU＝人間と別のキャラをランダム選択）。アイコン未配置のキャラは色＋YOU/CPU ラベルにフォールバック。各マスはイベント（進む/戻る/休み/ミニゲーム・現状は記号表示のみで未発動）と見た目（色・アイコン）を持てる）→ [Assets/Scripts/Main/Board/](../Assets/Scripts/Main/Board/)
 - 盤面エディタ（`Window > Sugoroku > Board Editor`。方眼をクリックして経路順にマスを置き＝盤面の形・経路を自作、選択マスのイベント・数値・色・アイコンアドレスを編集して `BoardDefinition` アセットとして保存。作った盤面は `BoardPresenter` の Definition 欄に割り当てて使う）→ [Assets/Scripts/Main/Editor/](../Assets/Scripts/Main/Editor/)
-- ミニゲーム（タップ連打。5秒間のタップ数を競う。選択中キャラのカード絵を中央に表示し、タップのたびにカードが「がたがた」振動＋「パンチ」拡大で弾む。Main を残したまま MiniGame シーンを Additive で重ねて起動する仕組み。中身は `MiniGameId`／`MiniGameCatalog` で差し替え、将来最大5種類。動作確認は専用の MiniGameTest シーンから行う）→ [architecture.md](architecture.md)「シーン構成」・[Assets/Scripts/MiniGame/](../Assets/Scripts/MiniGame/)
+- ミニゲーム（現状2種。いずれも Main を残したまま MiniGame シーンを Additive で重ねて起動し、中身は `MiniGameId`／`MiniGameCatalog` で差し替える〔将来最大5種類〕。動作確認は専用の MiniGameTest シーンから行う）→ [architecture.md](architecture.md)「シーン構成」・[Assets/Scripts/MiniGame/](../Assets/Scripts/MiniGame/)
+  - タップ連打：5秒間のタップ数を競う。選択中キャラのカード絵を中央に表示し、タップのたびにカードが「がたがた」振動＋「パンチ」拡大で弾む
+  - 2Dレース：選択キャラ vs CPU の1対1。走者が右から左へ進み先着で勝ち。全員ベース速度でゆっくり進み、プレイヤーは高速往復するメーターをタップで止め、Great（大きく前進）／Good（少し前進）／Miss（進まない）の判定で前へ（タップ後は一瞬フリーズして自動再開）。CPU はプレイヤーと同じベース速度で進み、ランダム間隔で Great/Good/Miss を抽選して前進（Great は低確率）。スコアは勝ち=1／負け=0。各キャラの走行絵は動物 Run 画像（`RunAddress`）
 
 ## 未実装（今後の課題）
 
@@ -37,4 +39,4 @@
 - ミニゲームの起動トリガー（現状は動作確認用の MiniGameTest シーンから手動起動するのみ。盤面の特殊マスや手番との正式なゲーム内連携は未実装）
 - 盤面マスのイベント発動（`BoardDefinition` でイベント（進む/戻る/休み/ミニゲーム）を編集・盤面に記号表示できるが、コマが止まったときに実際に発動させる処理は未実装。発動には `GameFlowController` / `TurnModel` への組み込みが必要）
 - オンライン対戦の手番同期（現状 `GameFlowController` は CPU 対戦とローカル単独プレイのみ。NGO 経由での手番・出目の同期は未実装）
-- タップ連打以外のミニゲーム（最大5種類を想定。`MiniGameId`／`MiniGameCatalog` への追加と対応 UXML・進行ロジックの実装で増やす。MiniGameTest シーンにボタンが自動で並ぶ）
+- 3種類目以降のミニゲーム（最大5種類を想定。現状はタップ連打・2Dレースの2種。`MiniGameId`／`MiniGameCatalog` への追加と対応 UXML・進行ロジックの実装で増やす。MiniGameTest シーンにボタンが自動で並ぶ）
