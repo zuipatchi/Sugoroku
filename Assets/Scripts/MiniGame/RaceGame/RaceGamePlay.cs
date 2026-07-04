@@ -1,13 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UIElements;
 
 namespace MiniGame.RaceGame
@@ -32,7 +29,8 @@ namespace MiniGame.RaceGame
         private readonly SoundPlayer _soundPlayer;
         private readonly CharacterSessionModel _characterSession;
 
-        private readonly List<AsyncOperationHandle<Sprite>> _spriteHandles = new();
+        private readonly RaceSpriteLoader _spriteLoader = new();
+        private readonly RaceMeter _meter = new(MeterSweepSpeed);
 
         private Label _titleLabel;
         private VisualElement _playerRunner;
@@ -50,8 +48,6 @@ namespace MiniGame.RaceGame
 
         private UniTaskCompletionSource _closeSource;
 
-        private float _meterValue;
-        private float _meterDirection = 1f;
         private float _pauseRemaining;
 
         public RaceGamePlay(
@@ -98,7 +94,10 @@ namespace MiniGame.RaceGame
             _model.Setup(config, NextSeed());
 
             CharacterId playerId = _characterSession.Selected;
-            CharacterId cpuId = PickOpponent(playerId);
+            CharacterId cpuId = RaceOpponentPicker.Pick(
+                playerId,
+                CharacterCatalog.All,
+                count => UnityEngine.Random.Range(0, count));
 
             await ApplyRunnerSpriteAsync(_playerRunner, playerId, ct);
             await ApplyRunnerSpriteAsync(_cpuRunner, cpuId, ct);
@@ -109,8 +108,7 @@ namespace MiniGame.RaceGame
             _tapButton.clicked += OnTapClicked;
             _closeButton.clicked += OnCloseClicked;
 
-            _meterValue = 0f;
-            _meterDirection = 1f;
+            _meter.Reset();
             _pauseRemaining = 0f;
 
             PlaceRunner(_playerRunner, 0f);
@@ -168,7 +166,7 @@ namespace MiniGame.RaceGame
                 }
                 else
                 {
-                    AdvanceMeter(dt);
+                    _meter.Advance(dt);
                 }
 
                 _model.Tick(dt);
@@ -200,29 +198,7 @@ namespace MiniGame.RaceGame
             {
                 _closeButton.clicked -= OnCloseClicked;
             }
-            foreach (AsyncOperationHandle<Sprite> handle in _spriteHandles)
-            {
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-            _spriteHandles.Clear();
-        }
-
-        private void AdvanceMeter(float dt)
-        {
-            _meterValue += _meterDirection * MeterSweepSpeed * dt;
-            if (_meterValue >= 1f)
-            {
-                _meterValue = 1f;
-                _meterDirection = -1f;
-            }
-            else if (_meterValue <= 0f)
-            {
-                _meterValue = 0f;
-                _meterDirection = 1f;
-            }
+            _spriteLoader.ReleaseAll();
         }
 
         private void OnTapClicked()
@@ -232,7 +208,7 @@ namespace MiniGame.RaceGame
                 return;
             }
 
-            MeterJudgement judgement = _model.ApplyTap(_meterValue);
+            MeterJudgement judgement = _model.ApplyTap(_meter.Value);
             ShowJudge(judgement);
             _pauseRemaining = TapPauseSeconds;
         }
@@ -282,7 +258,7 @@ namespace MiniGame.RaceGame
 
         private void UpdateMeterMarker()
         {
-            _meterMarker.style.left = Length.Percent(_meterValue * 100f);
+            _meterMarker.style.left = Length.Percent(_meter.Value * 100f);
         }
 
         // 進捗 0（右端）→ 1（左端）を left% にマップして走者を置く。
@@ -297,9 +273,7 @@ namespace MiniGame.RaceGame
             CharacterDefinition definition = CharacterCatalog.Find(id);
             try
             {
-                AsyncOperationHandle<Sprite> handle = Addressables.LoadAssetAsync<Sprite>(definition.RunAddress);
-                _spriteHandles.Add(handle);
-                Sprite sprite = await handle.ToUniTask(cancellationToken: ct);
+                Sprite sprite = await _spriteLoader.LoadAsync(definition.RunAddress, ct);
                 runner.style.backgroundImage = new StyleBackground(sprite);
             }
             catch (OperationCanceledException)
@@ -312,24 +286,6 @@ namespace MiniGame.RaceGame
                 runner.style.backgroundImage = StyleKeyword.None;
                 runner.style.backgroundColor = PlaceholderColor(CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count);
             }
-        }
-
-        // プレイヤーとは別のキャラを CPU に割り当てる。
-        private CharacterId PickOpponent(CharacterId playerId)
-        {
-            List<CharacterId> pool = new();
-            foreach (CharacterDefinition definition in CharacterCatalog.All)
-            {
-                if (definition.Id != playerId)
-                {
-                    pool.Add(definition.Id);
-                }
-            }
-            if (pool.Count == 0)
-            {
-                return playerId;
-            }
-            return pool[UnityEngine.Random.Range(0, pool.Count)];
         }
 
         private static void SetDisplay(VisualElement element, bool visible)
