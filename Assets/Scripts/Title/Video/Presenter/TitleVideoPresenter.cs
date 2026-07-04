@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Common.SceneManagement;
 using Cysharp.Threading.Tasks;
@@ -14,7 +13,8 @@ namespace Title.Video
     /// ファイルを URL で参照し（WebGL は VideoClip アセット非対応のため URL 方式で全プラットフォーム共通にする）、
     /// <see cref="VideoPlayer"/> で <see cref="RenderTexture"/> に描画して、UXML の全画面背景
     /// 要素（VideoBackground）に貼り付ける。音声はミュートしてタイトル BGM をそのまま流す。
-    /// 1 回の再生が最後まで進んだら最後のフレームで止め、その上にタイトル文言（TitleText）を表示する。
+    /// 1 回の再生が最後まで進んだら最後のフレームで止め、その上にタイトル文言（TitleText）を表示する
+    /// （文言の生成・降下演出は <see cref="TitleTextAnimator"/> に委譲する）。
     /// 初回再生開始から <c>_replayIntervalSeconds</c> 秒おきに、文言を隠して最初から再生し直すループを回す。
     /// 表示前に最初のフレームまで用意するため <see cref="ISceneReady"/> を実装する。
     /// 動画が未配置・再生不可の場合は USS のベース色のまま、文言だけ表示する。
@@ -29,15 +29,9 @@ namespace Title.Video
         // 最初の再生開始からこの秒数ごとに、動画の最初からループ再生し直す。
         [SerializeField] private float _replayIntervalSeconds = 30f;
 
-        // タイトル文言（3 行）。1 文字ずつ上から降らせる。
-        private static readonly string[] TitleLines = { "ドラゴン", "ファミリー", "すごろく" };
-        // 文字ごとの登場ディレイ（秒）。降ってくる順番の間隔。
-        private const float CharStaggerSeconds = 0.09f;
-
         private UIDocument _uiDocument;
         private VisualElement _videoBackground;
-        private VisualElement _titleText;
-        private readonly List<VisualElement> _titleChars = new();
+        private TitleTextAnimator _titleTextAnimator;
         private VideoPlayer _videoPlayer;
         private RenderTexture _renderTexture;
         private UniTask _initTask;
@@ -97,13 +91,13 @@ namespace Title.Video
             }
 
             _videoBackground = root.Q<VisualElement>("VideoBackground");
-            _titleText = root.Q<VisualElement>("TitleText");
+            _titleTextAnimator = new TitleTextAnimator(root.Q<VisualElement>("TitleText"));
             if (_videoBackground == null)
             {
                 Debug.LogError("VideoBackground 要素が見つかりませんでした。");
                 return;
             }
-            BuildTitle();
+            _titleTextAnimator.Build();
 
             _videoPlayer = gameObject.AddComponent<VideoPlayer>();
             _videoPlayer.playOnAwake = false;
@@ -122,7 +116,7 @@ namespace Title.Video
             if (!prepared)
             {
                 // 再生できない場合は文言だけ表示する（タイトルは通常どおり機能する）。
-                ShowTitleText();
+                _titleTextAnimator.Show();
                 return;
             }
 
@@ -149,7 +143,7 @@ namespace Title.Video
             while (true)
             {
                 await UniTask.Delay(TimeSpan.FromSeconds(_replayIntervalSeconds), cancellationToken: ct);
-                HideTitleText();
+                _titleTextAnimator.Hide();
                 _videoPlayer.time = 0;
                 _videoPlayer.Play();
             }
@@ -159,67 +153,14 @@ namespace Title.Video
         // ループ再生の 2 回目以降もここで文言を再表示する）。
         private void OnPlaybackFinished(VideoPlayer source)
         {
-            ShowTitleText();
+            _titleTextAnimator.Show();
         }
 
         // 再生中のエラー（DXGI_ERROR_DEVICE_REMOVED 等）。動画は諦めて文言だけ出す。
         private void OnPlaybackError(VideoPlayer source, string message)
         {
             Debug.LogWarning($"タイトル動画の再生中にエラーが発生しました（{_videoPlayer.url}）: {message}");
-            ShowTitleText();
-        }
-
-        // 3 行ぶんの行コンテナと 1 文字ずつのラベルを生成する。初期は隠れた状態（USS の .title-char）。
-        // 文字ごとに transition-delay をずらして、降ってくる順番の間隔を作る。
-        private void BuildTitle()
-        {
-            if (_titleText == null)
-            {
-                return;
-            }
-
-            _titleText.Clear();
-            _titleChars.Clear();
-
-            int globalIndex = 0;
-            foreach (string line in TitleLines)
-            {
-                VisualElement row = new() { pickingMode = PickingMode.Ignore };
-                row.AddToClassList("title-line");
-
-                foreach (char character in line)
-                {
-                    Label charLabel = new() { text = character.ToString(), pickingMode = PickingMode.Ignore };
-                    charLabel.AddToClassList("title-char");
-                    charLabel.style.transitionDelay = new List<TimeValue>
-                    {
-                        new TimeValue(globalIndex * CharStaggerSeconds, TimeUnit.Second),
-                    };
-                    row.Add(charLabel);
-                    _titleChars.Add(charLabel);
-                    globalIndex++;
-                }
-
-                _titleText.Add(row);
-            }
-        }
-
-        // 全文字に visible クラスを付与。各文字は自分の transition-delay ぶん遅れて降りてくる。
-        private void ShowTitleText()
-        {
-            foreach (VisualElement charLabel in _titleChars)
-            {
-                charLabel.EnableInClassList("title-char--visible", true);
-            }
-        }
-
-        // 全文字から visible クラスを外す。ループ再生の再開時に、次の再生終了までタイトル文言を隠す。
-        private void HideTitleText()
-        {
-            foreach (VisualElement charLabel in _titleChars)
-            {
-                charLabel.EnableInClassList("title-char--visible", false);
-            }
+            _titleTextAnimator.Show();
         }
 
         // 最初のフレームをデコードし終えるまで待つ（フェードインで黒画面を見せないため）。
