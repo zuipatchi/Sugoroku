@@ -113,6 +113,6 @@
 ## Asset Store アセット
 
 - Asset Store からダウンロードしたものは `Assets/AssetStore/` に配置する。このディレクトリは Git の管理対象外。
-- DoTween (Demigiant) は `Assets/Plugins/` に配置済み（Git 管理対象）。
+- DOTween (Demigiant) は `Assets/Plugins/` に配置済み（Git 管理対象）。
 - Live2D Cubism SDK は `Assets/Live2D/` に配置済み（Git 管理対象）。
   - `Assets/csc.rsp` / `Assets/mcs.rsp` に `-unsafe` フラグが必要（Cubism Core が unsafe コードを使用するため）。

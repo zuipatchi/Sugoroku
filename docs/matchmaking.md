@@ -81,7 +81,7 @@ Title → Home →（オンラインプレイ）→ Matching → Main
 ### DI 登録
 
 ```
-CommonLifetimeScope（Common シーン常駐）
+CommonLifeTimeScope（Common シーン常駐）
   └── GameSessionModel（Singleton）
 
 MatchingLifetimeScope（Matching シーン）
@@ -186,5 +186,5 @@ Assets/Scenes/
 
 ## 未決事項
 
-- [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）
+- [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）※接続の土台（セッション接続・メッセージ送受信）のみ。ゲーム内容（手番・出目）の同期は未実装（[product.md](product.md)「未実装」参照）
 - [x] オフライン時のフォールバック

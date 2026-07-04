@@ -20,6 +20,7 @@ Common (常駐)
   ├── TransitionPresenter
   ├── OptionPresenter / OptionModalPresenter / OptionModel
   ├── GameSessionModel
+  ├── CharacterSessionModel
   └── Store 群（SoundStore / ModalStore ← AssetStoreBase を継承）
 
 Title → Home ┬─（一人用モード）→ CharacterSelect ─→ Main
@@ -52,7 +53,7 @@ Title → Home ┬─（一人用モード）→ CharacterSelect ─→ Main
 ## 依存性注入（VContainer）
 
 ```
-CommonLifetimeScope   全シーン共通のシングルトンを登録
+CommonLifeTimeScope   全シーン共通のシングルトンを登録
   ├── GameSessionModel
   ├── CharacterSessionModel
   ├── ModalStore
