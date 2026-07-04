@@ -198,6 +198,44 @@
     -unity-text-align: middle-center;
 }
 
+/* 所持金の行（コイン風バッジ＋金額）。キャラ名の下に置く。 */
+.board-nameplate__money {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 5px;
+}
+
+/* コイン風の金色バッジ（グリフに頼らず USS の円で描く）。 */
+.board-nameplate__coin {
+    width: 13px;
+    height: 13px;
+    margin-right: 5px;
+    background-color: rgb(240, 200, 70);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(180, 140, 30);
+    border-right-color: rgb(180, 140, 30);
+    border-top-color: rgb(180, 140, 30);
+    border-bottom-color: rgb(180, 140, 30);
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    border-bottom-left-radius: 7px;
+    border-bottom-right-radius: 7px;
+}
+
+/* 所持金の金額。3 桁区切りで表示。マイナス（借金）時は赤字にする。 */
+.board-nameplate__money-value {
+    font-size: 15px;
+    color: rgb(255, 226, 140);
+    -unity-text-align: middle-center;
+}
+
+.board-nameplate__money-value--negative {
+    color: rgb(240, 130, 130);
+}
+
 /* クリア表示。リング中央に重ねる。 */
 .board-clear {
     position: absolute;

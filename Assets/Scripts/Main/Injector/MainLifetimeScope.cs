@@ -1,4 +1,5 @@
 using Main.Board;
+using Main.Money;
 using Main.Roulette;
 using Main.Turn;
 using VContainer;
@@ -22,6 +23,9 @@ namespace Main.Injector
 
             builder.Register<RouletteModel>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<RoulettePresenter>().AsSelf();
+
+            // 所持金（お金マス・将来のミニゲーム報酬で増減）。
+            builder.Register<MoneyModel>(Lifetime.Scoped);
 
             builder.Register<BoardModel>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<BoardPresenter>().AsSelf();
