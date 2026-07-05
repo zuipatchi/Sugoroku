@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Common.Board;
 using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
@@ -25,7 +26,11 @@ namespace Main.Board
     [RequireComponent(typeof(UIDocument))]
     public sealed class BoardPresenter : MonoBehaviour
     {
-        // 盤面データ（形・経路・イベント・見た目）。未割り当てなら下の _columns/_rows から矩形リングを生成する。
+        // マップ一覧。MapSelect で選ばれたマップを識別子（BoardSessionModel）から解決するのに使う。
+        // 未割り当て・未選択なら下の _definition にフォールバックする。
+        [SerializeField] private BoardCatalog _catalog;
+        // 盤面データ（形・経路・イベント・見た目）。カタログで解決できないときのフォールバック。
+        // これも未割り当てなら下の _columns/_rows から矩形リングを生成する。
         [SerializeField] private BoardDefinition _definition;
         // _definition 未割り当て時のフォールバック用。縦画面向けに幅より高さの大きい縦長リング（列 < 行）。周回マス数は 2*列+2*行-4。
         [SerializeField] private int _columns = 5;
@@ -39,6 +44,7 @@ namespace Main.Board
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
         private MoneyModel _money;
+        private BoardSessionModel _boardSession;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
 
@@ -61,6 +67,9 @@ namespace Main.Board
         private bool _headerBuilt;
         private bool _iconLoadStarted;
         private bool _territoriesSetup;
+        // Construct（DI 注入）が済んだか。BuildCells は選択マップ（_boardSession）を参照するため、
+        // OnEnable と Construct の両方がそろってから実行する（どちらが先でも動くようにするガード）。
+        private bool _constructed;
         private CancellationToken _destroyCt;
         private readonly CompositeDisposable _disposables = new();
         private readonly BoardIconLoader _iconLoader = new();
@@ -75,13 +84,15 @@ namespace Main.Board
             SoundPlayer soundPlayer,
             CharacterSessionModel characterSession,
             GameParticipants participants,
-            MoneyModel money)
+            MoneyModel money,
+            BoardSessionModel boardSession)
         {
             _model = model;
             _territory = territory;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _money = money;
+            _boardSession = boardSession;
             _characterPicker = new CpuCharacterPicker(participants, characterSession);
             _nameplateView = new PlayerNameplateView(participants, money, _characterPicker, _disposables);
 
@@ -111,7 +122,11 @@ namespace Main.Board
                 _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
             }));
 
-            // OnEnable が先に走っていれば、この時点でコマ・ヘッダー・陣地を構築できる。
+            _constructed = true;
+
+            // OnEnable が先に走っていれば、この時点でマス・コマ・ヘッダー・陣地を構築できる。
+            // BuildCells は選択マップの参照に _boardSession が要るため、注入後のここで（も）呼ぶ。
+            BuildCells();
             BuildPiecesIfReady();
             BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
@@ -149,8 +164,11 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 描画に使う盤面データを解決する。アセット（<see cref="_definition"/>）が割り当てられていればそれを、
-        /// 無ければ <see cref="_columns"/>/<see cref="_rows"/> から従来の矩形リングを生成して使う。
+        /// 描画に使う盤面データを解決する。優先順位は
+        /// (1) MapSelect で選ばれたマップ（<see cref="_catalog"/> から <see cref="_boardSession"/> の識別子で解決）、
+        /// (2) インスペクタ割り当ての <see cref="_definition"/>、
+        /// (3) <see cref="_columns"/>/<see cref="_rows"/> から生成する矩形リング（フォールバック）。
+        /// オンライン等でマップ未選択のときは (1) を飛ばして従来どおり (2)/(3) になる。
         /// </summary>
         private void ResolveDefinition()
         {
@@ -159,13 +177,27 @@ namespace Main.Board
                 return;
             }
 
-            if (_definition != null && _definition.CellCount > 0)
+            // (1) 選択されたマップをカタログから解決する。
+            BoardDefinition resolved = null;
+            if (_catalog != null && _boardSession != null && _boardSession.HasSelection)
             {
-                _boardDef = _definition;
+                resolved = _catalog.Find(_boardSession.SelectedId);
+            }
+
+            // (2) 解決できなければインスペクタ割り当てのマップにフォールバックする。
+            if (resolved == null || resolved.CellCount == 0)
+            {
+                resolved = _definition;
+            }
+
+            if (resolved != null && resolved.CellCount > 0)
+            {
+                _boardDef = resolved;
                 _ownsBoardDef = false;
             }
             else
             {
+                // (3) どちらも無ければ矩形リングを生成する。
                 _boardDef = BoardDefinition.CreateRectangular(_columns, _rows);
                 _ownsBoardDef = true;
             }
@@ -176,6 +208,13 @@ namespace Main.Board
         private void BuildCells()
         {
             if (_cellsBuilt)
+            {
+                return;
+            }
+
+            // 選択マップ（_boardSession）を参照するため、DI 注入（Construct）が済むまで待つ。
+            // OnEnable が先でも、後から Construct が BuildCells を呼び直して構築する。
+            if (!_constructed)
             {
                 return;
             }

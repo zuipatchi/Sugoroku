@@ -18,6 +18,7 @@ namespace Main.Board
         /// <summary>
         /// 各マスの画像を経路順に読み込み、成功するたびに <paramref name="onLoaded"/>(マス index, Sprite) を呼ぶ。
         /// アドレスはマスのイベント種別ごとに盤面が持つ画像（<see cref="BoardDefinition.EventIconAddress"/>）で解決する。
+        /// ただしスタート＝ゴール（index 0）は固定の <see cref="BoardDefinition.StartCellIconAddress"/> を優先して使う。
         /// </summary>
         public async UniTask LoadCellIconsAsync(
             BoardDefinition definition,
@@ -28,7 +29,10 @@ namespace Main.Board
             {
                 for (int i = 0; i < definition.CellCount; i++)
                 {
-                    string address = definition.EventIconAddress(definition.Cell(i).Event);
+                    // スタート＝ゴール（index 0）は専用画像。それ以外はイベント種別ごとの画像で解決する。
+                    string address = i == 0
+                        ? BoardDefinition.StartCellIconAddress
+                        : definition.EventIconAddress(definition.Cell(i).Event);
                     if (string.IsNullOrEmpty(address))
                     {
                         continue;

@@ -22,6 +22,7 @@ namespace Main.EditorTools
         private int _selectedIndex = -1;
 
         private ObjectField _objectField;
+        private TextField _nameField;
         private IntegerField _columnsField;
         private IntegerField _rowsField;
         private TextField _frameField;
@@ -101,6 +102,22 @@ namespace Main.EditorTools
             toolbar.Add(saveButton);
 
             root.Add(toolbar);
+
+            // マップ名（マップ選択画面のカード・大プレビューに表示される表示名）。
+            // 空のときはマップ選択側で資産名にフォールバックする。Enter／フォーカスアウトで確定する。
+            _nameField = new TextField("マップ名") { isDelayed = true };
+            _nameField.style.marginTop = 6f;
+            _nameField.RegisterValueChangedCallback(evt =>
+            {
+                if (_target == null)
+                {
+                    return;
+                }
+                Undo.RecordObject(_target, "マップ名変更");
+                _target.SetDisplayName(evt.newValue);
+                EditorUtility.SetDirty(_target);
+            });
+            root.Add(_nameField);
 
             // 方眼サイズ（列・行）の数値入力。フィールドのラベルは既定で最小幅が広く入力欄を潰すため、
             // ラベル幅を絞ってから十分な入力幅を与える。isDelayed=true で Enter／フォーカスアウト時に確定する。
@@ -233,6 +250,7 @@ namespace Main.EditorTools
             {
                 return;
             }
+            _nameField.SetValueWithoutNotify(_target.DisplayName);
             _columnsField.SetValueWithoutNotify(_target.GridColumns);
             _rowsField.SetValueWithoutNotify(_target.GridRows);
             _frameField.SetValueWithoutNotify(_target.FrameAddress);
