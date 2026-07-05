@@ -49,7 +49,7 @@ namespace Common.Character
             new CharacterDefinition(CharacterId.Character4, "アリマ", "Character/Character4/Card", "Character/Character4/Icon", "Character/Character4/Portrait", "Image/ChameleonRun"),
             new CharacterDefinition(CharacterId.Character5, "モナカ", "Character/Character5/Card", "Character/Character5/Icon", "Character/Character5/Portrait", "Image/CrayfishRun"),
             new CharacterDefinition(CharacterId.Character6, "ずいさん", "Character/Character6/Card", "Character/Character6/Icon", "Character/Character6/Portrait", "Image/DogRun"),
-            new CharacterDefinition(CharacterId.Character7, "釈迦パッチ", "Character/Character7/Card", "Character/Character7/Icon", "Character/Character7/Portrait", "Image/DragonRun"),
+            new CharacterDefinition(CharacterId.Character7, "シャカパッチ", "Character/Character7/Card", "Character/Character7/Icon", "Character/Character7/Portrait", "Image/DragonRun"),
             new CharacterDefinition(CharacterId.Character8, "タロー", "Character/Character8/Card", "Character/Character8/Icon", "Character/Character8/Portrait", "Image/HorseRun"),
         };
 

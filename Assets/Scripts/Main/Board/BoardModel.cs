@@ -33,7 +33,7 @@ namespace Main.Board
         /// <summary>いずれかのコマが移動演出中かどうか（同時に動くコマは 1 つ）。</summary>
         public ReadOnlyReactiveProperty<bool> IsMoving => _isMoving;
 
-        /// <summary>1 周してゴールに到達した勝者プレイヤー index。未決なら -1。</summary>
+        /// <summary>陣地マスの過半数を占拠した勝者プレイヤー index。未決なら -1。</summary>
         public ReadOnlyReactiveProperty<int> Winner => _winner;
 
         /// <summary>勝者が確定しているか（ゲーム終了）。</summary>
@@ -51,14 +51,16 @@ namespace Main.Board
             _positions[player].Value = position;
         }
 
-        /// <summary>
-        /// 移動演出の完了を通知する。<paramref name="cleared"/> が true かつ勝者未決なら、
-        /// <paramref name="player"/> を勝者にする。
-        /// </summary>
-        public void CompleteMove(int player, bool cleared)
+        /// <summary>移動演出の完了を通知する（移動中フラグを下げる）。勝敗は着地イベント側が <see cref="SetWinner"/> で決める。</summary>
+        public void EndMove()
         {
             _isMoving.Value = false;
-            if (cleared && _winner.CurrentValue < 0)
+        }
+
+        /// <summary>勝者を確定する（既に確定していれば上書きしない）。陣地の過半数占拠時に <see cref="Board.TerritoryModel"/> 判定を受けて呼ばれる。</summary>
+        public void SetWinner(int player)
+        {
+            if (_winner.CurrentValue < 0)
             {
                 _winner.Value = player;
             }

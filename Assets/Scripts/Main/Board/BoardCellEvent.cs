@@ -3,7 +3,8 @@ namespace Main.Board
     /// <summary>
     /// すごろくのマスに割り当てるイベントの種類。盤面データ（<see cref="BoardDefinition"/>）が
     /// 保持し、盤面エディタで編集する。お金イベント（<see cref="MoneyUp"/> / <see cref="MoneyDown"/>）は
-    /// 着地時に所持金を増減する。それ以外（コマ移動・休み・ミニゲーム起動）は今は表示のみで将来対応する。
+    /// 着地時に所持金を増減し、陣地マス（<see cref="Territory"/>）は着地時に占拠して勝敗を決める。
+    /// それ以外（コマ移動・休み・ミニゲーム起動）は今は表示のみで将来対応する。
     /// </summary>
     public enum BoardCellEvent
     {
@@ -26,6 +27,9 @@ namespace Main.Board
         MoneyUp = 5,
 
         /// <summary>止まると所持金が N 減る。</summary>
-        MoneyDown = 6
+        MoneyDown = 6,
+
+        /// <summary>止まるとそのマスを占拠する（相手の陣地でも上書き）。盤面の陣地マスの過半数を占拠すると勝ち。</summary>
+        Territory = 7
     }
 }

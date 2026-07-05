@@ -35,6 +35,7 @@ namespace Main.Board
         [SerializeField, Range(0.3f, 1f)] private float _cellFillRatio = 0.62f;
 
         private BoardModel _model;
+        private TerritoryModel _territory;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
         private MoneyModel _money;
@@ -59,6 +60,7 @@ namespace Main.Board
         private bool _piecesBuilt;
         private bool _headerBuilt;
         private bool _iconLoadStarted;
+        private bool _territoriesSetup;
         private CancellationToken _destroyCt;
         private readonly CompositeDisposable _disposables = new();
         private readonly BoardIconLoader _iconLoader = new();
@@ -68,6 +70,7 @@ namespace Main.Board
         [Inject]
         public void Construct(
             BoardModel model,
+            TerritoryModel territory,
             SoundStore soundStore,
             SoundPlayer soundPlayer,
             CharacterSessionModel characterSession,
@@ -75,6 +78,7 @@ namespace Main.Board
             MoneyModel money)
         {
             _model = model;
+            _territory = territory;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _money = money;
@@ -107,10 +111,11 @@ namespace Main.Board
                 _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
             }));
 
-            // OnEnable が先に走っていれば、この時点でコマ・ヘッダーを構築できる。
+            // OnEnable が先に走っていれば、この時点でコマ・ヘッダー・陣地を構築できる。
             BuildPiecesIfReady();
             BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
+            SetupTerritoriesIfReady();
         }
 
         private void Awake()
@@ -127,6 +132,7 @@ namespace Main.Board
             BuildPiecesIfReady();
             BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
+            SetupTerritoriesIfReady();
         }
 
         private void OnDestroy()
@@ -270,6 +276,8 @@ namespace Main.Board
                     return $"$+{definition.Amount}";
                 case BoardCellEvent.MoneyDown:
                     return $"$-{definition.Amount}";
+                case BoardCellEvent.Territory:
+                    return "陣";
                 default:
                     return null;
             }
@@ -384,6 +392,57 @@ namespace Main.Board
         }
 
         /// <summary>
+        /// 陣地マスを <see cref="TerritoryModel"/> に初期化し、各陣地マスの所有者を購読して
+        /// 占拠プレイヤーの色にマスを塗り替える。マス（BuildCells）と injection（Construct）の
+        /// 両方がそろってから 1 度だけ実行する。
+        /// </summary>
+        private void SetupTerritoriesIfReady()
+        {
+            if (_territoriesSetup || !_cellsBuilt || _territory == null || _boardDef == null)
+            {
+                return;
+            }
+
+            _territoriesSetup = true;
+
+            List<int> territoryCells = new();
+            for (int i = 0; i < _cellCount; i++)
+            {
+                if (_boardDef.Cell(i).Event == BoardCellEvent.Territory)
+                {
+                    territoryCells.Add(i);
+                }
+            }
+            _territory.Initialize(territoryCells);
+
+            foreach (int index in territoryCells)
+            {
+                if (_cells == null || index >= _cells.Length || _cells[index] == null)
+                {
+                    continue;
+                }
+                VisualElement cell = _cells[index];
+                cell.AddToClassList("board-cell--territory");
+                _disposables.Add(_territory.Owner(index).Subscribe(owner => ApplyTerritoryOwner(cell, owner)));
+            }
+        }
+
+        /// <summary>陣地マスの塗り色を所有者（-1=未占拠 / 0=YOU / 1=CPU）に合わせて切り替える。</summary>
+        private static void ApplyTerritoryOwner(VisualElement cell, int owner)
+        {
+            cell.RemoveFromClassList("board-cell--owned-p0");
+            cell.RemoveFromClassList("board-cell--owned-p1");
+            if (owner == 0)
+            {
+                cell.AddToClassList("board-cell--owned-p0");
+            }
+            else if (owner >= 1)
+            {
+                cell.AddToClassList("board-cell--owned-p1");
+            }
+        }
+
+        /// <summary>
         /// 各プレイヤーのコマに使うキャラアイコン（バッジ）を Addressables から読み込む。
         /// コマ構築（BuildPiecesIfReady）と injection（Construct）の両方がそろってから 1 度だけ起動する。
         /// </summary>
@@ -481,14 +540,10 @@ namespace Main.Board
             CancellationToken ct = linked.Token;
             _model.BeginMove();
 
-            int start = _model.Position(player).CurrentValue;
-            bool clears = BoardMath.CompletesLap(start, steps, _cellCount);
-            // 周回するときはゴール（0）でちょうど止まるよう、必要なマス数だけ進める。
-            int hops = clears ? _cellCount - start : steps;
-
+            // 周回勝利は廃止したので、出目ぶんそのまま進む（スタート＝ゴールを通過してループし続ける）。
             try
             {
-                for (int i = 0; i < hops; i++)
+                for (int i = 0; i < steps; i++)
                 {
                     await UniTask.Delay(TimeSpan.FromSeconds(_stepInterval), cancellationToken: ct);
                     if (this == null)
@@ -501,14 +556,9 @@ namespace Main.Board
                     _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
                 }
 
-                // 勝者表示は Winner 購読が行う。
-                _model.CompleteMove(player, clears);
-
-                // ゴールで終了した手番は発動しない。止まったマスのお金イベントを反映する。
-                if (!clears)
-                {
-                    ApplyLandingEvent(player);
-                }
+                _model.EndMove();
+                // 止まったマスのイベント（お金の増減・陣地の占拠）を反映する。勝者表示は Winner 購読が行う。
+                ApplyLandingEvent(player);
             }
             catch (OperationCanceledException)
             {
@@ -516,13 +566,14 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// コマが止まったマスのイベントを発動する。現状はお金イベント（増減）のみ扱い、
+        /// コマが止まったマスのイベントを発動する。お金イベント（増減）と陣地マス（占拠）を扱い、
         /// 進む／戻る／休み／ミニゲームは従来どおり表示のみで未発動。
-        /// 変化量の判定は <see cref="CellEventResolver"/>、加算は <see cref="MoneyModel"/> が担う。
+        /// お金の変化量判定は <see cref="CellEventResolver"/>・加算は <see cref="MoneyModel"/>、
+        /// 陣地の占拠・過半数判定は <see cref="TerritoryModel"/> が担う。
         /// </summary>
         private void ApplyLandingEvent(int player)
         {
-            if (_boardDef == null || _money == null)
+            if (_boardDef == null)
             {
                 return;
             }
@@ -534,13 +585,38 @@ namespace Main.Board
             }
 
             BoardCellDefinition cell = _boardDef.Cell(position);
-            if (!CellEventResolver.TryGetMoneyDelta(cell.Event, cell.Amount, out int delta))
+
+            if (cell.Event == BoardCellEvent.Territory)
+            {
+                ApplyTerritoryLanding(player, position);
+                return;
+            }
+
+            if (_money != null && CellEventResolver.TryGetMoneyDelta(cell.Event, cell.Amount, out int delta))
+            {
+                _money.Add(player, delta);
+                _soundPlayer.PlaySafe(cell.Event == BoardCellEvent.MoneyUp ? _soundStore?.Enter3SE : _soundStore?.Cancel1SE);
+            }
+        }
+
+        /// <summary>
+        /// 陣地マスに着地したプレイヤーがそのマスを占拠する（相手の陣地でも上書き）。
+        /// 過半数を占拠したら勝者を確定する（表示は Winner 購読が行う）。
+        /// </summary>
+        private void ApplyTerritoryLanding(int player, int position)
+        {
+            if (_territory == null)
             {
                 return;
             }
 
-            _money.Add(player, delta);
-            _soundPlayer.PlaySafe(cell.Event == BoardCellEvent.MoneyUp ? _soundStore?.Enter3SE : _soundStore?.Cancel1SE);
+            _territory.Claim(player, position); // マスの色替えは Owner 購読が行う
+            _soundPlayer.PlaySafe(_soundStore?.Enter3SE);
+
+            if (_territory.HasMajority(player))
+            {
+                _model.SetWinner(player);
+            }
         }
     }
 }

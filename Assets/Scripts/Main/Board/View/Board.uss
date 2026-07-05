@@ -59,6 +59,36 @@
     -unity-background-scale-mode: scale-and-crop;
 }
 
+/* 陣地マス（未占拠）。奪い合うマスであることを紫の太枠で示す。占拠されると下の owned クラスで塗られる。 */
+.board-cell--territory {
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgb(170, 140, 235);
+    border-right-color: rgb(170, 140, 235);
+    border-top-color: rgb(170, 140, 235);
+    border-bottom-color: rgb(170, 140, 235);
+}
+
+/* あなた（p0）が占拠中の陣地マス。コマ --p0 と同じ金色で塗る。owned は --icon より後に定義して背景を上書きする。 */
+.board-cell--owned-p0 {
+    background-color: rgba(235, 200, 90, 0.5);
+    border-left-color: rgb(255, 225, 120);
+    border-right-color: rgb(255, 225, 120);
+    border-top-color: rgb(255, 225, 120);
+    border-bottom-color: rgb(255, 225, 120);
+}
+
+/* CPU（p1）が占拠中の陣地マス。コマ --p1 と同じ青緑で塗る。 */
+.board-cell--owned-p1 {
+    background-color: rgba(90, 190, 200, 0.5);
+    border-left-color: rgb(140, 225, 235);
+    border-right-color: rgb(140, 225, 235);
+    border-top-color: rgb(140, 225, 235);
+    border-bottom-color: rgb(140, 225, 235);
+}
+
 /* 全マス共通で最前面に重ねる枠画像（BoardDefinition の FrameAddress）。マス全面を覆い、
    中央は透過想定でマス画像・番号を見せる。BoardPresenter が枠画像を貼る。 */
 .board-cell__frame {
