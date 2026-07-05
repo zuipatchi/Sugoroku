@@ -5,6 +5,8 @@
         <ui:VisualElement name="VideoBackground" class="title-video" picking-mode="Ignore" />
         <!-- 動画の再生終了後にコードで 3 行×1文字ずつのラベルを生成し、上から降らせる -->
         <ui:VisualElement name="TitleText" class="title-text" picking-mode="Ignore" />
+        <!-- 初回起動時、動画の再生準備が完了するまで右下に表示する（準備できたらコードで隠す） -->
+        <ui:Label text="Now Loading" name="NowLoading" class="title-now-loading" picking-mode="Ignore" />
         <ui:Button text="Press start" name="GameStartButton" class="title-start-button" />
     </ui:VisualElement>
 </ui:UXML>
