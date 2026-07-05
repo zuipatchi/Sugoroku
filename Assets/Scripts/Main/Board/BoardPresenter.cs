@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Common.Character;
 using Common.SoundManagement;
@@ -54,12 +55,15 @@ namespace Main.Board
         private int _pieceCount;
         private bool _cellsBuilt;
         private bool _cellIconLoadStarted;
+        private bool _frameLoadStarted;
         private bool _piecesBuilt;
         private bool _headerBuilt;
         private bool _iconLoadStarted;
         private CancellationToken _destroyCt;
         private readonly CompositeDisposable _disposables = new();
         private readonly BoardIconLoader _iconLoader = new();
+        // 全マス共通の枠オーバーレイ要素（盤面に枠画像が設定されているときだけ生成する）。
+        private readonly List<VisualElement> _frames = new();
 
         [Inject]
         public void Construct(
@@ -215,12 +219,14 @@ namespace Main.Board
                     cell.Add(new Label(i.ToString()) { pickingMode = PickingMode.Ignore });
                 }
                 ApplyCellAppearance(cell, definition);
+                AddFrameOverlay(cell);
                 _layout.PlaceAtCell(cell, i);
                 _boardArea.Add(cell);
                 _cells[i] = cell;
             }
 
             StartLoadingCellIcons();
+            StartLoadingFrameIfReady();
 
             // リング領域をグリッドのアスペクト比に合わせて中央配置する。画面比が変わっても
             // マスが均等に並ぶよう、レイアウト確定（と以後のリサイズ）のたびに再計算する。
@@ -286,6 +292,43 @@ namespace Main.Board
                 _cells[index].style.backgroundImage = new StyleBackground(sprite);
                 _cells[index].AddToClassList("board-cell--icon");
             }, _destroyCt).Forget();
+        }
+
+        /// <summary>盤面に枠画像が設定されていれば、マス画像の上に重ねる枠オーバーレイ要素を追加する。</summary>
+        private void AddFrameOverlay(VisualElement cell)
+        {
+            if (_boardDef == null || !_boardDef.HasFrame)
+            {
+                return;
+            }
+            VisualElement frame = new() { pickingMode = PickingMode.Ignore };
+            frame.AddToClassList("board-cell__frame");
+            cell.Add(frame);
+            _frames.Add(frame);
+        }
+
+        /// <summary>全マス共通の枠画像を読み込んで各マスの枠オーバーレイに貼る（1 度だけ）。未配置なら枠なしのまま。</summary>
+        private void StartLoadingFrameIfReady()
+        {
+            if (_frameLoadStarted || _boardDef == null || !_boardDef.HasFrame || _frames.Count == 0)
+            {
+                return;
+            }
+            _frameLoadStarted = true;
+            LoadFrameAsync(_destroyCt).Forget();
+        }
+
+        private async UniTaskVoid LoadFrameAsync(CancellationToken ct)
+        {
+            Sprite frame = await _iconLoader.LoadFrameAsync(_boardDef.FrameAddress, ct);
+            if (frame == null)
+            {
+                return;
+            }
+            foreach (VisualElement frameElement in _frames)
+            {
+                frameElement.style.backgroundImage = new StyleBackground(frame);
+            }
         }
 
         /// <summary>

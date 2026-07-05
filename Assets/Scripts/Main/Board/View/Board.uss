@@ -59,6 +59,17 @@
     -unity-background-scale-mode: scale-and-crop;
 }
 
+/* 全マス共通で最前面に重ねる枠画像（BoardDefinition の FrameAddress）。マス全面を覆い、
+   中央は透過想定でマス画像・番号を見せる。BoardPresenter が枠画像を貼る。 */
+.board-cell__frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
 /* マスに割り当てたイベントの記号（▲進む/▼戻る/休/MG）。マス下部に小さく重ねる。 */
 .board-cell__event {
     position: absolute;

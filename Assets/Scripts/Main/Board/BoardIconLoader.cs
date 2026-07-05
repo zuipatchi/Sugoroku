@@ -16,8 +16,8 @@ namespace Main.Board
         private readonly AddressableSpriteLoader _spriteLoader = new();
 
         /// <summary>
-        /// アイコンアドレスを持つマスの画像を経路順に読み込み、成功するたびに
-        /// <paramref name="onLoaded"/>(マス index, Sprite) を呼ぶ。
+        /// 各マスの画像を経路順に読み込み、成功するたびに <paramref name="onLoaded"/>(マス index, Sprite) を呼ぶ。
+        /// アドレスはマスのイベント種別ごとに盤面が持つ画像（<see cref="BoardDefinition.EventIconAddress"/>）で解決する。
         /// </summary>
         public async UniTask LoadCellIconsAsync(
             BoardDefinition definition,
@@ -28,12 +28,12 @@ namespace Main.Board
             {
                 for (int i = 0; i < definition.CellCount; i++)
                 {
-                    BoardCellDefinition cell = definition.Cell(i);
-                    if (!cell.HasIcon)
+                    string address = definition.EventIconAddress(definition.Cell(i).Event);
+                    if (string.IsNullOrEmpty(address))
                     {
                         continue;
                     }
-                    Sprite sprite = await _spriteLoader.TryLoadAsync(cell.IconAddress, "盤面画像", ct);
+                    Sprite sprite = await _spriteLoader.TryLoadAsync(address, "盤面画像", ct);
                     if (sprite == null)
                     {
                         continue;
@@ -43,6 +43,21 @@ namespace Main.Board
             }
             catch (OperationCanceledException)
             {
+            }
+        }
+
+        /// <summary>
+        /// 全マス共通の枠画像を 1 枚読み込んで返す。未配置・キャンセル時は null（枠なしにフォールバック）。
+        /// </summary>
+        public async UniTask<Sprite> LoadFrameAsync(string address, CancellationToken ct)
+        {
+            try
+            {
+                return await _spriteLoader.TryLoadAsync(address, "盤面枠画像", ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
             }
         }
 

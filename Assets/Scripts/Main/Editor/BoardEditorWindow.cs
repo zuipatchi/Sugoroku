@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Main.Board;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -22,6 +24,8 @@ namespace Main.EditorTools
         private ObjectField _objectField;
         private IntegerField _columnsField;
         private IntegerField _rowsField;
+        private TextField _frameField;
+        private Dictionary<BoardCellEvent, TextField> _eventArtFields;
         private Label _infoLabel;
         private BoardEditorGridView _gridView;
         private BoardCellInspector _cellInspector;
@@ -76,7 +80,7 @@ namespace Main.EditorTools
             {
                 _target = evt.newValue as BoardDefinition;
                 _selectedIndex = -1;
-                SyncGridSizeFields();
+                SyncToolbarFields();
                 Rebuild();
             });
             root.Add(_objectField);
@@ -117,9 +121,80 @@ namespace Main.EditorTools
 
             root.Add(sizeRow);
 
+            // 盤面全体で共通の枠画像アドレス（全マスの画像の上に重ねる）。Enter／フォーカスアウトで確定する。
+            _frameField = new TextField("枠画像アドレス") { isDelayed = true };
+            _frameField.style.marginTop = 6f;
+            _frameField.RegisterValueChangedCallback(evt =>
+            {
+                if (_target == null)
+                {
+                    return;
+                }
+                Undo.RecordObject(_target, "枠画像変更");
+                _target.SetFrameAddress(evt.newValue);
+                EditorUtility.SetDirty(_target);
+            });
+            root.Add(_frameField);
+
+            BuildEventArtSection(root);
+
             _infoLabel = new Label();
             _infoLabel.style.marginTop = 4f;
             root.Add(_infoLabel);
+        }
+
+        /// <summary>
+        /// イベント種別ごとの画像アドレス設定（盤面共通）。折りたたみに各イベントの入力欄を並べる。
+        /// 該当イベントのマスすべてに同じ画像が貼られる（マス個別指定は廃止）。
+        /// </summary>
+        private void BuildEventArtSection(VisualElement root)
+        {
+            Foldout foldout = new() { text = "イベント画像アドレス", value = false };
+            foldout.style.marginTop = 6f;
+
+            _eventArtFields = new Dictionary<BoardCellEvent, TextField>();
+            foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
+            {
+                TextField field = new(EventLabel(cellEvent)) { isDelayed = true };
+                field.RegisterValueChangedCallback(evt =>
+                {
+                    if (_target == null)
+                    {
+                        return;
+                    }
+                    Undo.RecordObject(_target, "イベント画像変更");
+                    _target.SetEventIconAddress(cellEvent, evt.newValue);
+                    EditorUtility.SetDirty(_target);
+                });
+                foldout.Add(field);
+                _eventArtFields[cellEvent] = field;
+            }
+
+            root.Add(foldout);
+        }
+
+        /// <summary>イベント種別の日本語ラベル。</summary>
+        private static string EventLabel(BoardCellEvent cellEvent)
+        {
+            switch (cellEvent)
+            {
+                case BoardCellEvent.None:
+                    return "通常マス";
+                case BoardCellEvent.Forward:
+                    return "進む";
+                case BoardCellEvent.Back:
+                    return "戻る";
+                case BoardCellEvent.Rest:
+                    return "休み";
+                case BoardCellEvent.MiniGame:
+                    return "ミニゲーム";
+                case BoardCellEvent.MoneyUp:
+                    return "お金アップ";
+                case BoardCellEvent.MoneyDown:
+                    return "お金ダウン";
+                default:
+                    return cellEvent.ToString();
+            }
         }
 
         /// <summary>方眼サイズの数値フィールドのラベル幅を絞り、入力欄に十分な幅を与える。</summary>
@@ -147,10 +222,12 @@ namespace Main.EditorTools
             _target = definition;
             _selectedIndex = -1;
             _objectField.SetValueWithoutNotify(definition);
+            SyncToolbarFields();
             Rebuild();
         }
 
-        private void SyncGridSizeFields()
+        /// <summary>選択中の盤面データに合わせて、ツールバーの列・行・枠画像アドレスの表示を同期する。</summary>
+        private void SyncToolbarFields()
         {
             if (_target == null)
             {
@@ -158,6 +235,11 @@ namespace Main.EditorTools
             }
             _columnsField.SetValueWithoutNotify(_target.GridColumns);
             _rowsField.SetValueWithoutNotify(_target.GridRows);
+            _frameField.SetValueWithoutNotify(_target.FrameAddress);
+            foreach (KeyValuePair<BoardCellEvent, TextField> pair in _eventArtFields)
+            {
+                pair.Value.SetValueWithoutNotify(_target.EventIconAddress(pair.Key));
+            }
         }
 
         private void ApplyGridSize()

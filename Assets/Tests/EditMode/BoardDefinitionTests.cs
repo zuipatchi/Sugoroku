@@ -40,13 +40,12 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void 新規マスの既定はイベントなし_色未指定_アイコンなし()
+        public void 新規マスの既定はイベントなし_色未指定()
         {
             BoardCellDefinition cell = new(new Vector2Int(1, 2));
             Assert.AreEqual(new Vector2Int(1, 2), cell.Grid);
             Assert.AreEqual(BoardCellEvent.None, cell.Event);
             Assert.IsFalse(cell.HasCustomColor);
-            Assert.IsFalse(cell.HasIcon);
         }
 
         [Test]
@@ -94,6 +93,55 @@ namespace Tests.EditMode
             definition.AddCell(new BoardCellDefinition(new Vector2Int(2, 3)));
             Assert.AreEqual(1, definition.IndexOfGrid(new Vector2Int(2, 3)));
             Assert.AreEqual(-1, definition.IndexOfGrid(new Vector2Int(9, 9)));
+            Object.DestroyImmediate(definition);
+        }
+
+        [Test]
+        public void EventIconAddressは未設定なら空文字を返す()
+        {
+            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
+            Assert.AreEqual(string.Empty, definition.EventIconAddress(BoardCellEvent.MoneyUp));
+            Object.DestroyImmediate(definition);
+        }
+
+        [Test]
+        public void SetEventIconAddressで設定した値をEventIconAddressが返す()
+        {
+            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
+            definition.SetEventIconAddress(BoardCellEvent.MoneyUp, "Board/MoneyUp");
+            Assert.AreEqual("Board/MoneyUp", definition.EventIconAddress(BoardCellEvent.MoneyUp));
+            Object.DestroyImmediate(definition);
+        }
+
+        [Test]
+        public void SetEventIconAddressは同じイベントを上書きする()
+        {
+            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
+            definition.SetEventIconAddress(BoardCellEvent.Forward, "Board/Old");
+            definition.SetEventIconAddress(BoardCellEvent.Forward, "Board/New");
+            Assert.AreEqual("Board/New", definition.EventIconAddress(BoardCellEvent.Forward));
+            Object.DestroyImmediate(definition);
+        }
+
+        [Test]
+        public void SetEventIconAddressはイベントごとに独立して保持する()
+        {
+            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
+            definition.SetEventIconAddress(BoardCellEvent.MoneyUp, "Board/MoneyUp");
+            definition.SetEventIconAddress(BoardCellEvent.MoneyDown, "Board/MoneyDown");
+            Assert.AreEqual("Board/MoneyUp", definition.EventIconAddress(BoardCellEvent.MoneyUp));
+            Assert.AreEqual("Board/MoneyDown", definition.EventIconAddress(BoardCellEvent.MoneyDown));
+            Object.DestroyImmediate(definition);
+        }
+
+        [Test]
+        public void FrameAddressはSetFrameAddressで読み書きできる()
+        {
+            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
+            Assert.IsFalse(definition.HasFrame);
+            definition.SetFrameAddress("Board/Frame");
+            Assert.AreEqual("Board/Frame", definition.FrameAddress);
+            Assert.IsTrue(definition.HasFrame);
             Object.DestroyImmediate(definition);
         }
     }

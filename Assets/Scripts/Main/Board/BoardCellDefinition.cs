@@ -20,7 +20,6 @@ namespace Main.Board
         [SerializeField] private int _amount = 1;
         [SerializeField] private MiniGameId _miniGame = MiniGameId.Tap;
         [SerializeField] private Color _color = new(0f, 0f, 0f, 0f);
-        [SerializeField] private string _iconAddress = string.Empty;
 
         public BoardCellDefinition()
         {
@@ -46,14 +45,8 @@ namespace Main.Board
         /// <summary>マスの塗り色。<see cref="HasCustomColor"/> が false のときは USS の既定色を使う。</summary>
         public Color Color => _color;
 
-        /// <summary>マスに貼る画像の Addressables アドレス（任意）。</summary>
-        public string IconAddress => _iconAddress;
-
         /// <summary>塗り色が明示指定されているか（アルファ > 0）。</summary>
         public bool HasCustomColor => _color.a > 0f;
-
-        /// <summary>アイコン画像が指定されているか。</summary>
-        public bool HasIcon => !string.IsNullOrEmpty(_iconAddress);
 
         // --- 以下は盤面エディタ専用の編集 API。実行時のゲームロジックからは呼ばない。---
 
@@ -80,11 +73,6 @@ namespace Main.Board
         public void SetColor(Color color)
         {
             _color = color;
-        }
-
-        public void SetIconAddress(string address)
-        {
-            _iconAddress = address ?? string.Empty;
         }
     }
 }

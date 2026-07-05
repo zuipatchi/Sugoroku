@@ -101,15 +101,6 @@ namespace Main.EditorTools
             });
             _container.Add(colorField);
 
-            TextField iconField = new("アイコンアドレス") { value = cell.IconAddress };
-            iconField.RegisterValueChangedCallback(evt =>
-            {
-                Undo.RecordObject(target, "アイコン変更");
-                cell.SetIconAddress(evt.newValue);
-                EditorUtility.SetDirty(target);
-            });
-            _container.Add(iconField);
-
             Button removeButton = new(_removeSelected) { text = "このマスを削除" };
             removeButton.style.marginTop = 8f;
             _container.Add(removeButton);

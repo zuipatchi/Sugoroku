@@ -16,10 +16,34 @@ namespace Main.Board
         [SerializeField] private string _displayName = string.Empty;
         [SerializeField] private int _gridColumns = 5;
         [SerializeField] private int _gridRows = 7;
+        [SerializeField] private string _frameAddress = string.Empty;
+        [SerializeField] private List<BoardEventArt> _eventArt = new();
         [SerializeField] private List<BoardCellDefinition> _cells = new();
 
         /// <summary>盤面の表示名（任意）。</summary>
         public string DisplayName => _displayName;
+
+        /// <summary>全マス共通で画像の上に重ねる枠画像の Addressables アドレス（任意）。</summary>
+        public string FrameAddress => _frameAddress;
+
+        /// <summary>枠画像が指定されているか。</summary>
+        public bool HasFrame => !string.IsNullOrEmpty(_frameAddress);
+
+        /// <summary>
+        /// イベント種別 <paramref name="cellEvent"/> のマスに貼る画像の Addressables アドレスを返す。
+        /// 未設定なら空文字（呼び出し側は記号表示にフォールバックする）。
+        /// </summary>
+        public string EventIconAddress(BoardCellEvent cellEvent)
+        {
+            for (int i = 0; i < _eventArt.Count; i++)
+            {
+                if (_eventArt[i].Event == cellEvent)
+                {
+                    return _eventArt[i].Address;
+                }
+            }
+            return string.Empty;
+        }
 
         /// <summary>方眼キャンバスの列数（座標の正規化とレイアウト比に使う）。</summary>
         public int GridColumns => _gridColumns;
@@ -65,6 +89,25 @@ namespace Main.Board
         public void SetDisplayName(string displayName)
         {
             _displayName = displayName ?? string.Empty;
+        }
+
+        public void SetFrameAddress(string address)
+        {
+            _frameAddress = address ?? string.Empty;
+        }
+
+        /// <summary>イベント種別ごとの画像アドレスを設定する（既存があれば更新、なければ追加）。</summary>
+        public void SetEventIconAddress(BoardCellEvent cellEvent, string address)
+        {
+            for (int i = 0; i < _eventArt.Count; i++)
+            {
+                if (_eventArt[i].Event == cellEvent)
+                {
+                    _eventArt[i].SetAddress(address);
+                    return;
+                }
+            }
+            _eventArt.Add(new BoardEventArt(cellEvent, address));
         }
 
         public void SetGridSize(int columns, int rows)
