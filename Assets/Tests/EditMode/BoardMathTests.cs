@@ -34,15 +34,6 @@ namespace Tests.EditMode
             Assert.AreEqual(0, BoardMath.Advance(13, 5, CellCount));
         }
 
-        [TestCase(2, 3, false)] // 5 < 18
-        [TestCase(16, 5, true)] // 21 >= 18（通過）
-        [TestCase(13, 5, true)] // 18 >= 18（ちょうど到達）
-        [TestCase(13, 4, false)] // 17 < 18
-        public void CompletesLapは周回到達_通過の境界を判定する(int current, int steps, bool expected)
-        {
-            Assert.AreEqual(expected, BoardMath.CompletesLap(current, steps, CellCount));
-        }
-
         [Test]
         public void CellGridPositionの四隅が正しい()
         {

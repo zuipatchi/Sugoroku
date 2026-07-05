@@ -28,6 +28,8 @@ namespace Main.Injector
             builder.Register<MoneyModel>(Lifetime.Scoped);
 
             builder.Register<BoardModel>(Lifetime.Scoped);
+            // 陣地マスの占拠状態（過半数占拠で勝敗が決まる）。盤面 index 一覧は BoardPresenter が Initialize で渡す。
+            builder.Register<TerritoryModel>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<BoardPresenter>().AsSelf();
         }
     }

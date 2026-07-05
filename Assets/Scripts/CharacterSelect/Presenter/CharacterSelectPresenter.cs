@@ -169,7 +169,8 @@ namespace CharacterSelect.Presenter
             _transiting = true;
             _characterSession.Select(_selected);
             _soundPlayer.PlaySE(_soundStore.Enter1SE);
-            _sceneTransitioner.Transit(Scenes.Main).Forget();
+            // キャラ決定後はマップ選択へ進む（マップ決定で Main へ遷移する）。
+            _sceneTransitioner.Transit(Scenes.MapSelect).Forget();
         }
 
         private void OnBackClicked()

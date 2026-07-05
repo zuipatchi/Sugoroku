@@ -13,6 +13,12 @@ namespace Main.Board
     [CreateAssetMenu(menuName = "Sugoroku/Board Definition", fileName = "BoardDefinition")]
     public sealed class BoardDefinition : ScriptableObject
     {
+        /// <summary>
+        /// スタート＝ゴール（経路 index 0）のマスに使う固定の画像アドレス（Addressables）。
+        /// イベント種別ごとの画像（<see cref="EventIconAddress"/>）より優先する。未配置なら記号表示にフォールバックする。
+        /// </summary>
+        public const string StartCellIconAddress = "Board/Start";
+
         [SerializeField] private string _displayName = string.Empty;
         [SerializeField] private int _gridColumns = 5;
         [SerializeField] private int _gridRows = 7;

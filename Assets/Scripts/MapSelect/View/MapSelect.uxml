@@ -1,0 +1,19 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="MapSelect.uss" />
+    <ui:VisualElement name="MapSelectRoot" class="ms-root">
+        <!-- 戻る／決定は画面上部に配置する（右上は Common のオプションアイコンを避けて中央寄せ） -->
+        <ui:VisualElement name="Actions" class="ms-actions">
+            <ui:Button text="戻る" name="BackButton" class="btn-secondary ms-action" />
+            <ui:Button text="決定" name="ConfirmButton" class="btn-accent ms-action" />
+        </ui:VisualElement>
+        <!-- 選択中マップの大プレビュー（盤面サムネイルをコードで Painter2D 描画）とマップ名 -->
+        <ui:VisualElement name="PreviewWrap" class="ms-preview-wrap">
+            <ui:VisualElement name="MapPreview" class="ms-preview" picking-mode="Ignore" />
+            <ui:Label name="MapTitle" class="ms-title" />
+        </ui:VisualElement>
+        <ui:VisualElement name="Bottom" class="ms-bottom">
+            <!-- マップのカードはコードで MapGrid に追加する -->
+            <ui:VisualElement name="MapGrid" class="ms-grid" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

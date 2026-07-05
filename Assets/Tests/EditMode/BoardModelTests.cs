@@ -36,20 +36,20 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void BeginMoveとCompleteMoveでIsMovingが切り替わる()
+        public void BeginMoveとEndMoveでIsMovingが切り替わる()
         {
             using BoardModel board = TwoPlayerBoard();
             board.BeginMove();
             Assert.IsTrue(board.IsMoving.CurrentValue);
-            board.CompleteMove(0, false);
+            board.EndMove();
             Assert.IsFalse(board.IsMoving.CurrentValue);
         }
 
         [Test]
-        public void CompleteMoveでclearedならそのプレイヤーが勝者になる()
+        public void SetWinnerでそのプレイヤーが勝者になる()
         {
             using BoardModel board = TwoPlayerBoard();
-            board.CompleteMove(1, true);
+            board.SetWinner(1);
             Assert.AreEqual(1, board.Winner.CurrentValue);
             Assert.IsTrue(board.IsFinished);
         }
@@ -58,8 +58,8 @@ namespace Tests.EditMode
         public void 勝者は最初に確定した1人で後から上書きされない()
         {
             using BoardModel board = TwoPlayerBoard();
-            board.CompleteMove(1, true);
-            board.CompleteMove(0, true);
+            board.SetWinner(1);
+            board.SetWinner(0);
             Assert.AreEqual(1, board.Winner.CurrentValue);
         }
     }

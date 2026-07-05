@@ -27,15 +27,6 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 現在位置 <paramref name="current"/> から <paramref name="steps"/> 進むと、
-        /// スタート（＝ゴール、0）に到達または通過して周回が完了するか。
-        /// </summary>
-        public static bool CompletesLap(int current, int steps, int cellCount)
-        {
-            return current + steps >= cellCount;
-        }
-
-        /// <summary>
         /// 外周リング上のマス <paramref name="index"/> を、矩形グリッドの (列, 行) 座標へ変換する。
         /// 0 は左上 (0, 0) で、時計回りに上辺 → 右辺 → 下辺 → 左辺をたどる。
         /// </summary>

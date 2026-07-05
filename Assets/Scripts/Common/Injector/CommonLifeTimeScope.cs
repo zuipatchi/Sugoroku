@@ -1,3 +1,4 @@
+using Common.Board;
 using Common.Character;
 using Common.GameSession;
 using Common.MiniGame;
@@ -17,6 +18,7 @@ namespace Common.Injector
         {
             builder.Register<GameSessionModel>(Lifetime.Singleton).AsSelf();
             builder.Register<CharacterSessionModel>(Lifetime.Singleton).AsSelf();
+            builder.Register<BoardSessionModel>(Lifetime.Singleton).AsSelf();
             builder.RegisterEntryPoint<ModalStore>(Lifetime.Singleton).AsSelf();
             builder.RegisterComponentInHierarchy<OptionPresenter>().AsSelf();
             builder.RegisterEntryPoint<OptionModel>(Lifetime.Singleton).AsSelf();
