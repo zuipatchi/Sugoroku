@@ -24,6 +24,18 @@
     align-items: center;
 }
 
+/* 初回起動時の動画準備中に右下へ出す「Now Loading」。準備完了でコードから display:none にする。
+   映像・ベース色どちらの上でも読めるよう白＋縁取りにする（右上は Common のオプションアイコンを避けて右下に置く）。 */
+.title-now-loading {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    color: rgb(255, 255, 255);
+    font-size: 28px;
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.8);
+}
+
 /* 1 行（横並び・中央寄せ） */
 .title-line {
     flex-direction: row;

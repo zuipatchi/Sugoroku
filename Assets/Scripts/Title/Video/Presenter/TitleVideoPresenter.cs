@@ -31,6 +31,7 @@ namespace Title.Video
 
         private UIDocument _uiDocument;
         private VisualElement _videoBackground;
+        private VisualElement _nowLoading;
         private TitleTextAnimator _titleTextAnimator;
         private VideoPlayer _videoPlayer;
         private RenderTexture _renderTexture;
@@ -91,6 +92,7 @@ namespace Title.Video
             }
 
             _videoBackground = root.Q<VisualElement>("VideoBackground");
+            _nowLoading = root.Q<VisualElement>("NowLoading");
             _titleTextAnimator = new TitleTextAnimator(root.Q<VisualElement>("TitleText"));
             if (_videoBackground == null)
             {
@@ -98,6 +100,9 @@ namespace Title.Video
                 return;
             }
             _titleTextAnimator.Build();
+
+            // 動画の準備が終わるまで右下に「Now Loading」を出す（準備完了・失敗のいずれでも隠す）。
+            SetNowLoadingVisible(true);
 
             _videoPlayer = gameObject.AddComponent<VideoPlayer>();
             _videoPlayer.playOnAwake = false;
@@ -113,6 +118,8 @@ namespace Title.Video
             _videoPlayer.skipOnDrop = true;
 
             bool prepared = await TryPrepareAsync(ct);
+            // 準備の成否が確定したので「Now Loading」を消す。
+            SetNowLoadingVisible(false);
             if (!prepared)
             {
                 // 再生できない場合は文言だけ表示する（タイトルは通常どおり機能する）。
@@ -135,6 +142,16 @@ namespace Title.Video
 
             // 初回再生開始を起点に、以降 _replayIntervalSeconds 秒おきに最初から再生し直すループ。
             RunReplayLoopAsync(ct).Forget();
+        }
+
+        // 右下の「Now Loading」表示を切り替える（要素が無ければ何もしない）。
+        private void SetNowLoadingVisible(bool visible)
+        {
+            if (_nowLoading == null)
+            {
+                return;
+            }
+            _nowLoading.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         // 一定間隔で動画を最初から再生し直す。破棄・遷移キャンセルで自然に止まる。
