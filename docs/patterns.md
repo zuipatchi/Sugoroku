@@ -267,12 +267,13 @@ public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
 
 ## 11. 自作コンテンツは ScriptableObject データ＋専用 EditorWindow で作れるようにする
 
-盤面のように「非プログラマーがビジュアルに量産したいデータ」は、**データを ScriptableObject アセットにして、専用の `EditorWindow` で編集する**構成にする（例: [BoardDefinition.cs](../Assets/Scripts/Main/Board/BoardDefinition.cs) ＋ [BoardEditorWindow.cs](../Assets/Scripts/Main/Editor/BoardEditorWindow.cs)）。実行時の Presenter はこのデータを読んで描画するだけにし、計算生成はフォールバックに回す（`BoardPresenter` は `_definition` 未割り当て時のみ矩形リングを生成）。
+盤面のように「非プログラマーがビジュアルに量産したいデータ」は、**データを ScriptableObject アセットにして、専用の `EditorWindow` で編集する**構成にする（例: [BoardDefinition.cs](../Assets/Scripts/Main/Board/BoardDefinition.cs) ＋ [BoardEditorWindow.cs](../Assets/Scripts/Main/Editor/BoardEditorWindow.cs)）。実行時の Presenter はこのデータを読んで描画するだけにし、計算生成はフォールバックに回す（`BoardPresenter` は選択マップも `_definition` も無いときだけ矩形リングを生成）。
 
 - **エディタ専用コードは `Editor/` サブフォルダの Editor 専用 asmdef に分ける**。`includePlatforms: ["Editor"]` にし、`references` に対象ランタイム asmdef の GUID を並べる（**推移的に参照されないので**、`BoardDefinition`（Main）だけでなく `MiniGameId`（Common）のように編集画面で型名を出すものは Common の GUID も足す）。ビルドには含まれない。
 - **ScriptableObject の編集は `Undo.RecordObject(target, "…")` → 値を変更 → `EditorUtility.SetDirty(target)`** の順で行い、保存は `AssetDatabase.SaveAssets()`（またはユーザーの Ctrl+S）に任せる。`[Serializable]` な子クラス（`BoardCellDefinition`・`BoardEventArt`）を `List<T>` で持たせれば、そのリストを丸ごと Undo/シリアライズできる。
 - **エディタは UI Toolkit（`CreateGUI` で構築）で書く**とランタイム同様にクラスで組める。ただし `UnityEditor.UIElements` のフィールド（`IntegerField` 等）は**ラベルの最小幅が広く、フィールド全体幅を小さく固定すると入力欄が潰れて操作できなくなる**。`field.labelElement.style.width` を絞ってから十分な幅を与える。数値入力は `isDelayed = true` にして Enter／フォーカスアウトで確定させると桁の途中で反応せず打ちやすい。
 - **アセット未割り当てでも壊れないフォールバックを実行時側に持たせる**（`BoardDefinition.CreateRectangular` を `CreateInstance` で生成し、`OnDestroy` で `Destroy` する）。既存シーンは無改変で従来動作、データを割り当てたときだけ差し替わる。
+- **同種の SO 資産を複数から選ばせるには「カタログ SO ＋ Common に文字列 ID」で分ける**。`CharacterCatalog` のような静的クラスは Addressable アドレス（文字列）しか持てず SO 資産参照を持てないので、資産を並べるカタログ自体も `ScriptableObject` にする（例: [BoardCatalog.cs](../Assets/Scripts/Main/Board/BoardCatalog.cs) が `List<BoardDefinition>` を持ち `All`/`Default`/`Find` を公開）。選択状態をシーンをまたいで持つ Common シングルトン（[BoardSessionModel.cs](../Assets/Scripts/Common/Board/BoardSessionModel.cs)）は、**Common から Main の SO 型（`BoardDefinition`）を参照できない**ため識別子（資産名 `Object.name`）だけを文字列で持ち、消費側（`BoardPresenter`）が `catalog.Find(id)` で実体を解決する。カタログ資産は選択シーンと消費シーンの両方の Presenter にインスペクタで割り当てる。未選択・未割り当て時は単発フォールバック（`_definition`）に落ちる。
 
 ---
 

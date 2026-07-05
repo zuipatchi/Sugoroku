@@ -20,13 +20,13 @@ Common (常駐)
   ├── TransitionPresenter
   ├── OptionPresenter / OptionModalPresenter / OptionModel
   ├── GameSessionModel
-  ├── CharacterSessionModel
+  ├── CharacterSessionModel / BoardSessionModel
   ├── MiniGameLauncher / MiniGameSessionModel
   └── Store 群（SoundStore / ModalStore ← AssetStoreBase を継承）
 
-Title → Home ┬─（一人用モード）→ CharacterSelect ─→ Main
-             └─（オンライン）→ Matching ──────────→ Main
-                                                      └─（ミニゲーム）→ MiniGame（Main を残して重ねる）
+Title → Home ┬─（一人用モード）→ CharacterSelect → MapSelect ─→ Main
+             └─（オンライン）→ Matching ─────────────────────→ Main
+                                                                 └─（ミニゲーム）→ MiniGame（Main を残して重ねる）
 
 （開発用）MiniGameTest → MiniGame（テストシーンを残して重ねる）  ※本番フロー外・エディタで直接起動
 ```
@@ -37,8 +37,9 @@ Title → Home ┬─（一人用モード）→ CharacterSelect ─→ Main
 - 他シーンは `Common` の上にアディティブでロード・アンロードされる
 - シーン遷移は `SceneTransitioner.Transit(Scenes next)` を呼ぶだけでよい
 - 遷移時は `TransitionPresenter` が画面をフェードアウト→ロード→フェードインの演出を行う
-- **Home で2モードを分岐**する。「一人用モード」は `GameSessionModel.SetSinglePlayer()` を呼んで `CharacterSelect`（キャラ選択）へ遷移し、選択確定後に `Main` へ進み、**CPU と 1 対 1 のすごろく対戦**を行う。「オンラインプレイ」は `Matching` を経由する
+- **Home で2モードを分岐**する。「一人用モード」は `GameSessionModel.SetSinglePlayer()` を呼んで `CharacterSelect`（キャラ選択）へ遷移し、キャラ確定後に `MapSelect`（マップ選択）へ、マップ確定後に `Main` へ進み、**CPU と 1 対 1 のすごろく対戦**を行う。「オンラインプレイ」は `Matching` を経由する（マップは既定＝カタログ先頭）
 - **CharacterSelect** は選択中キャラの立ち絵を全画面背景に、カード絵の選択スロットを画面下部に表示する。各キャラは Addressables に 4 系統の画像アドレスを持つ（`Character/<名前>/Card`＝選択カード絵・`Character/<名前>/Icon`＝盤面コマの丸バッジ・`Character/<名前>/Portrait`＝立ち絵・`Image/<動物>Run`＝2Dレースミニゲームの走行絵）。CharacterSelect は Card と Portrait をロードし、盤面（`BoardPresenter`）はコマに Icon を、2Dレース（`RaceGamePlay`）は走者に Run を使う。未配置のアドレスは色面プレースホルダにフォールバックする。選択結果は Common シングルトンの `CharacterSessionModel` に保持し、`Main` でも参照できる（現状はオンライン非対応・一人用のみ）
+- **MapSelect** は複数の盤面（`BoardDefinition`）から対戦マップを選ぶ。マップ一覧は `BoardCatalog`（ScriptableObject。`BoardDefinition` は SO 資産で静的クラスから参照できないため、キャラの `CharacterCatalog` とは異なりカタログ自身も SO にして資産参照のリストを持つ）が持ち、各マップは盤面の形を Painter2D で描く簡易サムネイル（`BoardSchematicView`・画像アセット不要）とマップ名（`BoardDefinition.DisplayName`。空なら資産名にフォールバック）でカード表示する。選択結果は Common シングルトンの `BoardSessionModel` に**識別子（マップ資産名）**として保持し、`Main` の `BoardPresenter` が `BoardCatalog.Find(識別子)` で実体を解決する（`CharacterSessionModel` と同型だが、Common から Main の `BoardDefinition` を参照できないため文字列 ID だけを持つ）。`BoardCatalog` 資産は `MapSelect` シーンの `MapSelectPresenter` と `Main` の `BoardPresenter` の両方にインスペクタで割り当てる。マップ未選択（オンライン等）や未割り当て時は `BoardPresenter._definition` にフォールバックする
 - `Main` の `NetworkSessionStartup` は `GameSessionModel.Mode == SinglePlayer` のとき NGO を起動せず即 `Connected` 扱いにする（一人用モードはネットワーク非依存）
 - **手番進行は `GameFlowController`（`Main/Turn/`）が統括する**。参加者は `GameParticipants` が `GameMode` から決める（一人用＝`[Human, Cpu]` の 1 対 1、オンライン＝`[Human]` の単独プレイ）。`GameFlowController` は接続完了を待ってから「手番プレイヤーを見る → 人間なら手動スピンの停止を待つ／CPU なら円盤を自動で回す → ルーレットが消える（`WaitForHideAsync`）のを待ってから出目ぶんそのプレイヤーのコマを進める → 勝者が出るまで `TurnModel.Next()` で交代」というループを回す。**勝敗は陣地マスの占拠で決まる**（周回ゴール勝利は廃止）ため、コマは 1 周で止まらず出目ぶんそのままスタート＝ゴールを通過してループし続ける。コマ位置は `BoardModel` がプレイヤーごとに保持し、勝者は着地イベントが `BoardModel.SetWinner` で確定する（`BoardModel.Winner` / `IsFinished`）。これまで各 Presenter に散在していた「ルーレット停止→コマ前進」「移動完了→ボタン再有効化」の購読チェーンを、このオーケストレータに集約した
 - **陣地マスの占拠で勝敗が決まる**。マスのイベントに陣地マス（`BoardCellEvent.Territory`）があり、止まったプレイヤーがそのマスを占拠する（相手の陣地でも上書きで奪える）。占拠状態は `TerritoryModel`（`Main/Board/`・Scoped）が陣地マスの盤面 index ごとに保持し、盤面の陣地マス総数の**過半数**（`RequiredToWin` = 総数/2 + 1）を占拠したプレイヤーが勝つ。着地時に `BoardPresenter` が `TerritoryModel.Claim(player, index)` で占拠し、`HasMajority(player)` なら `BoardModel.SetWinner(player)` を呼ぶ。マスの色替えは各陣地マスの `Owner(index)` を Presenter が購読し、占拠プレイヤーの色（YOU＝金・CPU＝青緑）に塗り替える。陣地マスの index 一覧は DI に無いため `BoardPresenter` が盤面データから集めて `TerritoryModel.Initialize` に渡す。**陣地マスが 0 個の盤面は勝者が出ない**ため、盤面には陣地マスを配置しておくこと
@@ -71,6 +72,7 @@ CommonLifeTimeScope   全シーン共通のシングルトンを登録
 TitleLifetimeScope            Title シーン固有のサービスを登録
 HomeLifetimeScope             Home シーン固有のサービスを登録
 CharacterSelectLifetimeScope  CharacterSelect シーン固有のサービスを登録
+MapSelectLifetimeScope        MapSelect シーン固有のサービスを登録
 MainLifetimeScope             Main シーン固有のサービスを登録
 ```
 
@@ -193,7 +195,7 @@ Assets/Scripts/<Scene>/<Feature>/
 
 ## アセンブリ構成
 
-スクリプトは 7 つのランタイム Assembly Definition と、1 つのエディタ専用アセンブリに分割されている。
+スクリプトは 8 つのランタイム Assembly Definition と、1 つのエディタ専用アセンブリに分割されている。
 
 | アセンブリ | パス | 依存 |
 |---|---|---|
@@ -201,12 +203,14 @@ Assets/Scripts/<Scene>/<Feature>/
 | `Title` | `Assets/Scripts/Title/` | VContainer / UniTask / Common |
 | `Home` | `Assets/Scripts/Home/` | VContainer / UniTask / Common |
 | `CharacterSelect` | `Assets/Scripts/CharacterSelect/` | VContainer / R3 / UniTask / Addressables / Common |
+| `MapSelect` | `Assets/Scripts/MapSelect/` | VContainer / R3 / UniTask / Addressables / Common / **Main**（`BoardCatalog` / `BoardDefinition` を参照するため Main にも依存する唯一のシーンアセンブリ） |
 | `Matching` | `Assets/Scripts/Matching/` | VContainer / R3 / UniTask / Common / Unity.Services.Multiplayer / Unity.Netcode |
 | `Main` | `Assets/Scripts/Main/` | VContainer / R3 / UniTask / Common / Unity.Netcode / DOTween |
 | `MiniGame` | `Assets/Scripts/MiniGame/` | VContainer / R3 / UniTask / Addressables / Common |
 | `Main.Editor` | `Assets/Scripts/Main/Editor/` | Main / Common（`includePlatforms: ["Editor"]`＝ビルド非対象。盤面エディタ用） |
 
-- `Title` / `Home` / `CharacterSelect` / `Matching` / `Main` / `MiniGame` は `Common` に依存し、逆方向の依存は禁止
+- `Title` / `Home` / `CharacterSelect` / `MapSelect` / `Matching` / `Main` / `MiniGame` は `Common` に依存し、逆方向の依存は禁止
+- `BoardSessionModel`（選択マップの識別子）は `Common` に置き文字列 ID だけを持つ。`BoardCatalog` / `BoardDefinition` は `Main` にあるため、それらを扱う `MapSelect` だけが `Common` に加えて `Main` にも依存する
 - `Main.Editor` はエディタ専用（`Window > Sugoroku > Board Editor`）。参照は推移解決されないため対象ランタイム asmdef の GUID を明示する（[patterns.md](patterns.md) #11）
 - `autoReferenced: true` のため既存コードへの影響なし
 
