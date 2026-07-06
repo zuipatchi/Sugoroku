@@ -21,6 +21,8 @@ MonoBehaviour:
     _address: Board/MoneyUp
   - _event: 6
     _address: Board/MoneyDown
+  - _event: 7
+    _address: Board/Territory
   _cells:
   - _grid: {x: 0, y: 0}
     _event: 0

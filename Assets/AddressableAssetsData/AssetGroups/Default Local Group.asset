@@ -186,6 +186,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ab3ebabd35b348e4c9c21cb24b9ca812
+    m_Address: Board/Territory
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ac06208370c95a34793f77dabf3a231e
     m_Address: Image/ChameleonRun
     m_ReadOnly: 0
