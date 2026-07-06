@@ -277,6 +277,70 @@
     color: rgb(240, 130, 130);
 }
 
+/* コマが止まったマスの画像を画面中央に一瞬表示する演出のカード。
+   既定は縮小＆透明。--visible が付くと等倍＆不透明へ transition でポップする。
+   表示中だけ display:flex にする（BoardPresenter が制御）。 */
+.cell-popup {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 220px;
+    height: 220px;
+    translate: -50% -50%;
+    display: none;
+    opacity: 0;
+    scale: 0.55 0.55;
+    background-color: rgba(18, 18, 30, 0.94);
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgb(255, 225, 120);
+    border-right-color: rgb(255, 225, 120);
+    border-top-color: rgb(255, 225, 120);
+    border-bottom-color: rgb(255, 225, 120);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    -unity-background-scale-mode: scale-to-fit;
+    transition-property: opacity, scale;
+    transition-duration: 0.18s, 0.18s;
+    transition-timing-function: ease-out, ease-out;
+}
+
+/* ポップアップの表示状態（等倍・不透明）。 */
+.cell-popup--visible {
+    opacity: 1;
+    scale: 1 1;
+}
+
+/* お金マスに止まったときに増減額を上へ浮かび上がらせる演出のテキスト。
+   opacity と translate は BoardPresenter が毎フレーム駆動する（表示中だけ display:flex）。
+   読みやすさのため太字＋濃い輪郭風の縁取り色を付ける。 */
+.money-float {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    display: none;
+    opacity: 0;
+    font-size: 54px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+}
+
+/* 増額（MoneyUp）は緑、減額（MoneyDown）は赤で色分けする。 */
+.money-float--up {
+    color: rgb(120, 235, 140);
+}
+
+.money-float--down {
+    color: rgb(245, 120, 120);
+}
+
 /* クリア表示。リング中央に重ねる。 */
 .board-clear {
     position: absolute;

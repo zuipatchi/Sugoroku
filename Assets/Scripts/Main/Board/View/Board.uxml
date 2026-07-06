@@ -7,5 +7,9 @@
         <!-- 自分（YOU）のネームプレートを載せる上部ヘッダー。中身は BoardPresenter が生成する -->
         <ui:VisualElement name="PlayerHeader" class="player-header" picking-mode="Ignore" />
         <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
+        <!-- コマが止まったマスの画像を画面中央に一瞬拡大表示する演出。中身は BoardPresenter が制御する -->
+        <ui:VisualElement name="CellPopup" class="cell-popup" picking-mode="Ignore" />
+        <!-- お金マスに止まったときに増減額（+n / -n）を上へ浮かび上がらせる演出。BoardPresenter が制御する -->
+        <ui:Label text="" name="MoneyFloat" class="money-float" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

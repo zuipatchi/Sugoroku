@@ -54,6 +54,10 @@ namespace Main.Board
         private VisualElement[] _cells;
         private VisualElement[] _pieces;
         private Sprite[] _pieceIcons;
+        // 各マスに貼った画像。着地演出（ShowCellPopupAsync）で中央に拡大表示するのに保持する。
+        private Sprite[] _cellIcons;
+        private VisualElement _cellPopup;
+        private Label _moneyFloat;
         private Label _clearLabel;
         private BoardDefinition _boardDef;
         private BoardLayoutCalculator _layout;
@@ -228,6 +232,8 @@ namespace Main.Board
 
             _boardArea = root.Q<VisualElement>("BoardArea");
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
+            _cellPopup = root.Q<VisualElement>("CellPopup");
+            _moneyFloat = root.Q<Label>("MoneyFloat");
             _clearLabel = root.Q<Label>("ClearLabel");
             if (_boardArea == null || _clearLabel == null)
             {
@@ -239,6 +245,7 @@ namespace Main.Board
 
             _cellsBuilt = true;
             _cells = new VisualElement[_cellCount];
+            _cellIcons = new Sprite[_cellCount];
 
             // マス同士をつなぐ接続線。マス・コマより先に追加して背後に描く。
             VisualElement linesElement = new();
@@ -335,6 +342,10 @@ namespace Main.Board
                 if (_cells == null || index >= _cells.Length || _cells[index] == null)
                 {
                     return;
+                }
+                if (_cellIcons != null && index < _cellIcons.Length)
+                {
+                    _cellIcons[index] = sprite; // 着地演出（ShowCellPopupAsync）で流用する
                 }
                 _cells[index].style.backgroundImage = new StyleBackground(sprite);
                 _cells[index].AddToClassList("board-cell--icon");
@@ -596,8 +607,8 @@ namespace Main.Board
                 }
 
                 _model.EndMove();
-                // 止まったマスのイベント（お金の増減・陣地の占拠）を反映する。勝者表示は Winner 購読が行う。
-                ApplyLandingEvent(player);
+                // 止まったマスの画像表示＋着地イベント（お金の浮遊テキスト等）の演出。
+                await PlayLandingSequenceAsync(player, ct);
             }
             catch (OperationCanceledException)
             {
@@ -605,22 +616,96 @@ namespace Main.Board
         }
 
         /// <summary>
+        /// 着地演出を統括する。止まったマスの画像を中央に拡大表示し、着地イベントを反映する。
+        /// お金マスでは増減額の浮遊テキストと画像を同じタイミングで消し、それ以外は画像を少し見せてから消す。
+        /// </summary>
+        private async UniTask PlayLandingSequenceAsync(int player, CancellationToken ct)
+        {
+            // 画像を出してから浮遊テキストを出すまでの間（0.5 秒）と、浮遊テキストが浮かび上がる時間（1.5 秒）。
+            // 画像は浮遊テキストと同時に消えるので、画像の合計表示は 0.5 + 1.5 = 2.0 秒になる。
+            const float PreHoldSeconds = 0.5f;
+            const float FloatSeconds = 1.5f;
+
+            int position = _model.Position(player).CurrentValue;
+
+            // 止まったマスの画像を中央に出す（消さずに保持）。
+            bool popupShown = await ShowCellPopupAsync(position, ct);
+            if (popupShown)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(PreHoldSeconds), cancellationToken: ct);
+            }
+
+            // 着地イベント反映。お金マスでは浮遊テキストと同じタイミングで画像を消すため popupShown を渡す。
+            // 浮遊テキストは FloatSeconds かけて浮かび上がり、画像と同時に消す。
+            bool hidPopup = await ApplyLandingEventAsync(player, popupShown, FloatSeconds, ct);
+
+            // お金以外（＝画像がまだ出たまま）は、同じだけ見せてから画像を消す。
+            if (popupShown && !hidPopup)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(FloatSeconds), cancellationToken: ct);
+                await HideCellPopupAsync(ct);
+            }
+        }
+
+        /// <summary>
+        /// コマが止まったマス <paramref name="position"/> の画像を画面中央に拡大表示する（消さない）。
+        /// 表示できたら true。画像が未配置（未ロード）のマスは false を返し何もしない。
+        /// 消すのは呼び出し側（<see cref="HideCellPopupAsync"/> / <see cref="ShowMoneyFloatAsync"/>）。
+        /// </summary>
+        private async UniTask<bool> ShowCellPopupAsync(int position, CancellationToken ct)
+        {
+            if (_cellPopup == null || _cellIcons == null || position < 0 || position >= _cellIcons.Length)
+            {
+                return false;
+            }
+
+            Sprite sprite = _cellIcons[position];
+            if (sprite == null)
+            {
+                return false;
+            }
+
+            _cellPopup.style.backgroundImage = new StyleBackground(sprite);
+            _cellPopup.RemoveFromClassList("cell-popup--visible");
+            _cellPopup.style.display = DisplayStyle.Flex;
+
+            // 次フレームまで待ってから --visible を付け、縮小→等倍の transition を効かせる。
+            await UniTask.NextFrame(ct);
+            _cellPopup.AddToClassList("cell-popup--visible");
+            return true;
+        }
+
+        /// <summary>表示中のマス画像ポップアップをフェードアウトして非表示にする。既に非表示なら何もしない。</summary>
+        private async UniTask HideCellPopupAsync(CancellationToken ct)
+        {
+            if (_cellPopup == null || _cellPopup.style.display == DisplayStyle.None)
+            {
+                return;
+            }
+            // 等倍→縮小のフェードアウト（USS transition）ぶん待ってから非表示にする。
+            _cellPopup.RemoveFromClassList("cell-popup--visible");
+            await UniTask.Delay(TimeSpan.FromSeconds(0.2f), cancellationToken: ct);
+            _cellPopup.style.display = DisplayStyle.None;
+        }
+
+        /// <summary>
         /// コマが止まったマスのイベントを発動する。お金イベント（増減）と陣地マス（占拠）を扱い、
         /// 進む／戻る／休み／ミニゲームは従来どおり表示のみで未発動。
         /// お金の変化量判定は <see cref="CellEventResolver"/>・加算は <see cref="MoneyModel"/>、
         /// 陣地の占拠・過半数判定は <see cref="TerritoryModel"/> が担う。
+        /// お金マスで画像ポップアップ（<paramref name="popupShown"/>）を浮遊テキストと同時に消した場合は true を返す。
         /// </summary>
-        private void ApplyLandingEvent(int player)
+        private async UniTask<bool> ApplyLandingEventAsync(int player, bool popupShown, float floatSeconds, CancellationToken ct)
         {
             if (_boardDef == null)
             {
-                return;
+                return false;
             }
 
             int position = _model.Position(player).CurrentValue;
             if (position < 0 || position >= _boardDef.CellCount)
             {
-                return;
+                return false;
             }
 
             BoardCellDefinition cell = _boardDef.Cell(position);
@@ -628,13 +713,79 @@ namespace Main.Board
             if (cell.Event == BoardCellEvent.Territory)
             {
                 ApplyTerritoryLanding(player, position);
-                return;
+                return false;
             }
 
             if (_money != null && CellEventResolver.TryGetMoneyDelta(cell.Event, cell.Amount, out int delta))
             {
                 _money.Add(player, delta);
                 _soundPlayer.PlaySafe(cell.Event == BoardCellEvent.MoneyUp ? _soundStore?.Enter3SE : _soundStore?.Cancel1SE);
+                // 増減額（+n / -n）をポップ画像の底から上へ浮かび上がらせる。画像も浮遊テキストと同時に消す。
+                await ShowMoneyFloatAsync(delta, popupShown, floatSeconds, ct);
+                return popupShown;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// お金マスの増減額を画面中央から上へ浮かび上がらせながらフェードアウトさせる演出。
+        /// <paramref name="delta"/> が正なら「+ n」を緑、負なら「- n」を赤で表示する。0 なら何もしない。
+        /// <paramref name="hidePopup"/> が true なら、表示中のマス画像ポップアップを
+        /// 浮遊テキストが消えるのと同じタイミングでフェードアウトさせる。
+        /// </summary>
+        private async UniTask ShowMoneyFloatAsync(int delta, bool hidePopup, float duration, CancellationToken ct)
+        {
+            if (_moneyFloat == null || delta == 0)
+            {
+                // 浮遊テキストが出せない場合でも、保持していた画像は消す。
+                if (hidePopup)
+                {
+                    await HideCellPopupAsync(ct);
+                }
+                return;
+            }
+
+            bool up = delta > 0;
+            _moneyFloat.text = up ? $"+ ${delta}" : $"- ${-delta}";
+            _moneyFloat.EnableInClassList("money-float--up", up);
+            _moneyFloat.EnableInClassList("money-float--down", !up);
+            _moneyFloat.style.display = DisplayStyle.Flex;
+
+            // 開始位置はポップ画像の中央やや下（中央 top:50% + 画像高さの一部）。画像が無ければ中央から。
+            float startY = hidePopup && _cellPopup != null ? _cellPopup.resolvedStyle.height * 0.1f : 0f;
+            const float rise = 170f;
+            // 画像ポップアップのフェードアウト（USS transition）ぶん手前で消し始め、テキストと同時に消えるようにする。
+            const float PopupFadeLead = 0.2f;
+            bool popupHideStarted = false;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                // 前半は不透明のまま読ませ、後半でフェードアウトする。
+                _moneyFloat.style.opacity = t < 0.4f ? 1f : 1f - (t - 0.4f) / 0.6f;
+                // ポップ画像の底から上へ上昇する。
+                _moneyFloat.style.translate = new Translate(0f, startY - rise * t);
+
+                // 浮遊テキストが消えきるのに合わせて画像もフェードアウトを開始する。
+                if (hidePopup && !popupHideStarted && elapsed >= duration - PopupFadeLead)
+                {
+                    popupHideStarted = true;
+                    _cellPopup?.RemoveFromClassList("cell-popup--visible");
+                }
+
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+
+            _moneyFloat.style.display = DisplayStyle.None;
+            _moneyFloat.style.opacity = 0f;
+            _moneyFloat.style.translate = new Translate(0f, 0f);
+
+            // フェードが終わった画像を非表示にする。
+            if (hidePopup && _cellPopup != null)
+            {
+                _cellPopup.style.display = DisplayStyle.None;
             }
         }
 
