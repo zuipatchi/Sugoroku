@@ -84,6 +84,34 @@
     margin-top: 16px;
 }
 
+/* 画像（Roulette.png）に差し替えたスピンボタン。青ボタンの装飾（背景色・余白）を消して
+   画像だけを見せる。押下時の縮小フィードバックは残す。RouletteIconLoader が画像ロード成功時に付与。 */
+.roulette-spin--image {
+    width: 130px;
+    height: 130px;
+    padding-top: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    background-color: rgba(0, 0, 0, 0);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.roulette-spin--image:hover,
+.roulette-spin--image:focus {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.roulette-spin--image:active {
+    background-color: rgba(0, 0, 0, 0);
+    scale: 0.94 0.94;
+}
+
+.roulette-spin--image:disabled {
+    background-color: rgba(0, 0, 0, 0);
+    opacity: 0.4;
+}
+
 /* アクセントボタン（design-system.md 準拠） */
 .btn-accent {
     background-color: rgb(70, 90, 180);

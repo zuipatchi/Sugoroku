@@ -24,6 +24,9 @@ namespace Main.Roulette
     [RequireComponent(typeof(UIDocument))]
     public sealed class RoulettePresenter : MonoBehaviour
     {
+        // スピンボタンに貼る画像の Addressable アドレス。未配置なら文字（「長押しで回す」）のまま。
+        private const string SpinButtonImageAddress = "Image/Roulette";
+
         [SerializeField] private int _sectorCount = 8;
         [Tooltip("押し始めの初速（度/秒）。一瞬のタップでも最低これだけ回る。")]
         [SerializeField] private float _minSpinSpeed = 360f;
@@ -218,6 +221,8 @@ namespace Main.Roulette
             _wheel.RegisterCallback<GeometryChangedEvent>(_ => PositionSectorContents());
             // キャラ画像は非同期ロード。破棄・遷移で自然に止まるよう destroyCancellationToken を渡す。
             _iconLoader.LoadCharacterIconsAsync(_characterIcons, destroyCancellationToken).Forget();
+            // スピンボタンの文字を Roulette.png に差し替える（未配置なら文字のまま）。
+            _iconLoader.LoadSpinButtonAsync(_spinButton, SpinButtonImageAddress, destroyCancellationToken).Forget();
         }
 
         // キャラアイコン（コイン）をセクター中心線上に配置し、セクター数に応じたサイズに整える。
