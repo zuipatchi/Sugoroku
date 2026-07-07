@@ -9,6 +9,8 @@
         <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
         <!-- コマが止まったマスの画像を画面中央に一瞬拡大表示する演出。中身は BoardPresenter が制御する -->
         <ui:VisualElement name="CellPopup" class="cell-popup" picking-mode="Ignore" />
+        <!-- 陣地マス占拠時に、そのコマのキャラの旗を中央に表示→縮小しながらマスへ重ねる演出。BoardPresenter が制御する -->
+        <ui:VisualElement name="FlagPopup" class="flag-popup" picking-mode="Ignore" />
         <!-- お金マスに止まったときに増減額（+n / -n）を上へ浮かび上がらせる演出。BoardPresenter が制御する -->
         <ui:Label text="" name="MoneyFloat" class="money-float" picking-mode="Ignore" />
     </ui:VisualElement>

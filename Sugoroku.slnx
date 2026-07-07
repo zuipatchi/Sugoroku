@@ -30,11 +30,11 @@
   <Project Path="Unity.VisualScripting.Flow.Editor.csproj" />
   <Project Path="Unity.Netcode.Runtime.csproj" />
   <Project Path="VContainer.csproj" />
+  <Project Path="Main.csproj" />
   <Project Path="Unity.Networking.Transport.csproj" />
   <Project Path="Unity.Services.Authentication.csproj" />
   <Project Path="Unity.VisualStudio.Editor.csproj" />
   <Project Path="PPv2URPConverters.csproj" />
-  <Project Path="Main.csproj" />
   <Project Path="Unity.Services.QoS.csproj" />
   <Project Path="Unity.Services.Authentication.Editor.csproj" />
   <Project Path="UniTask.csproj" />

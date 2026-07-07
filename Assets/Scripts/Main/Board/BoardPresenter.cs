@@ -54,9 +54,12 @@ namespace Main.Board
         private VisualElement[] _cells;
         private VisualElement[] _pieces;
         private Sprite[] _pieceIcons;
+        // 各プレイヤーの旗画像。陣地マス占拠の演出（中央表示→マスへ縮小）と占拠マスの塗りに使う。
+        private Sprite[] _flagIcons;
         // 各マスに貼った画像。着地演出（ShowCellPopupAsync）で中央に拡大表示するのに保持する。
         private Sprite[] _cellIcons;
         private VisualElement _cellPopup;
+        private VisualElement _flagPopup;
         private Label _moneyFloat;
         private Label _clearLabel;
         private BoardDefinition _boardDef;
@@ -233,6 +236,7 @@ namespace Main.Board
             _boardArea = root.Q<VisualElement>("BoardArea");
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _cellPopup = root.Q<VisualElement>("CellPopup");
+            _flagPopup = root.Q<VisualElement>("FlagPopup");
             _moneyFloat = root.Q<Label>("MoneyFloat");
             _clearLabel = root.Q<Label>("ClearLabel");
             if (_boardArea == null || _clearLabel == null)
@@ -471,24 +475,41 @@ namespace Main.Board
                 {
                     continue;
                 }
+                int cellIndex = index;
                 VisualElement cell = _cells[index];
                 cell.AddToClassList("board-cell--territory");
-                _disposables.Add(_territory.Owner(index).Subscribe(owner => ApplyTerritoryOwner(cell, owner)));
+                _disposables.Add(_territory.Owner(index).Subscribe(owner => ApplyTerritoryOwner(cell, cellIndex, owner)));
             }
         }
 
-        /// <summary>陣地マスの塗り色を所有者（-1=未占拠 / 0=YOU / 1=CPU）に合わせて切り替える。</summary>
-        private static void ApplyTerritoryOwner(VisualElement cell, int owner)
+        /// <summary>
+        /// 陣地マスの表示を所有者（-1=未占拠 / 0=YOU / 1=CPU）に合わせて切り替える。
+        /// 占拠されたマスは所有者の旗画像で塗り替え（未ロードなら色クラスのみ）、
+        /// 未占拠に戻ったときは territory 画像へ戻す。所有者色は枠線クラスで残す。
+        /// </summary>
+        private void ApplyTerritoryOwner(VisualElement cell, int index, int owner)
         {
             cell.RemoveFromClassList("board-cell--owned-p0");
             cell.RemoveFromClassList("board-cell--owned-p1");
-            if (owner == 0)
+
+            if (owner < 0)
             {
-                cell.AddToClassList("board-cell--owned-p0");
+                // 未占拠：territory 画像に戻す（ロード済みのとき）。
+                if (_cellIcons != null && index < _cellIcons.Length && _cellIcons[index] != null)
+                {
+                    cell.style.backgroundImage = new StyleBackground(_cellIcons[index]);
+                }
+                return;
             }
-            else if (owner >= 1)
+
+            cell.AddToClassList(owner == 0 ? "board-cell--owned-p0" : "board-cell--owned-p1");
+
+            // 占拠者の旗画像でマスを塗る。占拠後はこのマスは旗画像のまま（territory 画像には戻さない）。
+            Sprite flag = _flagIcons != null && owner < _flagIcons.Length ? _flagIcons[owner] : null;
+            if (flag != null)
             {
-                cell.AddToClassList("board-cell--owned-p1");
+                cell.style.backgroundImage = new StyleBackground(flag);
+                cell.AddToClassList("board-cell--flag");
             }
         }
 
@@ -513,6 +534,14 @@ namespace Main.Board
                     _pieceIcons[player] = sprite;
                     ApplyPieceIcon(player);
                 },
+                destroyCancellationToken).Forget();
+
+            // 陣地マス占拠の旗演出・占拠マスの塗りに使う各プレイヤーの旗画像を先読みする。
+            _flagIcons = new Sprite[_model.PlayerCount];
+            _iconLoader.LoadPieceIconsAsync(
+                _flagIcons.Length,
+                player => CharacterCatalog.Find(_characterPicker.ResolveCharacter(player)).FlagAddress,
+                (player, sprite) => _flagIcons[player] = sprite,
                 destroyCancellationToken).Forget();
         }
 
@@ -628,6 +657,14 @@ namespace Main.Board
 
             int position = _model.Position(player).CurrentValue;
 
+            // 陣地マスは専用の旗演出（中央に旗を表示→縮小しながらマスへ重ねて占拠）に置き換える。
+            if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
+                && _boardDef.Cell(position).Event == BoardCellEvent.Territory)
+            {
+                await PlayTerritoryFlagSequenceAsync(player, position, ct);
+                return;
+            }
+
             // 止まったマスの画像を中央に出す（消さずに保持）。
             bool popupShown = await ShowCellPopupAsync(position, ct);
             if (popupShown)
@@ -710,12 +747,7 @@ namespace Main.Board
 
             BoardCellDefinition cell = _boardDef.Cell(position);
 
-            if (cell.Event == BoardCellEvent.Territory)
-            {
-                ApplyTerritoryLanding(player, position);
-                return false;
-            }
-
+            // 陣地マスは PlayLandingSequenceAsync の旗演出側で占拠を確定するため、ここには来ない。
             if (_money != null && CellEventResolver.TryGetMoneyDelta(cell.Event, cell.Amount, out int delta))
             {
                 _money.Add(player, delta);
@@ -787,6 +819,86 @@ namespace Main.Board
             {
                 _cellPopup.style.display = DisplayStyle.None;
             }
+        }
+
+        /// <summary>
+        /// 陣地マス着地の旗演出。プレイヤーのキャラの旗を画面中央に 1 秒表示してから、
+        /// 対象の陣地マスへ縮小移動して重ね、そこで占拠を確定する（占拠後そのマスは旗画像のまま）。
+        /// 旗が未ロード（未配置）のときは演出をスキップして占拠だけ行う。
+        /// </summary>
+        private async UniTask PlayTerritoryFlagSequenceAsync(int player, int position, CancellationToken ct)
+        {
+            Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
+            VisualElement root = _flagPopup?.parent;
+            if (_flagPopup == null || root == null || flag == null)
+            {
+                ApplyTerritoryLanding(player, position);
+                return;
+            }
+
+            // 表示・移動の基準になる座標（root ローカル）。
+            Vector2 center = new(root.contentRect.width * 0.5f, root.contentRect.height * 0.5f);
+
+            _flagPopup.style.backgroundImage = new StyleBackground(flag);
+            SetFlagTransform(center, 0.55f, 0f);
+            _flagPopup.style.display = DisplayStyle.Flex;
+
+            // ① 中央にポップイン（拡大＋フェードイン）→ 1.0 秒ホールド。
+            await AnimateFlagAsync(center, center, 0.55f, 1f, 0f, 1f, 0.15f, false, ct);
+            await UniTask.Delay(TimeSpan.FromSeconds(1f), cancellationToken: ct);
+
+            // ② 対象の陣地マス中心へ移動しつつ、マス幅に合わせて縮小する。
+            Vector2 target = center;
+            float targetScale = 0.3f;
+            VisualElement cell = _cells != null && position >= 0 && position < _cells.Length ? _cells[position] : null;
+            if (cell != null)
+            {
+                target = root.WorldToLocal(cell.worldBound.center);
+                float cellWidth = cell.resolvedStyle.width;
+                if (cellWidth > 1f)
+                {
+                    // 旗ポップの基準サイズは USS の 200px。マス幅に収まる倍率へ縮める。
+                    targetScale = Mathf.Clamp(cellWidth / 200f, 0.1f, 1f);
+                }
+            }
+            await AnimateFlagAsync(center, target, 1f, targetScale, 1f, 1f, 0.5f, true, ct);
+
+            // ③ マスに重なったところで占拠を確定（マス画像が旗に替わる）→ 旗ポップをフェードアウト。
+            ApplyTerritoryLanding(player, position);
+            await AnimateFlagAsync(target, target, targetScale, targetScale, 1f, 0f, 0.2f, false, ct);
+
+            _flagPopup.style.display = DisplayStyle.None;
+            _flagPopup.style.opacity = 0f;
+        }
+
+        /// <summary>旗ポップの中心位置（root ローカル px）・拡大率・不透明度をまとめて設定する。</summary>
+        private void SetFlagTransform(Vector2 position, float scale, float opacity)
+        {
+            _flagPopup.style.left = position.x;
+            _flagPopup.style.top = position.y;
+            _flagPopup.style.scale = new Scale(new Vector2(scale, scale));
+            _flagPopup.style.opacity = opacity;
+        }
+
+        /// <summary>
+        /// 旗ポップを <paramref name="duration"/> 秒かけて位置・拡大率・不透明度で補間する。
+        /// <paramref name="easeInOut"/> が true なら smoothstep、false なら線形。毎フレーム駆動。
+        /// </summary>
+        private async UniTask AnimateFlagAsync(
+            Vector2 from, Vector2 to, float scaleFrom, float scaleTo,
+            float opacityFrom, float opacityTo, float duration, bool easeInOut, CancellationToken ct)
+        {
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float e = easeInOut ? Mathf.SmoothStep(0f, 1f, t) : t;
+                Vector2 position = Vector2.LerpUnclamped(from, to, e);
+                SetFlagTransform(position, Mathf.LerpUnclamped(scaleFrom, scaleTo, e), Mathf.Lerp(opacityFrom, opacityTo, e));
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+            SetFlagTransform(to, scaleTo, opacityTo);
         }
 
         /// <summary>

@@ -59,6 +59,11 @@
     -unity-background-scale-mode: scale-and-crop;
 }
 
+/* 占拠された陣地マス。所有者の旗画像を全体が見えるよう収めて表示する（--icon より後に定義して上書き）。 */
+.board-cell--flag {
+    -unity-background-scale-mode: scale-to-fit;
+}
+
 /* 陣地マス（未占拠）。奪い合うマスであることを紫の太枠で示す。占拠されると下の owned クラスで塗られる。 */
 .board-cell--territory {
     border-left-width: 2px;
@@ -313,6 +318,21 @@
 .cell-popup--visible {
     opacity: 1;
     scale: 1 1;
+}
+
+/* 陣地マス占拠時に表示するキャラの旗。中央に出したあと対象マスへ縮小移動する演出のカード。
+   left/top/scale/opacity は BoardPresenter が毎フレーム駆動する（表示中だけ display:flex）。
+   基準サイズ 200px の箱を translate:-50% -50% で left/top の点に中心合わせする。 */
+.flag-popup {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    display: none;
+    opacity: 0;
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 /* お金マスに止まったときに増減額を上へ浮かび上がらせる演出のテキスト。
