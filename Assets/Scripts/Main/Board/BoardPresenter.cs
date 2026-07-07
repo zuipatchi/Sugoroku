@@ -651,9 +651,11 @@ namespace Main.Board
         private async UniTask PlayLandingSequenceAsync(int player, CancellationToken ct)
         {
             // 画像を出してから浮遊テキストを出すまでの間（0.5 秒）と、浮遊テキストが浮かび上がる時間（1.5 秒）。
-            // 画像は浮遊テキストと同時に消えるので、画像の合計表示は 0.5 + 1.5 = 2.0 秒になる。
+            // お金マスは画像を浮遊テキストと同時に消すので、画像の合計表示は 0.5 + 1.5 = 2.0 秒になる。
             const float PreHoldSeconds = 0.5f;
             const float FloatSeconds = 1.5f;
+            // お金・陣地以外のマス（スタート等）は画像を計 1.0 秒表示してから 0.2 秒でフェードアウトさせる。
+            const float CellPopupHoldSeconds = 1.0f;
 
             int position = _model.Position(player).CurrentValue;
 
@@ -676,10 +678,11 @@ namespace Main.Board
             // 浮遊テキストは FloatSeconds かけて浮かび上がり、画像と同時に消す。
             bool hidPopup = await ApplyLandingEventAsync(player, popupShown, FloatSeconds, ct);
 
-            // お金以外（＝画像がまだ出たまま）は、同じだけ見せてから画像を消す。
+            // お金以外（＝画像がまだ出たまま）は、計 CellPopupHoldSeconds 秒見せてから画像を消す
+            // （PreHoldSeconds ぶんは経過済みなので残りだけ待つ）。
             if (popupShown && !hidPopup)
             {
-                await UniTask.Delay(TimeSpan.FromSeconds(FloatSeconds), cancellationToken: ct);
+                await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, CellPopupHoldSeconds - PreHoldSeconds)), cancellationToken: ct);
                 await HideCellPopupAsync(ct);
             }
         }

@@ -119,14 +119,14 @@
    色はプレイヤー別クラス（--p0 / --p1）で指定する。 */
 .board-piece {
     position: absolute;
-    width: 34px;
-    height: 34px;
+    width: 46px;
+    height: 46px;
     align-items: center;
     justify-content: center;
-    border-top-left-radius: 17px;
-    border-top-right-radius: 17px;
-    border-bottom-left-radius: 17px;
-    border-bottom-right-radius: 17px;
+    border-top-left-radius: 23px;
+    border-top-right-radius: 23px;
+    border-bottom-left-radius: 23px;
+    border-bottom-right-radius: 23px;
     border-left-width: 2px;
     border-right-width: 2px;
     border-top-width: 2px;
