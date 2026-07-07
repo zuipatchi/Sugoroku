@@ -55,9 +55,14 @@ namespace Main.EditorTools
             body.style.marginTop = 8f;
             root.Add(body);
 
+            VisualElement gridColumn = new();
+            gridColumn.style.flexGrow = 1f;
+            body.Add(gridColumn);
+
             VisualElement gridContainer = new();
-            gridContainer.style.flexGrow = 1f;
-            body.Add(gridContainer);
+            gridColumn.Add(gridContainer);
+
+            BuildLegend(gridColumn);
 
             VisualElement inspectorContainer = new();
             inspectorContainer.style.width = 220f;
@@ -212,6 +217,67 @@ namespace Main.EditorTools
                 default:
                     return cellEvent.ToString();
             }
+        }
+
+        /// <summary>
+        /// グリッド下に表示する凡例（色→イベントの対応表）。カスタム色未設定のマスは
+        /// この色で塗り分けられるので、どのマスに何のイベントが設定されているか一目で分かる。
+        /// </summary>
+        private void BuildLegend(VisualElement parent)
+        {
+            VisualElement legend = new();
+            legend.style.marginTop = 8f;
+
+            Label title = new("色とイベントの対応");
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.marginBottom = 4f;
+            legend.Add(title);
+
+            VisualElement items = new();
+            items.style.flexDirection = FlexDirection.Row;
+            items.style.flexWrap = Wrap.Wrap;
+
+            items.Add(BuildLegendItem("スタート(S/G)", BoardEditorGridView.StartCellColor));
+            foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
+            {
+                items.Add(BuildLegendItem(EventLabel(cellEvent), BoardEditorGridView.EventColor(cellEvent)));
+            }
+
+            legend.Add(items);
+            parent.Add(legend);
+        }
+
+        /// <summary>凡例の 1 項目（色見本＋イベント名）を作る。</summary>
+        private static VisualElement BuildLegendItem(string label, Color color)
+        {
+            VisualElement item = new();
+            item.style.flexDirection = FlexDirection.Row;
+            item.style.alignItems = Align.Center;
+            item.style.marginRight = 12f;
+            item.style.marginBottom = 4f;
+
+            VisualElement swatch = new();
+            swatch.style.width = 14f;
+            swatch.style.height = 14f;
+            swatch.style.marginRight = 4f;
+            swatch.style.backgroundColor = color;
+            // 明るい色でも輪郭が見えるよう薄い枠を付ける。
+            Color swatchBorder = new(0f, 0f, 0f, 0.5f);
+            swatch.style.borderLeftWidth = 1f;
+            swatch.style.borderRightWidth = 1f;
+            swatch.style.borderTopWidth = 1f;
+            swatch.style.borderBottomWidth = 1f;
+            swatch.style.borderLeftColor = swatchBorder;
+            swatch.style.borderRightColor = swatchBorder;
+            swatch.style.borderTopColor = swatchBorder;
+            swatch.style.borderBottomColor = swatchBorder;
+            item.Add(swatch);
+
+            Label text = new(label) { pickingMode = PickingMode.Ignore };
+            text.style.fontSize = 11f;
+            item.Add(text);
+
+            return item;
         }
 
         /// <summary>方眼サイズの数値フィールドのラベル幅を絞り、入力欄に十分な幅を与える。</summary>
