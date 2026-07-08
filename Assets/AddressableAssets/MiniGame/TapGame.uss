@@ -9,14 +9,8 @@
     justify-content: center;
 }
 
-.tap-title {
-    color: rgb(240, 240, 255);
-    font-size: 44px;
-    -unity-text-align: middle-center;
-    margin-bottom: 8px;
-}
-
 .tap-count {
+    position: absolute;
     color: rgb(255, 255, 255);
     font-size: 88px;
     -unity-text-align: middle-center;
@@ -29,10 +23,27 @@
     margin-bottom: 20px;
 }
 
-.tap-play-area {
+.tap-character-area {
     width: 80%;
     max-width: 640px;
     height: 320px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 24px;
+}
+
+.tap-character-card {
+    width: 220px;
+    height: 300px;
+    background-color: rgba(0, 0, 0, 0);
+    -unity-background-scale-mode: scale-to-fit;
+    transform-origin: center;
+}
+
+.tap-play-area {
+    width: 80%;
+    max-width: 640px;
+    height: 220px;
     align-items: center;
     justify-content: center;
 }
@@ -61,15 +72,6 @@
 .tap-button:disabled {
     background-color: rgba(70, 90, 180, 0.35);
     color: rgba(255, 255, 255, 0.5);
-}
-
-.tap-character-card {
-    position: absolute;
-    width: 220px;
-    height: 300px;
-    background-color: rgba(0, 0, 0, 0);
-    -unity-background-scale-mode: scale-to-fit;
-    transform-origin: center;
 }
 
 .tap-center {

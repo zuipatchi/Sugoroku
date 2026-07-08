@@ -18,5 +18,25 @@ namespace Common.SoundManagement
                 player.PlaySE(clip);
             }
         }
+
+        /// <summary>
+        /// null ガード付きのループ SE 再生。プレイヤー・クリップのどちらかが null なら何もしない。
+        /// </summary>
+        public static void PlayLoopSafe(this SoundPlayer player, AudioClip clip)
+        {
+            if (player != null && clip != null)
+            {
+                player.PlaySELoop(clip);
+            }
+        }
+
+        /// <summary>null ガード付きのループ SE 停止。</summary>
+        public static void StopLoopSafe(this SoundPlayer player)
+        {
+            if (player != null)
+            {
+                player.StopSELoop();
+            }
+        }
     }
 }

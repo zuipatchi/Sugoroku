@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -15,6 +17,14 @@ namespace Common.Store
         private readonly string _decisionSEAddressable = "Sound/SE/Decision";
         private readonly string _rouletteSEAddressable = "Sound/SE/Roulette";
         private readonly string _cheerSEAddressable = "Sound/SE/Cheer";
+        private readonly string _runSEAddressable = "Sound/SE/Run";
+        private readonly string _moneySEAddressable = "Sound/SE/Money";
+        private readonly string[] _punchSEAddressables =
+        {
+            "Sound/SE/Punch1",
+            "Sound/SE/Punch2",
+            "Sound/SE/Punch3",
+        };
 
         public AudioClip MainBGM => _mainBGM;
         public AudioClip TitleBGM => _titleBGM;
@@ -30,6 +40,15 @@ namespace Common.Store
         /// <summary>タイトルで動画と同時に鳴らす歓声 SE。鳴り終わってからタイトル BGM（光晴イズム）へ移る。</summary>
         public AudioClip CheerSE => _cheerSE;
 
+        /// <summary>コマ移動中に流し続ける走行 SE（ループ再生。移動開始で鳴らし移動完了で止める）。</summary>
+        public AudioClip RunSE => _runSE;
+
+        /// <summary>お金アップ／ダウンのマスに着地したときに鳴らす SE。</summary>
+        public AudioClip MoneySE => _moneySE;
+
+        /// <summary>タップ連打ミニゲームのタップ時に鳴らすパンチ SE（1〜3 をランダムに再生）。</summary>
+        public AudioClip RandomPunchSE => _punchSE.Length > 0 ? _punchSE[Random.Range(0, _punchSE.Length)] : null;
+
         private AudioClip _mainBGM = null;
         private AudioClip _titleBGM = null;
         private AudioClip _cancel1SE = null;
@@ -39,6 +58,9 @@ namespace Common.Store
         private AudioClip _decisionSE = null;
         private AudioClip _rouletteSE = null;
         private AudioClip _cheerSE = null;
+        private AudioClip _runSE = null;
+        private AudioClip _moneySE = null;
+        private AudioClip[] _punchSE = Array.Empty<AudioClip>();
 
         protected override string AssetCategory => "サウンド";
 
@@ -53,6 +75,16 @@ namespace Common.Store
             _decisionSE = await Addressables.LoadAssetAsync<AudioClip>(_decisionSEAddressable).ToUniTask();
             _rouletteSE = await Addressables.LoadAssetAsync<AudioClip>(_rouletteSEAddressable).ToUniTask();
             _cheerSE = await Addressables.LoadAssetAsync<AudioClip>(_cheerSEAddressable).ToUniTask();
+            _runSE = await Addressables.LoadAssetAsync<AudioClip>(_runSEAddressable).ToUniTask();
+            _moneySE = await Addressables.LoadAssetAsync<AudioClip>(_moneySEAddressable).ToUniTask();
+
+            // パンチ SE は 1〜3 を並列ロードする（タップ時にランダム再生する）。
+            List<UniTask<AudioClip>> punchTasks = new(_punchSEAddressables.Length);
+            for (int i = 0; i < _punchSEAddressables.Length; i++)
+            {
+                punchTasks.Add(Addressables.LoadAssetAsync<AudioClip>(_punchSEAddressables[i]).ToUniTask());
+            }
+            _punchSE = await UniTask.WhenAll(punchTasks);
         }
     }
 }

@@ -266,7 +266,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4295ea1e221f4544f8381a01f3c350c6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Common.Transition.TransitionPresenter
-  _duration: 0.5
+  _duration: 0.4
 --- !u!114 &555812039
 MonoBehaviour:
   m_ObjectHideFlags: 0

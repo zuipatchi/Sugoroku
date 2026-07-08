@@ -79,7 +79,8 @@ namespace CharacterSelect.Presenter
 
             _selected = _characterSession.Selected;
             await BuildCardsAsync(ct);
-            UpdateSelection();
+            // フェードイン前に待つのは初期選択キャラの立ち絵 1 枚だけ。残りは選択時に遅延ロードする。
+            await UpdateSelectionAsync(ct);
 
             _confirmButton.clicked += OnConfirmClicked;
             _backButton.clicked += OnBackClicked;
@@ -92,13 +93,20 @@ namespace CharacterSelect.Presenter
             _portraits.Clear();
 
             IReadOnlyList<CharacterDefinition> all = CharacterCatalog.All;
+
+            // クリック用のカード絵は全キャラぶんを並列ロードする（1 枚ずつ await で待たない）。
+            // 立ち絵（Portrait）は選択時に表示するだけなので、ここでは読まず遅延ロードにする。
+            List<UniTask<Sprite>> iconTasks = new(all.Count);
+            for (int i = 0; i < all.Count; i++)
+            {
+                iconTasks.Add(_spriteLoader.TryLoadAsync(all[i].CardAddress, "キャラ画像", ct));
+            }
+            Sprite[] icons = await UniTask.WhenAll(iconTasks);
+
             for (int i = 0; i < all.Count; i++)
             {
                 CharacterDefinition definition = all[i];
-
-                // クリック用のカード絵と、選択時に表示する立ち絵を両方ロードする。
-                Sprite icon = await _spriteLoader.TryLoadAsync(definition.CardAddress, "キャラ画像", ct);
-                _portraits[definition.Id] = await _spriteLoader.TryLoadAsync(definition.PortraitAddress, "キャラ画像", ct);
+                Sprite icon = icons[i];
 
                 Button card = new();
                 card.AddToClassList("character-card");
@@ -135,18 +143,27 @@ namespace CharacterSelect.Presenter
             }
             _selected = id;
             _soundPlayer.PlaySE(_soundStore.Enter3SE);
-            UpdateSelection();
+            UpdateSelectionAsync(destroyCancellationToken).Forget();
         }
 
         // 選択中のカードを強調し、立ち絵プレビューを差し替える。
-        private void UpdateSelection()
+        // 立ち絵は未ロードなら遅延ロードする（ロード中に選択が変わったら適用しない）。
+        private async UniTask UpdateSelectionAsync(CancellationToken ct)
         {
+            CharacterId selected = _selected;
             foreach (KeyValuePair<CharacterId, VisualElement> pair in _cards)
             {
-                pair.Value.EnableInClassList("character-card--selected", pair.Key == _selected);
+                pair.Value.EnableInClassList("character-card--selected", pair.Key == selected);
             }
 
-            if (_portraits.TryGetValue(_selected, out Sprite portrait) && portrait != null)
+            Sprite portrait = await GetPortraitAsync(selected, ct);
+            // await で待っている間に別のキャラが選ばれていたら、この結果は破棄する。
+            if (_portraitView == null || _selected != selected)
+            {
+                return;
+            }
+
+            if (portrait != null)
             {
                 _portraitView.style.backgroundImage = new StyleBackground(portrait);
                 // 透過部分は暗いベース色を見せる（プレースホルダ色を残さない）。
@@ -156,8 +173,22 @@ namespace CharacterSelect.Presenter
             {
                 // 立ち絵未配置時はプレースホルダ（色面）。
                 _portraitView.style.backgroundImage = StyleKeyword.None;
-                _portraitView.style.backgroundColor = CharacterPalette.PlaceholderColor(CharacterCatalog.IndexOf(_selected), CharacterCatalog.All.Count);
+                _portraitView.style.backgroundColor = CharacterPalette.PlaceholderColor(CharacterCatalog.IndexOf(selected), CharacterCatalog.All.Count);
             }
+        }
+
+        // 立ち絵を取得する。一度読んだものはキャッシュ（null 含む）から返す。
+        private async UniTask<Sprite> GetPortraitAsync(CharacterId id, CancellationToken ct)
+        {
+            if (_portraits.TryGetValue(id, out Sprite cached))
+            {
+                return cached;
+            }
+
+            CharacterDefinition definition = CharacterCatalog.Find(id);
+            Sprite portrait = await _spriteLoader.TryLoadAsync(definition.PortraitAddress, "キャラ画像", ct);
+            _portraits[id] = portrait;
+            return portrait;
         }
 
         private void OnConfirmClicked()

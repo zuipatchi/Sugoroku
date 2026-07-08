@@ -91,7 +91,7 @@ namespace MiniGame.TapGame
             {
                 if (_timerLabel != null)
                 {
-                    _timerLabel.text = secs.ToString("0.0");
+                    _timerLabel.text = $"残り時間：{secs:0.0}";
                 }
             }));
             _disposables.Add(_model.Phase.Subscribe(ApplyPhase));
@@ -162,6 +162,11 @@ namespace MiniGame.TapGame
                 return;
             }
             _tapButton.SetEnabled(phase == TapGamePhase.Playing);
+            if (_countLabel != null)
+            {
+                // カウントダウン中（3.2.1）はタップ数の 0 を出さず、計測が始まってから表示する。
+                _countLabel.style.display = phase == TapGamePhase.Playing ? DisplayStyle.Flex : DisplayStyle.None;
+            }
             _centerLabel.style.display =
                 (phase == TapGamePhase.Ready || phase == TapGamePhase.Countdown)
                     ? DisplayStyle.Flex
@@ -244,7 +249,7 @@ namespace MiniGame.TapGame
         {
             _model.Tap();
             ShakeCard();
-            _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
+            _soundPlayer.PlaySafe(_soundStore?.RandomPunchSE);
         }
 
         private void OnCloseClicked()
