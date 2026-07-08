@@ -47,6 +47,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 16733d2cdfa6a5e44ab6169138f762fa
+    m_Address: Sound/SE/Run
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 194e892f2a143514898cae51ea96d86f
     m_Address: Character/Character5/Portrait
     m_ReadOnly: 0
@@ -124,6 +130,12 @@ MonoBehaviour:
     m_Address: Character/Character8/Portrait
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 59849afff6c62744fad576f2a1b906cb
+    m_Address: Sound/SE/Money
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5a3489b2bc0a7b440984b7b01240177d
     m_Address: Character/Character3/Card

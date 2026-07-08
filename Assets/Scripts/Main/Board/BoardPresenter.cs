@@ -579,6 +579,9 @@ namespace Main.Board
             CancellationToken ct = linked.Token;
             _model.BeginMove();
 
+            // 移動を始めたら走行 SE をループで流し、止まったら（正常・キャンセルどちらでも）止める。
+            _soundPlayer.PlayLoopSafe(_soundStore?.RunSE);
+
             // 周回勝利は廃止したので、出目ぶんそのまま進む（スタート＝ゴールを通過してループし続ける）。
             try
             {
@@ -592,7 +595,6 @@ namespace Main.Board
 
                     int next = BoardMath.Advance(_model.Position(player).CurrentValue, 1, _cellCount);
                     _model.SetPosition(player, next); // Position 購読がコマの描画を更新する
-                    _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
                 }
 
                 _model.EndMove();
@@ -601,6 +603,10 @@ namespace Main.Board
             }
             catch (OperationCanceledException)
             {
+            }
+            finally
+            {
+                _soundPlayer.StopLoopSafe();
             }
         }
 
@@ -634,7 +640,7 @@ namespace Main.Board
             if (_money != null && CellEventResolver.TryGetMoneyDelta(cell.Event, cell.Amount, out int delta))
             {
                 _money.Add(player, delta);
-                _soundPlayer.PlaySafe(cell.Event == BoardCellEvent.MoneyUp ? _soundStore?.Enter3SE : _soundStore?.Cancel1SE);
+                _soundPlayer.PlaySafe(_soundStore?.MoneySE);
             }
         }
 
