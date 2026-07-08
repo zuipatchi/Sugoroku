@@ -207,6 +207,8 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 - そのパネルのルート要素は `picking-mode="Ignore"` にし、**ボタン等の操作要素だけがイベントを拾う**ようにする。これで「ボタン以外は下のパネルへ素通り」になり、共存できる
 - 参考の Sorting Order: Transition=2000 / Option=1000 / MiniGame シーン=100。新しい前面 UI はこれらと衝突しない値にする
 
+**逆に、下のパネルへ操作要素を足すときは、上の全画面パネルすべてのルートを `picking-mode="Ignore"` にする。** Board パネル（Sorting=0・最下層）に盤面ズームの虫眼鏡ボタンとドラッグ層を足したとき、上に乗る Roulette パネル（Sorting=10）のルートが**全画面 picking 有効**でイベントを奪っており、下の Board のボタンが無反応だった。Roulette 側の**ルートと円盤ビジュアルを `picking-mode="Ignore"`**（[Roulette.uxml](../Assets/Scripts/Main/Roulette/View/Roulette.uxml)）にし、**スピンボタンだけ操作可能**にすることで、下の Board パネルのボタン・ドラッグ層へ入力が通るようになった。「下のパネルに操作 UI を置く」場合は、それより上の全画面パネルが素通し設定になっているか必ず確認する。
+
 ---
 
 ## 8. 新しいミニゲームを追加する
