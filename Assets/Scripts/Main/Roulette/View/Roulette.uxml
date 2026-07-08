@@ -1,13 +1,15 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <Style src="Roulette.uss" />
-    <ui:VisualElement name="RouletteRoot" class="roulette-root">
-        <ui:Label text="ルーレット" name="Title" class="roulette-title" />
-        <ui:VisualElement name="WheelArea" class="wheel-area">
-            <ui:VisualElement name="Wheel" class="roulette-wheel" />
+    <!-- ルートは全画面を覆うが picking-mode=Ignore にして、スピンボタン以外のクリックは
+         下層（Board パネルの虫眼鏡ボタン等）へ通す（patterns.md #7）。円盤ビジュアルも Ignore にする -->
+    <ui:VisualElement name="RouletteRoot" class="roulette-root" picking-mode="Ignore">
+        <ui:Label text="ルーレット" name="Title" class="roulette-title" picking-mode="Ignore" />
+        <ui:VisualElement name="WheelArea" class="wheel-area" picking-mode="Ignore">
+            <ui:VisualElement name="Wheel" class="roulette-wheel" picking-mode="Ignore" />
             <!-- Wheel より後に置き、円盤の上へ描画する（前に置くと円盤に覆われて隠れる） -->
-            <ui:Label text="▼" name="Pointer" class="roulette-pointer" />
+            <ui:Label text="▼" name="Pointer" class="roulette-pointer" picking-mode="Ignore" />
             <!-- 出目の数字。円盤の中心ハブに重ねる。円盤と違い回転しない（WheelArea 直下・絶対配置で中央固定） -->
-            <ui:Label text="" name="ResultLabel" class="roulette-result" />
+            <ui:Label text="" name="ResultLabel" class="roulette-result" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:Button text="長押しで回す" name="SpinButton" class="btn-accent roulette-spin" />
     </ui:VisualElement>

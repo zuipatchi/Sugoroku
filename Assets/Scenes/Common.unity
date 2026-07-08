@@ -266,9 +266,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4295ea1e221f4544f8381a01f3c350c6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Common.Transition.TransitionPresenter
-  _duration: 1
-  _softness: 0.03
-  _shader: {fileID: 4800000, guid: 3fe2f61b8f457954c891d919019af48d, type: 3}
+  _duration: 0.5
 --- !u!114 &555812039
 MonoBehaviour:
   m_ObjectHideFlags: 0

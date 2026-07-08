@@ -44,26 +44,33 @@ namespace Main.Board
         private readonly VisualElement _linesElement;
         private readonly VisualElement[] _cells;
         private readonly float _cellFillRatio;
+        private readonly int _visibleColumns;
         private readonly int _gridColumns;
         private readonly int _gridRows;
         private readonly int _cellCount;
+        private AreaLayout _area;
 
         public BoardLayoutCalculator(
             BoardDefinition definition,
             VisualElement boardArea,
             VisualElement linesElement,
             VisualElement[] cells,
-            float cellFillRatio)
+            float cellFillRatio,
+            int visibleColumns)
         {
             _definition = definition;
             _boardArea = boardArea;
             _linesElement = linesElement;
             _cells = cells;
             _cellFillRatio = cellFillRatio;
+            _visibleColumns = visibleColumns;
             _gridColumns = definition.GridColumns;
             _gridRows = definition.GridRows;
             _cellCount = definition.CellCount;
         }
+
+        /// <summary>直近の <see cref="LayoutBoardArea"/> で確定したリング領域の配置（ズーム/パンのクランプに使う）。</summary>
+        public AreaLayout Area => _area;
 
         /// <summary>
         /// 盤面リング領域を、グリッドの (列-1):(行-1) のアスペクト比を保って利用可能領域に内接させ、
@@ -85,7 +92,8 @@ namespace Main.Board
                 return;
             }
 
-            AreaLayout layout = CalculateArea(containerWidth, containerHeight, _gridColumns, _gridRows, _cellFillRatio);
+            AreaLayout layout = CalculateArea(containerWidth, containerHeight, _gridColumns, _gridRows, _cellFillRatio, _visibleColumns);
+            _area = layout;
             _boardArea.style.left = layout.Left;
             _boardArea.style.top = layout.Top;
             _boardArea.style.width = layout.Width;
@@ -102,13 +110,18 @@ namespace Main.Board
         /// マス中心間隔 spacing を、マスの実寸まで含めた盤面が利用可能領域に収まるように決める。
         /// 最外周マスは領域端から半マス（= spacing * cellFillRatio / 2）ずつ外へはみ出すので、
         /// 端の 1 マスぶん（両側で cellFillRatio）を余分に見込む。これで画面端に余白が残る。
+        ///
+        /// 列数が <paramref name="visibleColumns"/> を超える横長盤面では、指定した列数ぶんが画面幅に
+        /// 収まる間隔にして盤面を横へはみ出させる（はみ出したぶんはドラッグでパンして見る）。
+        /// 列数が上限以下の盤面は従来どおり全体を利用可能領域に内接させる。
         /// </summary>
         public static AreaLayout CalculateArea(
             float containerWidth,
             float containerHeight,
             int gridColumns,
             int gridRows,
-            float cellFillRatio)
+            float cellFillRatio,
+            int visibleColumns)
         {
             // 余白（右上のオプションアイコンは上マージンで避ける）。
             float marginX = containerWidth * 0.08f;
@@ -119,7 +132,19 @@ namespace Main.Board
 
             float spanColumns = (gridColumns - 1) + cellFillRatio;
             float spanRows = (gridRows - 1) + cellFillRatio;
-            float spacing = Mathf.Min(availableWidth / spanColumns, availableHeight / spanRows);
+
+            float spacing;
+            if (visibleColumns > 0 && gridColumns > visibleColumns)
+            {
+                // 表示上限ぶんの列だけが画面幅に収まる間隔にする（残りの列は横へはみ出す）。
+                float spanVisible = (visibleColumns - 1) + cellFillRatio;
+                spacing = availableWidth / spanVisible;
+            }
+            else
+            {
+                // 盤面全体を利用可能領域に内接させる（縦横で狭いほうに合わせる）。
+                spacing = Mathf.Min(availableWidth / spanColumns, availableHeight / spanRows);
+            }
 
             float cellSize = spacing * cellFillRatio;
             float areaWidth = spacing * (gridColumns - 1);   // リング領域＝マス中心の矩形

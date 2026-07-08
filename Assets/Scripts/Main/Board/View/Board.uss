@@ -361,6 +361,81 @@
     color: rgb(245, 120, 120);
 }
 
+/* ズーム中だけドラッグでパンするための全画面の透明層。既定は picking-mode=Ignore で無反応。
+   拡大率が 1.0 を超えたとき BoardZoomController が picking-mode=Position にして入力を拾う。 */
+.board-drag-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* ズームボタン（虫眼鏡）を縦積みする左下のコンテナ。右上のオプションアイコン・中央の
+   スピンボタンと重ならないよう画面左下に固定する。 */
+.zoom-controls {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 虫眼鏡ボタン。既定は暗いカード地に大きな +／− を載せ、画像ロード成功時に虫眼鏡画像へ差し替える。 */
+.zoom-button {
+    width: 56px;
+    height: 56px;
+    margin-top: 8px;
+    padding-top: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    background-color: rgba(18, 18, 30, 0.88);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.15);
+    border-right-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-top-left-radius: 28px;
+    border-top-right-radius: 28px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+    font-size: 30px;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1.4px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+    transition-property: scale;
+    transition-duration: 0.1s;
+}
+
+.zoom-button:hover {
+    background-color: rgba(40, 40, 60, 0.92);
+}
+
+.zoom-button:active {
+    scale: 0.94 0.94;
+}
+
+/* 上限・下限に達したボタンは薄く無効表示する（BoardZoomController が SetEnabled で切り替える）。 */
+.zoom-button:disabled {
+    opacity: 0.35;
+}
+
+/* 虫眼鏡画像に差し替えたボタン。カード地・枠を消して画像だけを見せ、上に +／− を重ねる。 */
+.zoom-button--image {
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
 /* クリア表示。リング中央に重ねる。 */
 .board-clear {
     position: absolute;

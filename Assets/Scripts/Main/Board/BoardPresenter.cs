@@ -38,6 +38,12 @@ namespace Main.Board
         [SerializeField] private float _stepInterval = 0.18f;
         // マスの一辺をマス中心間隔の何割にするか。1 未満にすると隣接マスの間に隙間が空き、そこを接続線でつなぐ。
         [SerializeField, Range(0.3f, 1f)] private float _cellFillRatio = 0.62f;
+        // 既定で画面幅に収める列数。列数がこれを超える横長盤面は、この列数ぶんを大きく表示し
+        // 残りは画面外へはみ出させてドラッグでパンして見る（BoardZoomController）。列数がこれ以下なら全体表示。
+        [SerializeField] private int _visibleColumns = 4;
+        // 虫眼鏡ボタンで切り替えるズーム段階（画面幅に収める列数）。既定 4 列を中心に、拡大＝列を減らし
+        // （3→2 列）、縮小＝列を増やす（6→8 列）。盤面の列数を超える値は自動で頭打ちにする。
+        [SerializeField] private int[] _zoomColumnLevels = { 2, 3, 4, 6, 8 };
 
         private BoardModel _model;
         private TerritoryModel _territory;
@@ -64,6 +70,7 @@ namespace Main.Board
         private Label _clearLabel;
         private BoardDefinition _boardDef;
         private BoardLayoutCalculator _layout;
+        private BoardZoomController _zoomController;
         private bool _ownsBoardDef;
         private int _cellCount;
         private int _pieceCount;
@@ -161,6 +168,7 @@ namespace Main.Board
         {
             _disposables.Dispose();
             _iconLoader.Dispose();
+            _zoomController?.Dispose();
 
             // フォールバックで生成した盤面データ（アセットではない）は明示的に破棄する。
             if (_ownsBoardDef && _boardDef != null)
@@ -255,7 +263,7 @@ namespace Main.Board
             VisualElement linesElement = new();
             linesElement.AddToClassList("board-lines");
             linesElement.pickingMode = PickingMode.Ignore;
-            _layout = new BoardLayoutCalculator(_boardDef, _boardArea, linesElement, _cells, _cellFillRatio);
+            _layout = new BoardLayoutCalculator(_boardDef, _boardArea, linesElement, _cells, _cellFillRatio, _visibleColumns);
             linesElement.generateVisualContent += _layout.DrawConnectingLines;
             _boardArea.Add(linesElement);
 
@@ -286,8 +294,22 @@ namespace Main.Board
 
             // リング領域をグリッドのアスペクト比に合わせて中央配置する。画面比が変わっても
             // マスが均等に並ぶよう、レイアウト確定（と以後のリサイズ）のたびに再計算する。
-            _boardArea.parent.RegisterCallback<GeometryChangedEvent>(_ => _layout.LayoutBoardArea());
+            // レイアウト更新のたびにズーム/パンのクランプ（既定位置寄せ含む）も更新する。
+            _boardArea.parent.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                _layout.LayoutBoardArea();
+                _zoomController?.OnLayoutChanged();
+            });
             _layout.LayoutBoardArea();
+
+            // ズームイン／アウト・ドラッグでのパンを配線する（対象は BoardArea のみ）。
+            // 新規追加のシリアライズ配列が空で読まれた場合に備え、既定段階へフォールバックする。
+            int[] zoomLevels = _zoomColumnLevels != null && _zoomColumnLevels.Length > 0
+                ? _zoomColumnLevels
+                : new[] { 2, 3, 4, 6, 8 };
+            _zoomController = new BoardZoomController(
+                root, _boardArea, _layout, _visibleColumns, _boardDef.GridColumns, _cellFillRatio, zoomLevels);
+            _zoomController.LoadMagnifierIconAsync(_destroyCt).Forget();
         }
 
         /// <summary>マスの塗り色・イベント表示を <paramref name="definition"/> に合わせて設定する。</summary>
