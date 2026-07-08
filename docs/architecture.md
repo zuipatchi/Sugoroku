@@ -158,8 +158,9 @@ public async UniTask StartAsync(CancellationToken cancellation = default)
 ## サウンド設計
 
 - BGM: `AudioSource.loop = true`、`PlayBGM()` で差し替え
-- SE: `PlayOneShot()` で重ね再生
-- 音量は `OptionModel.BGMVolume / SEVolume` (0–1) を ReactiveProperty で管理
+- SE（単発）: `PlayOneShot()` で重ね再生
+- SE（ループ）: 専用の `loop = true` な AudioSource を持ち、`PlaySELoop()` で鳴らし `StopSELoop()` で止める（コマ移動中の走行音 `RunSE` などに使う。移動開始で鳴らし移動完了・キャンセルで停止）
+- 音量は `OptionModel.BGMVolume / SEVolume` (0–1) を ReactiveProperty で管理（単発・ループの両 SE AudioSource に反映）
 - `SoundPlayer` は音量変化を Subscribe して AudioSource に即時反映
 
 > `_bgmAudioSource.volume = v / 2` としているのは、
