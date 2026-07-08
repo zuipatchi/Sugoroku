@@ -4,8 +4,23 @@
     <ui:VisualElement name="BoardRoot" class="board-root" picking-mode="Ignore">
         <!-- 外周マスとコマを絶対配置するリング領域。中央寄せ＆マージンで右上アイコンを避ける -->
         <ui:VisualElement name="BoardArea" class="board-area" picking-mode="Ignore" />
+        <!-- ズーム中だけドラッグでパンするための全画面の透明層。拡大率 1.0 のときは
+             BoardZoomController が picking-mode=Ignore にして下層（スピンボタン等）へ通す -->
+        <ui:VisualElement name="BoardDragLayer" class="board-drag-layer" picking-mode="Ignore" />
         <!-- 自分（YOU）のネームプレートを載せる上部ヘッダー。中身は BoardPresenter が生成する -->
         <ui:VisualElement name="PlayerHeader" class="player-header" picking-mode="Ignore" />
         <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
+        <!-- コマが止まったマスの画像を画面中央に一瞬拡大表示する演出。中身は BoardPresenter が制御する -->
+        <ui:VisualElement name="CellPopup" class="cell-popup" picking-mode="Ignore" />
+        <!-- 陣地マス占拠時に、そのコマのキャラの旗を中央に表示→縮小しながらマスへ重ねる演出。BoardPresenter が制御する -->
+        <ui:VisualElement name="FlagPopup" class="flag-popup" picking-mode="Ignore" />
+        <!-- お金マスに止まったときに増減額（+n / -n）を上へ浮かび上がらせる演出。BoardPresenter が制御する -->
+        <ui:Label text="" name="MoneyFloat" class="money-float" picking-mode="Ignore" />
+        <!-- ズームイン／アウトの虫眼鏡ボタン。左下に縦積み（右上のオプションアイコン・中央のスピンボタンを避ける）。
+             虫眼鏡画像は BoardZoomController が Image/lupe をロードして貼る（未配置なら +／− の文字のまま） -->
+        <ui:VisualElement name="ZoomControls" class="zoom-controls">
+            <ui:Button text="+" name="ZoomInButton" class="zoom-button" />
+            <ui:Button text="-" name="ZoomOutButton" class="zoom-button" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

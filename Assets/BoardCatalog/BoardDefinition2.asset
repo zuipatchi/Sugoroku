@@ -10,19 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 76f0efe3619fd7340a77117a15c7b458, type: 3}
-  m_Name: BoardDefinition
+  m_Name: BoardDefinition2
   m_EditorClassIdentifier: Main::Main.Board.BoardDefinition
-  _displayName: "\u30DC\u30FC\u30C91"
-  _gridColumns: 4
+  _displayName: 
+  _gridColumns: 10
   _gridRows: 5
-  _frameAddress: Board/Frame
-  _eventArt:
-  - _event: 5
-    _address: Board/MoneyUp
-  - _event: 6
-    _address: Board/MoneyDown
-  - _event: 7
-    _address: Board/Territory
+  _frameAddress: 
+  _eventArt: []
   _cells:
   - _grid: {x: 0, y: 0}
     _event: 0
@@ -30,76 +24,46 @@ MonoBehaviour:
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 1, y: 0}
-    _event: 5
+    _event: 0
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 2, y: 0}
-    _event: 5
+    _event: 0
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 3, y: 0}
-    _event: 6
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 3, y: 1}
-    _event: 5
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 3, y: 2}
-    _event: 5
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 2, y: 2}
-    _event: 6
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 2, y: 3}
-    _event: 6
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 3, y: 3}
-    _event: 6
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 3, y: 4}
-    _event: 5
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 2, y: 4}
-    _event: 5
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 1, y: 4}
-    _event: 6
-    _amount: 1
-    _miniGame: 0
-    _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 0, y: 4}
     _event: 0
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 0, y: 3}
+  - _grid: {x: 4, y: 0}
     _event: 0
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 0, y: 2}
-    _event: 7
+  - _grid: {x: 5, y: 0}
+    _event: 0
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 0, y: 1}
+  - _grid: {x: 6, y: 0}
+    _event: 0
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 7, y: 0}
+    _event: 0
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 8, y: 0}
+    _event: 0
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 9, y: 0}
     _event: 0
     _amount: 1
     _miniGame: 0

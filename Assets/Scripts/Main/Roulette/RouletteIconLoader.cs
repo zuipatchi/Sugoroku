@@ -35,6 +35,22 @@ namespace Main.Roulette
             }
         }
 
+        /// <summary>
+        /// スピンボタンの画像（<paramref name="address"/>）を読み込んでボタンに背景として貼り、文字を消す。
+        /// 未配置・失敗のときは文字のまま残す。
+        /// </summary>
+        public async UniTaskVoid LoadSpinButtonAsync(Button button, string address, CancellationToken ct)
+        {
+            Sprite sprite = await _spriteLoader.TryLoadAsync(address, "ルーレットのスピンボタン画像", ct);
+            if (sprite == null || button == null)
+            {
+                return;
+            }
+            button.style.backgroundImage = new StyleBackground(sprite);
+            button.text = string.Empty;
+            button.AddToClassList("roulette-spin--image");
+        }
+
         /// <summary>保持している全ハンドルを解放する。Presenter の OnDestroy から呼ぶ。</summary>
         public void ReleaseAll()
         {

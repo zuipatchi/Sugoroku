@@ -14,6 +14,12 @@ namespace Main.EditorTools
     {
         private const int CellSize = 26;
 
+        /// <summary>経路に含まれない空マスの色。</summary>
+        public static readonly Color EmptyCellColor = new(0.2f, 0.2f, 0.24f);
+
+        /// <summary>スタート（0＝S/G）マスの専用色（イベントに依らず固定）。</summary>
+        public static readonly Color StartCellColor = new(0.27f, 0.35f, 0.7f);
+
         private readonly VisualElement _container;
         private readonly Action<Vector2Int> _onCellClicked;
 
@@ -63,14 +69,17 @@ namespace Main.EditorTools
             Color background;
             if (pathIndex < 0)
             {
-                background = new Color(0.2f, 0.2f, 0.24f);
+                background = EmptyCellColor;
             }
             else
             {
                 BoardCellDefinition definition = target.Cell(pathIndex);
+                // カスタム色があれば最優先。無ければイベント種別ごとの色で塗り、
+                // どのマスに何のイベントが設定されているか一目で分かるようにする。
+                // スタート（0＝S/G）だけはイベントに依らず専用色で目立たせる。
                 background = definition.HasCustomColor
                     ? definition.Color
-                    : (pathIndex == 0 ? new Color(0.27f, 0.35f, 0.7f) : new Color(0.35f, 0.45f, 0.55f));
+                    : (pathIndex == 0 ? StartCellColor : EventColor(definition.Event));
             }
             cell.style.backgroundColor = background;
 
@@ -88,6 +97,34 @@ namespace Main.EditorTools
             cell.style.borderBottomColor = borderColor;
 
             return cell;
+        }
+
+        /// <summary>
+        /// イベント種別ごとのマス背景色。カスタム色が未設定のマスの塗り分けと、
+        /// エディタの凡例（色→イベントの対応表）で共通に使う。
+        /// <see cref="BoardCellEvent.None"/>（通常マス）は中立色。
+        /// </summary>
+        public static Color EventColor(BoardCellEvent cellEvent)
+        {
+            switch (cellEvent)
+            {
+                case BoardCellEvent.Forward:
+                    return new Color(0.24f, 0.62f, 0.5f);
+                case BoardCellEvent.Back:
+                    return new Color(0.82f, 0.52f, 0.22f);
+                case BoardCellEvent.Rest:
+                    return new Color(0.5f, 0.5f, 0.52f);
+                case BoardCellEvent.MiniGame:
+                    return new Color(0.56f, 0.36f, 0.72f);
+                case BoardCellEvent.MoneyUp:
+                    return new Color(0.3f, 0.66f, 0.32f);
+                case BoardCellEvent.MoneyDown:
+                    return new Color(0.76f, 0.3f, 0.3f);
+                case BoardCellEvent.Territory:
+                    return new Color(0.3f, 0.46f, 0.76f);
+                default:
+                    return new Color(0.35f, 0.45f, 0.55f);
+            }
         }
     }
 }

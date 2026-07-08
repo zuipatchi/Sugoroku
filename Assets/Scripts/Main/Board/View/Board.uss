@@ -59,6 +59,11 @@
     -unity-background-scale-mode: scale-and-crop;
 }
 
+/* 占拠された陣地マス。所有者の旗画像を全体が見えるよう収めて表示する（--icon より後に定義して上書き）。 */
+.board-cell--flag {
+    -unity-background-scale-mode: scale-to-fit;
+}
+
 /* 陣地マス（未占拠）。奪い合うマスであることを紫の太枠で示す。占拠されると下の owned クラスで塗られる。 */
 .board-cell--territory {
     border-left-width: 2px;
@@ -114,14 +119,14 @@
    色はプレイヤー別クラス（--p0 / --p1）で指定する。 */
 .board-piece {
     position: absolute;
-    width: 34px;
-    height: 34px;
+    width: 46px;
+    height: 46px;
     align-items: center;
     justify-content: center;
-    border-top-left-radius: 17px;
-    border-top-right-radius: 17px;
-    border-bottom-left-radius: 17px;
-    border-bottom-right-radius: 17px;
+    border-top-left-radius: 23px;
+    border-top-right-radius: 23px;
+    border-bottom-left-radius: 23px;
+    border-bottom-right-radius: 23px;
     border-left-width: 2px;
     border-right-width: 2px;
     border-top-width: 2px;
@@ -275,6 +280,160 @@
 
 .board-nameplate__money-value--negative {
     color: rgb(240, 130, 130);
+}
+
+/* コマが止まったマスの画像を画面中央に一瞬表示する演出のカード。
+   既定は縮小＆透明。--visible が付くと等倍＆不透明へ transition でポップする。
+   表示中だけ display:flex にする（BoardPresenter が制御）。 */
+.cell-popup {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 220px;
+    height: 220px;
+    translate: -50% -50%;
+    display: none;
+    opacity: 0;
+    scale: 0.55 0.55;
+    background-color: rgba(18, 18, 30, 0.94);
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgb(255, 225, 120);
+    border-right-color: rgb(255, 225, 120);
+    border-top-color: rgb(255, 225, 120);
+    border-bottom-color: rgb(255, 225, 120);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    -unity-background-scale-mode: scale-to-fit;
+    transition-property: opacity, scale;
+    transition-duration: 0.18s, 0.18s;
+    transition-timing-function: ease-out, ease-out;
+}
+
+/* ポップアップの表示状態（等倍・不透明）。 */
+.cell-popup--visible {
+    opacity: 1;
+    scale: 1 1;
+}
+
+/* 陣地マス占拠時に表示するキャラの旗。中央に出したあと対象マスへ縮小移動する演出のカード。
+   left/top/scale/opacity は BoardPresenter が毎フレーム駆動する（表示中だけ display:flex）。
+   基準サイズ 200px の箱を translate:-50% -50% で left/top の点に中心合わせする。 */
+.flag-popup {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    display: none;
+    opacity: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* お金マスに止まったときに増減額を上へ浮かび上がらせる演出のテキスト。
+   opacity と translate は BoardPresenter が毎フレーム駆動する（表示中だけ display:flex）。
+   読みやすさのため太字＋濃い輪郭風の縁取り色を付ける。 */
+.money-float {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    display: none;
+    opacity: 0;
+    font-size: 54px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+}
+
+/* 増額（MoneyUp）は緑、減額（MoneyDown）は赤で色分けする。 */
+.money-float--up {
+    color: rgb(120, 235, 140);
+}
+
+.money-float--down {
+    color: rgb(245, 120, 120);
+}
+
+/* ズーム中だけドラッグでパンするための全画面の透明層。既定は picking-mode=Ignore で無反応。
+   拡大率が 1.0 を超えたとき BoardZoomController が picking-mode=Position にして入力を拾う。 */
+.board-drag-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* ズームボタン（虫眼鏡）を縦積みする左下のコンテナ。右上のオプションアイコン・中央の
+   スピンボタンと重ならないよう画面左下に固定する。 */
+.zoom-controls {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 虫眼鏡ボタン。既定は暗いカード地に大きな +／− を載せ、画像ロード成功時に虫眼鏡画像へ差し替える。 */
+.zoom-button {
+    width: 56px;
+    height: 56px;
+    margin-top: 8px;
+    padding-top: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    background-color: rgba(18, 18, 30, 0.88);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.15);
+    border-right-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-top-left-radius: 28px;
+    border-top-right-radius: 28px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+    font-size: 30px;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1.4px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+    transition-property: scale;
+    transition-duration: 0.1s;
+}
+
+.zoom-button:hover {
+    background-color: rgba(40, 40, 60, 0.92);
+}
+
+.zoom-button:active {
+    scale: 0.94 0.94;
+}
+
+/* 上限・下限に達したボタンは薄く無効表示する（BoardZoomController が SetEnabled で切り替える）。 */
+.zoom-button:disabled {
+    opacity: 0.35;
+}
+
+/* 虫眼鏡画像に差し替えたボタン。カード地・枠を消して画像だけを見せ、上に +／− を重ねる。 */
+.zoom-button--image {
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 /* クリア表示。リング中央に重ねる。 */
