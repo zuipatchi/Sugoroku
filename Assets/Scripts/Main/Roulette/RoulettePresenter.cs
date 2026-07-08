@@ -89,15 +89,6 @@ namespace Main.Roulette
             // コマ移動中・クリア後は回せないため、その 2 状態を購読してボタンを更新する。
             _disposables.Add(_board.IsMoving.Subscribe(_ => UpdateSpinEnabled()));
             _disposables.Add(_board.Winner.Subscribe(_ => UpdateSpinEnabled()));
-            _disposables.Add(_model.Result.Subscribe(value =>
-            {
-                if (_resultLabel != null && value > 0)
-                {
-                    _resultLabel.text = $"出た目: {value}";
-                    _effects?.PlayResultLabelPop();
-                }
-            }));
-
             // 回している間だけ円盤を見せる。回転開始（Spinning）で表示、停止（Stopped）で少し待って隠し、
             // 手番リセット（Idle）で即座に隠す。人間・CPU どちらも BeginSpin を通るので同じ経路で表示される。
             _disposables.Add(_model.State.Subscribe(OnRouletteStateChanged));
@@ -399,10 +390,23 @@ namespace Main.Roulette
             {
                 case RouletteState.Spinning:
                     // 回転開始。再回転なら停止後の隠し予約を取り消してから表示する。
+                    // 前回の出目が回転中に残って見えないよう、出目ラベルを空にする（停止時に CompleteSpin で入る）。
                     CancelPendingHide();
+                    if (_resultLabel != null)
+                    {
+                        _resultLabel.text = string.Empty;
+                    }
                     SetRouletteVisible(true);
                     break;
                 case RouletteState.Stopped:
+                    // 出目を中央に表示する。人間・CPU どちらの停止もここを通るので両方で表示される。
+                    // Result の値が前回と同じでも確実に出せるよう、購読ではなくここで現在値から反映する。
+                    int value = _model.Result.CurrentValue;
+                    if (_resultLabel != null && value > 0)
+                    {
+                        _resultLabel.text = value.ToString();
+                        _effects?.PlayResultLabelPop();
+                    }
                     // 出た目を少し見せてから隠す。
                     ScheduleHideAfterStop();
                     break;

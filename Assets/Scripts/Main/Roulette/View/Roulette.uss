@@ -71,12 +71,19 @@
     translate: -50% -50%;
 }
 
+/* 出目の数字。円盤の中心ハブに絶対配置で重ねる。円盤は回転するがこれは WheelArea 直下なので回らない。
+   白の太縁取りで、どのセクター色・ハブ色の上でも大きく読めるようにする。 */
 .roulette-result {
-    font-size: 24px;
-    color: rgb(235, 200, 90);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    font-size: 240px;
+    color: rgb(255, 255, 255);
     -unity-text-align: middle-center;
-    min-height: 32px;
-    margin-top: 20px;
+    -unity-text-outline-width: 4px;
+    -unity-text-outline-color: rgba(35, 30, 15, 0.9);
 }
 
 .roulette-spin {
