@@ -249,7 +249,7 @@ namespace MiniGame.TapGame
         {
             _model.Tap();
             ShakeCard();
-            _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
+            _soundPlayer.PlaySafe(_soundStore?.RandomPunchSE);
         }
 
         private void OnCloseClicked()
