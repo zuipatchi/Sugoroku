@@ -19,6 +19,12 @@ namespace Main.Board
         /// </summary>
         public const string StartCellIconAddress = "Board/Start";
 
+        /// <summary>
+        /// アイテム取得マス（<see cref="BoardCellEvent.Item"/>）に使う既定の画像アドレス（Addressables）。
+        /// 盤面がイベント画像（<see cref="EventIconAddress"/>）を明示設定していないときのフォールバックに使う。
+        /// </summary>
+        public const string ItemCellIconAddress = "Board/Item";
+
         [SerializeField] private string _displayName = string.Empty;
         [SerializeField] private int _gridColumns = 5;
         [SerializeField] private int _gridRows = 7;

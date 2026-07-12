@@ -30,9 +30,15 @@ namespace Main.Board
                 for (int i = 0; i < definition.CellCount; i++)
                 {
                     // スタート＝ゴール（index 0）は専用画像。それ以外はイベント種別ごとの画像で解決する。
+                    BoardCellEvent cellEvent = definition.Cell(i).Event;
                     string address = i == 0
                         ? BoardDefinition.StartCellIconAddress
-                        : definition.EventIconAddress(definition.Cell(i).Event);
+                        : definition.EventIconAddress(cellEvent);
+                    // アイテムマスは盤面が画像を明示設定していなければ既定の画像を使う（スタートと同じ扱い）。
+                    if (string.IsNullOrEmpty(address) && cellEvent == BoardCellEvent.Item)
+                    {
+                        address = BoardDefinition.ItemCellIconAddress;
+                    }
                     if (string.IsNullOrEmpty(address))
                     {
                         continue;
