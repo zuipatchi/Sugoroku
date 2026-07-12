@@ -25,6 +25,8 @@ namespace Main.Board
 
         private readonly VisualElement _boardArea;
         private readonly VisualElement _dragLayer;
+        private readonly VisualElement _zoomPill;
+        private readonly VisualElement _zoomMagnifier;
         private readonly Button _zoomInButton;
         private readonly Button _zoomOutButton;
         private readonly BoardLayoutCalculator _layout;
@@ -73,6 +75,8 @@ namespace Main.Board
             _zoom = ScaleForColumns(_columnLevels[_levelIndex], _baseColumns, _fillRatio);
 
             _dragLayer = root?.Q<VisualElement>("BoardDragLayer");
+            _zoomPill = root?.Q<VisualElement>("ZoomPill");
+            _zoomMagnifier = root?.Q<VisualElement>("ZoomMagnifier");
             _zoomInButton = root?.Q<Button>("ZoomInButton");
             _zoomOutButton = root?.Q<Button>("ZoomOutButton");
 
@@ -93,10 +97,13 @@ namespace Main.Board
             OnLayoutChanged();
         }
 
-        /// <summary>虫眼鏡画像をロードして両ボタンに貼る。未配置・失敗なら +／− の文字のまま残す。</summary>
+        /// <summary>
+        /// 虫眼鏡画像をロードしてピル中央の飾りアイコンに貼り、表示する。未配置・失敗なら中央アイコンは
+        /// 非表示のまま（+ と − が直接隣り合う）。
+        /// </summary>
         public async UniTaskVoid LoadMagnifierIconAsync(CancellationToken ct)
         {
-            if (_zoomInButton == null || _zoomOutButton == null)
+            if (_zoomMagnifier == null || _zoomPill == null)
             {
                 return;
             }
@@ -105,14 +112,9 @@ namespace Main.Board
             {
                 return;
             }
-            ApplyMagnifierIcon(_zoomInButton, sprite);
-            ApplyMagnifierIcon(_zoomOutButton, sprite);
-        }
-
-        private static void ApplyMagnifierIcon(Button button, Sprite sprite)
-        {
-            button.style.backgroundImage = new StyleBackground(sprite);
-            button.AddToClassList("zoom-button--image");
+            _zoomMagnifier.style.backgroundImage = new StyleBackground(sprite);
+            _zoomMagnifier.style.display = DisplayStyle.Flex;
+            _zoomPill.AddToClassList("zoom-pill--has-icon");
         }
 
         /// <summary>

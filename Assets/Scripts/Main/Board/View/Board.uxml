@@ -16,11 +16,15 @@
         <ui:VisualElement name="FlagPopup" class="flag-popup" picking-mode="Ignore" />
         <!-- お金マスに止まったときに増減額（+n / -n）を上へ浮かび上がらせる演出。BoardPresenter が制御する -->
         <ui:Label text="" name="MoneyFloat" class="money-float" picking-mode="Ignore" />
-        <!-- ズームイン／アウトの虫眼鏡ボタン。左下に縦積み（右上のオプションアイコン・中央のスピンボタンを避ける）。
-             虫眼鏡画像は BoardZoomController が Image/lupe をロードして貼る（未配置なら +／− の文字のまま） -->
+        <!-- ズームイン／アウトの連結ピル。左下に固定（右上のオプションアイコン・中央のスピンボタンを避ける）。
+             + と − を1つの縦長カプセルに連結し、間を区切り線で分ける。中央の虫眼鏡は BoardZoomController が
+             Image/lupe をロードできたときだけ表示する（未配置なら + と − が直接隣り合う） -->
         <ui:VisualElement name="ZoomControls" class="zoom-controls">
-            <ui:Button text="+" name="ZoomInButton" class="zoom-button" />
-            <ui:Button text="-" name="ZoomOutButton" class="zoom-button" />
+            <ui:VisualElement name="ZoomPill" class="zoom-pill">
+                <ui:Button text="+" name="ZoomInButton" class="zoom-button zoom-button--top" />
+                <ui:VisualElement name="ZoomMagnifier" class="zoom-pill__icon" />
+                <ui:Button text="-" name="ZoomOutButton" class="zoom-button zoom-button--bottom" />
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
