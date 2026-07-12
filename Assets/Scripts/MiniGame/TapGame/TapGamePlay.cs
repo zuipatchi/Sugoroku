@@ -193,7 +193,7 @@ namespace MiniGame.TapGame
             else
             {
                 _characterCard.style.backgroundImage = StyleKeyword.None;
-                _characterCard.style.backgroundColor = CharacterPalette.PlaceholderColor(CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count);
+                _characterCard.style.backgroundColor = CharacterPalette.PlaceholderColorFor(id);
             }
         }
 

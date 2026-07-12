@@ -439,7 +439,7 @@ namespace Main.Board
 
         private async UniTaskVoid LoadFrameAsync(CancellationToken ct)
         {
-            Sprite frame = await _iconLoader.LoadFrameAsync(_boardDef.FrameAddress, ct);
+            Sprite frame = await _iconLoader.LoadSpriteAsync(_boardDef.FrameAddress, "盤面枠画像", ct);
             if (frame == null)
             {
                 return;
@@ -843,7 +843,7 @@ namespace Main.Board
             {
                 return cached;
             }
-            Sprite sprite = await _iconLoader.LoadItemAsync(item.ImageAddress, ct);
+            Sprite sprite = await _iconLoader.LoadSpriteAsync(item.ImageAddress, "アイテム画像", ct);
             if (sprite != null)
             {
                 _itemSprites[item.Id] = sprite;

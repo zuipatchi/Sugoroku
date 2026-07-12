@@ -94,20 +94,8 @@ namespace Matching
                 }
                 else
                 {
-                    _model.State.Value = MatchingState.CreatingRoom;
-                    IHostSession session = await _matchingService.CreateRoomAsync(MatchingService.QuickMatchRoomName, ct);
-                    _model.State.Value = MatchingState.WaitingForPlayer;
-
-                    bool found = await _matchingService.WaitForPlayerAsync(session, QuickMatchTimeoutDuration, ct);
-                    if (found)
-                    {
-                        await StartGameAsync();
-                    }
-                    else
-                    {
-                        await _gameSessionModel.LeaveCurrentSessionAsync();
-                        _model.State.Value = MatchingState.TimedOut;
-                    }
+                    await CreateRoomAndWaitAsync(
+                        MatchingService.QuickMatchRoomName, MatchingState.WaitingForPlayer, QuickMatchTimeoutDuration, ct);
                 }
             }
             catch (OperationCanceledException) { }
@@ -121,25 +109,36 @@ namespace Matching
         {
             try
             {
-                _model.State.Value = MatchingState.CreatingRoom;
-                IHostSession session = await _matchingService.CreateRoomAsync("Room", ct);
-                _model.State.Value = MatchingState.WaitingInCreatedRoom;
-
-                bool found = await _matchingService.WaitForPlayerAsync(session, CreateRoomTimeoutDuration, ct);
-                if (found)
-                {
-                    await StartGameAsync();
-                }
-                else
-                {
-                    await _gameSessionModel.LeaveCurrentSessionAsync();
-                    _model.State.Value = MatchingState.TimedOut;
-                }
+                await CreateRoomAndWaitAsync(
+                    "Room", MatchingState.WaitingInCreatedRoom, CreateRoomTimeoutDuration, ct);
             }
             catch (OperationCanceledException) { }
             catch (Exception e)
             {
                 await HandleMatchingErrorAsync("ルーム作成", e, ct);
+            }
+        }
+
+        /// <summary>
+        /// ルームを作成して相手の参加を待つ共通フロー（クイックマッチのホスト側とルーム作成で共用）。
+        /// 参加があればゲーム開始、タイムアウトなら退室して TimedOut にする。
+        /// </summary>
+        private async UniTask CreateRoomAndWaitAsync(
+            string roomName, MatchingState waitingState, TimeSpan timeout, CancellationToken ct)
+        {
+            _model.State.Value = MatchingState.CreatingRoom;
+            IHostSession session = await _matchingService.CreateRoomAsync(roomName, ct);
+            _model.State.Value = waitingState;
+
+            bool found = await _matchingService.WaitForPlayerAsync(session, timeout, ct);
+            if (found)
+            {
+                await StartGameAsync();
+            }
+            else
+            {
+                await _gameSessionModel.LeaveCurrentSessionAsync();
+                _model.State.Value = MatchingState.TimedOut;
             }
         }
 
