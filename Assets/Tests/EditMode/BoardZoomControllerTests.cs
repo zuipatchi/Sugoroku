@@ -96,5 +96,48 @@ namespace Tests.EditMode
             Assert.AreEqual(300f, clamped.x, 1e-4f);
             Assert.AreEqual(0f, clamped.y, 1e-4f);
         }
+
+        [Test]
+        public void ZoomAroundViewportCenterは盤面中心が画面中央でpan0なら動かさない()
+        {
+            // 盤面中心＝画面中央・パン 0 のときは、拡大してもパンは 0 のまま。
+            Vector2 pan = BoardZoomController.ZoomAroundViewportCenter(
+                Vector2.zero, 1f, 1.5f, new Vector2(500f, 500f), new Vector2(1000f, 1000f));
+            Assert.AreEqual(0f, pan.x, 1e-4f);
+            Assert.AreEqual(0f, pan.y, 1e-4f);
+        }
+
+        [Test]
+        public void ZoomAroundViewportCenterは拡大時に画面中央の盤面点を固定する()
+        {
+            AssertViewportCenterFixed(
+                new Vector2(1000f, 1000f), new Vector2(500f, 520f), new Vector2(200f, -100f), 1f, 1.5f);
+        }
+
+        [Test]
+        public void ZoomAroundViewportCenterは縮小時にも画面中央の盤面点を固定する()
+        {
+            AssertViewportCenterFixed(
+                new Vector2(1200f, 800f), new Vector2(700f, 380f), new Vector2(-150f, 60f), 1.4f, 0.9f);
+        }
+
+        /// <summary>
+        /// ズーム前に画面中央に見えている盤面上の点が、<see cref="BoardZoomController.ZoomAroundViewportCenter"/> で
+        /// 補正したパンでズームした後もまだ画面中央に来ること（＝カメラ中心ズームの不変条件）を検証する。
+        /// </summary>
+        private static void AssertViewportCenterFixed(
+            Vector2 container, Vector2 center, Vector2 pan0, float z0, float z1)
+        {
+            Vector2 viewportCenter = container * 0.5f;
+            // 画面中央に見えている盤面点の局所オフセット u（拡大原点 center からの座標）。
+            Vector2 u = (viewportCenter - center - pan0) / z0;
+
+            Vector2 pan1 = BoardZoomController.ZoomAroundViewportCenter(pan0, z0, z1, center, container);
+
+            // ズーム後の同じ点の画面位置が、まだ画面中央に一致する。
+            Vector2 afterScreen = center + pan1 + z1 * u;
+            Assert.AreEqual(viewportCenter.x, afterScreen.x, 1e-3f);
+            Assert.AreEqual(viewportCenter.y, afterScreen.y, 1e-3f);
+        }
     }
 }

@@ -156,11 +156,15 @@ namespace Main.Board
             {
                 return;
             }
+            float previousZoom = _zoom;
             _levelIndex = next;
             _zoom = ScaleForColumns(_columnLevels[_levelIndex], _baseColumns, _fillRatio);
 
             if (TryGetGeometry(out Vector2 center, out Vector2 scaledExtent, out Vector2 container))
             {
+                // いま画面中央に見えている盤面上の点を動かさないようにパンを補正してから拡大縮小する
+                // （＝カメラ中心ズーム。右上を見ている状態でズームすればそのまま右上が拡大される）。
+                _pan = ZoomAroundViewportCenter(_pan, previousZoom, _zoom, center, container);
                 _pan = ClampPan(_pan, center, scaledExtent, container);
                 ApplyTransform();
                 UpdateInteractivity(scaledExtent, container);
@@ -270,6 +274,24 @@ namespace Main.Board
                 return 1f;
             }
             return spanBase / spanColumns;
+        }
+
+        /// <summary>
+        /// ズーム倍率が <paramref name="previousZoom"/>→<paramref name="newZoom"/> に変わるとき、
+        /// 画面（コンテナ）中央に見えている盤面上の点が動かないようにパン量を補正する純粋関数。
+        /// 盤面はリング中心 <paramref name="center"/>（コンテナ座標・パン 0 のときの位置）を原点に拡大縮小し、
+        /// パン <paramref name="pan"/> で平行移動する。焦点＝コンテナ中央 <paramref name="container"/>/2 と原点の差 f を用いて
+        /// pan' = ratio·pan + f·(1 - ratio)（ratio = newZoom/previousZoom）を返す。クランプは呼び出し側で行う。
+        /// </summary>
+        public static Vector2 ZoomAroundViewportCenter(Vector2 pan, float previousZoom, float newZoom, Vector2 center, Vector2 container)
+        {
+            if (previousZoom <= 0f)
+            {
+                return pan;
+            }
+            float ratio = newZoom / previousZoom;
+            Vector2 focal = container * 0.5f - center; // コンテナ中央 − 拡大原点
+            return ratio * pan + focal * (1f - ratio);
         }
 
         /// <summary>
