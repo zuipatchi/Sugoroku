@@ -23,6 +23,8 @@ MonoBehaviour:
     _address: Board/MoneyDown
   - _event: 7
     _address: Board/Territory
+  - _event: 8
+    _address: Board/Item
   _cells:
   - _grid: {x: 0, y: 0}
     _event: 0

@@ -16,7 +16,9 @@ MonoBehaviour:
   _gridColumns: 10
   _gridRows: 5
   _frameAddress: 
-  _eventArt: []
+  _eventArt:
+  - _event: 8
+    _address: Board/Item
   _cells:
   - _grid: {x: 0, y: 0}
     _event: 0
