@@ -122,7 +122,7 @@ namespace Main.EditorTools
                     return new Color(0.76f, 0.3f, 0.3f);
                 case BoardCellEvent.Territory:
                     return new Color(0.3f, 0.46f, 0.76f);
-                case BoardCellEvent.Card:
+                case BoardCellEvent.Item:
                     return new Color(0.86f, 0.66f, 0.24f);
                 default:
                     return new Color(0.35f, 0.45f, 0.55f);

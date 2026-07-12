@@ -6,7 +6,7 @@ using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
-using Main.Card;
+using Main.Item;
 using Main.Money;
 using Main.Turn;
 using R3;
@@ -51,7 +51,7 @@ namespace Main.Board
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
         private MoneyModel _money;
-        private CardModel _cards;
+        private ItemModel _items;
         private BoardSessionModel _boardSession;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
@@ -72,12 +72,12 @@ namespace Main.Board
         private VisualElement _flagPopup;
         private Label _moneyFloat;
         private Label _clearLabel;
-        // 取得したカードを並べる右下の手札コンテナ。
-        private VisualElement _cardHand;
-        // ロード済みカード絵のキャッシュ（取得マスで抽選するたびに使い回す）。
-        private readonly Dictionary<CardId, Sprite> _cardSprites = new();
-        // カード抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は CardCatalog にある）。
-        private readonly System.Random _cardRng = new();
+        // 取得したアイテムを並べる右下の手札コンテナ。
+        private VisualElement _itemHand;
+        // ロード済みアイテム絵のキャッシュ（取得マスで抽選するたびに使い回す）。
+        private readonly Dictionary<ItemId, Sprite> _itemSprites = new();
+        // アイテム抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は ItemCatalog にある）。
+        private readonly System.Random _itemRng = new();
         private BoardDefinition _boardDef;
         private BoardLayoutCalculator _layout;
         private BoardZoomController _zoomController;
@@ -109,7 +109,7 @@ namespace Main.Board
             CharacterSessionModel characterSession,
             GameParticipants participants,
             MoneyModel money,
-            CardModel cards,
+            ItemModel items,
             BoardSessionModel boardSession)
         {
             _model = model;
@@ -117,7 +117,7 @@ namespace Main.Board
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _money = money;
-            _cards = cards;
+            _items = items;
             _boardSession = boardSession;
             _characterPicker = new CpuCharacterPicker(participants, characterSession);
             _nameplateView = new PlayerNameplateView(participants, money, _characterPicker, _disposables);
@@ -133,12 +133,12 @@ namespace Main.Board
                 }
             }
 
-            // カード取得を購読し、人間プレイヤーのぶんだけ右下の手札にサムネイルを足す。
-            _disposables.Add(_cards.Gained.Subscribe(gain =>
+            // アイテム取得を購読し、人間プレイヤーのぶんだけ右下の手札にサムネイルを足す。
+            _disposables.Add(_items.Gained.Subscribe(gain =>
             {
                 if (gain.Player == _humanPlayer)
                 {
-                    AppendCardToHand(gain.Card);
+                    AppendItemToHand(gain.Item);
                 }
             }));
 
@@ -279,7 +279,7 @@ namespace Main.Board
             _flagPopup = root.Q<VisualElement>("FlagPopup");
             _moneyFloat = root.Q<Label>("MoneyFloat");
             _clearLabel = root.Q<Label>("ClearLabel");
-            _cardHand = root.Q<VisualElement>("CardHand");
+            _itemHand = root.Q<VisualElement>("ItemHand");
             if (_boardArea == null || _clearLabel == null)
             {
                 Debug.LogError("Board の UI 要素が見つかりませんでした。");
@@ -383,8 +383,8 @@ namespace Main.Board
                     return $"$-{definition.Amount}";
                 case BoardCellEvent.Territory:
                     return "陣";
-                case BoardCellEvent.Card:
-                    return "カ";
+                case BoardCellEvent.Item:
+                    return "ア";
                 default:
                     return null;
             }
@@ -733,11 +733,11 @@ namespace Main.Board
                 return;
             }
 
-            // カード取得マスは、抽選したカード絵を中央に見せてから手札（右下）へ加える。
+            // アイテム取得マスは、抽選したアイテム絵を中央に見せてから手札（右下）へ加える。
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
-                && _boardDef.Cell(position).Event == BoardCellEvent.Card)
+                && _boardDef.Cell(position).Event == BoardCellEvent.Item)
             {
-                await PlayCardSequenceAsync(player, CellPopupHoldSeconds, ct);
+                await PlayItemSequenceAsync(player, CellPopupHoldSeconds, ct);
                 return;
             }
 
@@ -777,7 +777,7 @@ namespace Main.Board
 
         /// <summary>
         /// 任意の画像 <paramref name="sprite"/> を画面中央のポップアップに拡大表示する（消さない）。
-        /// マス画像とカード絵で共用する。画像が null なら false を返し何もしない。
+        /// マス画像とアイテム絵で共用する。画像が null なら false を返し何もしない。
         /// </summary>
         private async UniTask<bool> ShowCellPopupSpriteAsync(Sprite sprite, CancellationToken ct)
         {
@@ -797,25 +797,25 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// カード取得マスの演出。カタログからランダムに 1 枚選び、そのカード絵を画面中央に
-        /// <paramref name="holdSeconds"/> 秒ほど見せてから <see cref="CardModel"/> へ加える
-        /// （人間プレイヤーなら購読で右下の手札へ足される）。カード絵が未配置なら演出をスキップして取得だけ行う。
+        /// アイテム取得マスの演出。カタログからランダムに 1 つ選び、そのアイテム絵を画面中央に
+        /// <paramref name="holdSeconds"/> 秒ほど見せてから <see cref="ItemModel"/> へ加える
+        /// （人間プレイヤーなら購読で右下の手札へ足される）。アイテム絵が未配置なら演出をスキップして取得だけ行う。
         /// </summary>
-        private async UniTask PlayCardSequenceAsync(int player, float holdSeconds, CancellationToken ct)
+        private async UniTask PlayItemSequenceAsync(int player, float holdSeconds, CancellationToken ct)
         {
-            if (_cards == null)
+            if (_items == null)
             {
                 return;
             }
 
-            CardDefinition card = CardCatalog.RandomCard(_cardRng);
-            if (card == null)
+            ItemDefinition item = ItemCatalog.RandomItem(_itemRng);
+            if (item == null)
             {
                 return;
             }
 
             // 取得を通知する前に絵をロードしておく（手札サムネイルがキャッシュから引けるようにする）。
-            Sprite sprite = await LoadCardSpriteAsync(card, ct);
+            Sprite sprite = await LoadItemSpriteAsync(item, ct);
 
             bool shown = await ShowCellPopupSpriteAsync(sprite, ct);
             if (shown)
@@ -823,7 +823,7 @@ namespace Main.Board
                 await UniTask.Delay(TimeSpan.FromSeconds(holdSeconds), cancellationToken: ct);
             }
 
-            _cards.Add(player, card.Id);
+            _items.Add(player, item.Id);
             _soundPlayer.PlaySafe(_soundStore?.CheerSE);
 
             if (shown)
@@ -832,50 +832,50 @@ namespace Main.Board
             }
         }
 
-        /// <summary>カード絵をロードしてキャッシュから返す。未配置なら null（手札は文字プレースホルダになる）。</summary>
-        private async UniTask<Sprite> LoadCardSpriteAsync(CardDefinition card, CancellationToken ct)
+        /// <summary>アイテム絵をロードしてキャッシュから返す。未配置なら null（手札は文字プレースホルダになる）。</summary>
+        private async UniTask<Sprite> LoadItemSpriteAsync(ItemDefinition item, CancellationToken ct)
         {
-            if (card == null)
+            if (item == null)
             {
                 return null;
             }
-            if (_cardSprites.TryGetValue(card.Id, out Sprite cached))
+            if (_itemSprites.TryGetValue(item.Id, out Sprite cached))
             {
                 return cached;
             }
-            Sprite sprite = await _iconLoader.LoadCardAsync(card.ImageAddress, ct);
+            Sprite sprite = await _iconLoader.LoadItemAsync(item.ImageAddress, ct);
             if (sprite != null)
             {
-                _cardSprites[card.Id] = sprite;
+                _itemSprites[item.Id] = sprite;
             }
             return sprite;
         }
 
-        /// <summary>取得したカードのサムネイルを右下の手札に 1 枚足す。絵が未ロードならカード名の文字で代替する。</summary>
-        private void AppendCardToHand(CardId card)
+        /// <summary>取得したアイテムのサムネイルを右下の手札に 1 つ足す。絵が未ロードならアイテム名の文字で代替する。</summary>
+        private void AppendItemToHand(ItemId item)
         {
-            if (_cardHand == null)
+            if (_itemHand == null)
             {
                 return;
             }
 
             VisualElement el = new();
-            el.AddToClassList("card-hand__card");
+            el.AddToClassList("item-hand__card");
             el.pickingMode = PickingMode.Ignore;
 
-            if (_cardSprites.TryGetValue(card, out Sprite sprite) && sprite != null)
+            if (_itemSprites.TryGetValue(item, out Sprite sprite) && sprite != null)
             {
                 el.style.backgroundImage = new StyleBackground(sprite);
             }
             else
             {
-                CardDefinition def = CardCatalog.Find(card);
+                ItemDefinition def = ItemCatalog.Find(item);
                 Label label = new(def?.DisplayName ?? "?") { pickingMode = PickingMode.Ignore };
-                label.AddToClassList("card-hand__label");
+                label.AddToClassList("item-hand__label");
                 el.Add(label);
             }
 
-            _cardHand.Add(el);
+            _itemHand.Add(el);
         }
 
         /// <summary>表示中のマス画像ポップアップをフェードアウトして非表示にする。既に非表示なら何もしない。</summary>

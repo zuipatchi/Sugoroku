@@ -80,7 +80,7 @@ MonoBehaviour:
     - default
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 259d238e7cd7ce4438d99b0c2c4cbe65
-    m_Address: Image/Card/StealTerritory
+    m_Address: Image/Item/StealTerritory
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -189,7 +189,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6f99a1107360cfa40afb099104a96be9
-    m_Address: Image/Card/StealMoney
+    m_Address: Image/Item/StealMoney
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -200,7 +200,7 @@ MonoBehaviour:
     - default
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 733d5e5f73108da4b9444842e76ff516
-    m_Address: Image/Card/MiniGame
+    m_Address: Image/Item/MiniGame
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

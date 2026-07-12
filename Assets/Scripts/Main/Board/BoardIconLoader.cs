@@ -66,13 +66,13 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// カード絵を 1 枚読み込んで返す。未配置・キャンセル時は null（プレースホルダ文字にフォールバック）。
+        /// アイテム絵を 1 枚読み込んで返す。未配置・キャンセル時は null（プレースホルダ文字にフォールバック）。
         /// </summary>
-        public async UniTask<Sprite> LoadCardAsync(string address, CancellationToken ct)
+        public async UniTask<Sprite> LoadItemAsync(string address, CancellationToken ct)
         {
             try
             {
-                return await _spriteLoader.TryLoadAsync(address, "カード画像", ct);
+                return await _spriteLoader.TryLoadAsync(address, "アイテム画像", ct);
             }
             catch (OperationCanceledException)
             {

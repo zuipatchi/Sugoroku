@@ -472,9 +472,9 @@
     border-bottom-width: 0;
 }
 
-/* 取得したカードを並べる右下の手札。右上のオプションアイコン・左下のズームピルを避けて
-   画面右下に固定し、カードを右詰め・横並びにする。多く取ると左へ伸びる。 */
-.card-hand {
+/* 取得したアイテムを並べる右下の手札。右上のオプションアイコン・左下のズームピルを避けて
+   画面右下に固定し、アイテムを右詰め・横並びにする。多く取ると左へ伸びる。 */
+.item-hand {
     position: absolute;
     right: 16px;
     bottom: 16px;
@@ -485,8 +485,8 @@
     max-width: 60%;
 }
 
-/* 手札の 1 枚。カード絵を背景に敷き、金の細枠で縁取る。左隣との間隔を少し空ける。 */
-.card-hand__card {
+/* 手札の 1 つ。アイテム絵を背景に敷き、金の細枠で縁取る。左隣との間隔を少し空ける。 */
+.item-hand__card {
     width: 58px;
     height: 82px;
     margin-left: 6px;
@@ -508,8 +508,8 @@
     -unity-background-scale-mode: scale-to-fit;
 }
 
-/* カード絵が未配置のときのプレースホルダ文字（カード名）。 */
-.card-hand__label {
+/* アイテム絵が未配置のときのプレースホルダ文字（アイテム名）。 */
+.item-hand__label {
     font-size: 10px;
     color: rgb(240, 226, 180);
     white-space: normal;
