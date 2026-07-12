@@ -641,7 +641,8 @@ namespace Main.Board
             CancellationToken ct = linked.Token;
             _model.BeginMove();
 
-            // 移動を始めたら走行 SE をループで流し、止まったら（正常・キャンセルどちらでも）止める。
+            // 移動を始めたら走行 SE をループで流す。コマが止まった時点で止める（着地演出中は鳴らさない）。
+            // キャンセル時は finally で確実に止める。
             _soundPlayer.PlayLoopSafe(_soundStore?.RunSE);
 
             // 周回勝利は廃止したので、出目ぶんそのまま進む（スタート＝ゴールを通過してループし続ける）。
@@ -660,6 +661,8 @@ namespace Main.Board
                 }
 
                 _model.EndMove();
+                // コマが止まった時点で走行 SE を止める（着地演出＝お金の浮遊テキスト等の間は鳴らさない）。
+                _soundPlayer.StopLoopSafe();
                 // 止まったマスの画像表示＋着地イベント（お金の浮遊テキスト等）の演出。
                 await PlayLandingSequenceAsync(player, ct);
             }
