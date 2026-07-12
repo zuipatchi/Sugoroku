@@ -17,5 +17,14 @@ namespace Common.Character
             float hue = (count <= 0) ? 0f : (float)index / count;
             return Color.HSVToRGB(hue, saturation, value);
         }
+
+        /// <summary>
+        /// キャラ識別子からプレースホルダ色を作るショートカット。
+        /// カタログ上の表示 index / 総数（<see cref="CharacterCatalog"/>）で色相を決める。
+        /// </summary>
+        public static Color PlaceholderColorFor(CharacterId id, float saturation = 0.45f, float value = 0.65f)
+        {
+            return PlaceholderColor(CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count, saturation, value);
+        }
     }
 }

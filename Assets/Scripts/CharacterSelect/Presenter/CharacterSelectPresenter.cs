@@ -173,7 +173,7 @@ namespace CharacterSelect.Presenter
             {
                 // 立ち絵未配置時はプレースホルダ（色面）。
                 _portraitView.style.backgroundImage = StyleKeyword.None;
-                _portraitView.style.backgroundColor = CharacterPalette.PlaceholderColor(CharacterCatalog.IndexOf(selected), CharacterCatalog.All.Count);
+                _portraitView.style.backgroundColor = CharacterPalette.PlaceholderColorFor(selected);
             }
         }
 

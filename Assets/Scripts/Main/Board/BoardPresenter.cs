@@ -22,7 +22,9 @@ namespace Main.Board
     /// 位置・状態は <see cref="BoardModel"/> が持つ。
     /// レイアウト計算は <see cref="BoardLayoutCalculator"/>、画像ロードは <see cref="BoardIconLoader"/>、
     /// キャラ解決は <see cref="CpuCharacterPicker"/>、ネームプレートは <see cref="PlayerNameplateView"/>、
-    /// お金イベント判定は <see cref="CellEventResolver"/> に分担し、ここでは購読・構築・移動演出を統括する。
+    /// お金イベント判定は <see cref="CellEventResolver"/>、着地演出のビュー（ポップアップ・お金浮遊テキスト・
+    /// 旗トゥイーン）は <see cref="BoardLandingPresentation"/> に分担し、ここでは購読・構築・移動と
+    /// 「どの演出をいつ呼ぶか」の統括（Model 更新含む）を担う。
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public sealed class BoardPresenter : MonoBehaviour
@@ -66,11 +68,10 @@ namespace Main.Board
         private Sprite[] _pieceIcons;
         // 各プレイヤーの旗画像。陣地マス占拠の演出（中央表示→マスへ縮小）と占拠マスの塗りに使う。
         private Sprite[] _flagIcons;
-        // 各マスに貼った画像。着地演出（ShowCellPopupAsync）で中央に拡大表示するのに保持する。
+        // 各マスに貼った画像。着地演出（ポップアップ拡大表示）で流用するのに保持する。
         private Sprite[] _cellIcons;
-        private VisualElement _cellPopup;
-        private VisualElement _flagPopup;
-        private Label _moneyFloat;
+        // 着地演出のビュー（ポップアップ・お金浮遊テキスト・旗トゥイーン）。BuildCells で UI 要素とともに生成。
+        private BoardLandingPresentation _landing;
         private Label _clearLabel;
         // 取得したアイテムを並べる右下の手札コンテナ。
         private VisualElement _itemHand;
@@ -275,11 +276,12 @@ namespace Main.Board
 
             _boardArea = root.Q<VisualElement>("BoardArea");
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
-            _cellPopup = root.Q<VisualElement>("CellPopup");
-            _flagPopup = root.Q<VisualElement>("FlagPopup");
-            _moneyFloat = root.Q<Label>("MoneyFloat");
             _clearLabel = root.Q<Label>("ClearLabel");
             _itemHand = root.Q<VisualElement>("ItemHand");
+            _landing = new BoardLandingPresentation(
+                root.Q<VisualElement>("CellPopup"),
+                root.Q<VisualElement>("FlagPopup"),
+                root.Q<Label>("MoneyFloat"));
             if (_boardArea == null || _clearLabel == null)
             {
                 Debug.LogError("Board の UI 要素が見つかりませんでした。");
@@ -406,7 +408,7 @@ namespace Main.Board
                 }
                 if (_cellIcons != null && index < _cellIcons.Length)
                 {
-                    _cellIcons[index] = sprite; // 着地演出（ShowCellPopupAsync）で流用する
+                    _cellIcons[index] = sprite; // 着地演出（BoardLandingPresentation のポップアップ）で流用する
                 }
                 _cells[index].style.backgroundImage = new StyleBackground(sprite);
                 _cells[index].AddToClassList("board-cell--icon");
@@ -439,7 +441,7 @@ namespace Main.Board
 
         private async UniTaskVoid LoadFrameAsync(CancellationToken ct)
         {
-            Sprite frame = await _iconLoader.LoadFrameAsync(_boardDef.FrameAddress, ct);
+            Sprite frame = await _iconLoader.LoadSpriteAsync(_boardDef.FrameAddress, "盤面枠画像", ct);
             if (frame == null)
             {
                 return;
@@ -726,10 +728,13 @@ namespace Main.Board
             int position = _model.Position(player).CurrentValue;
 
             // 陣地マスは専用の旗演出（中央に旗を表示→縮小しながらマスへ重ねて占拠）に置き換える。
+            // 旗がマスに重なった瞬間の占拠確定（ロジック）はコールバックでここから渡す。
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.Territory)
             {
-                await PlayTerritoryFlagSequenceAsync(player, position, ct);
+                Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
+                VisualElement targetCell = _cells != null && position < _cells.Length ? _cells[position] : null;
+                await _landing.PlayTerritoryFlagSequenceAsync(flag, targetCell, () => ApplyTerritoryLanding(player, position), ct);
                 return;
             }
 
@@ -742,7 +747,10 @@ namespace Main.Board
             }
 
             // 止まったマスの画像を中央に出す（消さずに保持）。
-            bool popupShown = await ShowCellPopupAsync(position, ct);
+            Sprite cellIcon = _cellIcons != null && position >= 0 && position < _cellIcons.Length
+                ? _cellIcons[position]
+                : null;
+            bool popupShown = await _landing.ShowCellPopupAsync(cellIcon, ct);
             if (popupShown)
             {
                 await UniTask.Delay(TimeSpan.FromSeconds(PreHoldSeconds), cancellationToken: ct);
@@ -757,43 +765,8 @@ namespace Main.Board
             if (popupShown && !hidPopup)
             {
                 await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, CellPopupHoldSeconds - PreHoldSeconds)), cancellationToken: ct);
-                await HideCellPopupAsync(ct);
+                await _landing.HideCellPopupAsync(ct);
             }
-        }
-
-        /// <summary>
-        /// コマが止まったマス <paramref name="position"/> の画像を画面中央に拡大表示する（消さない）。
-        /// 表示できたら true。画像が未配置（未ロード）のマスは false を返し何もしない。
-        /// 消すのは呼び出し側（<see cref="HideCellPopupAsync"/> / <see cref="ShowMoneyFloatAsync"/>）。
-        /// </summary>
-        private async UniTask<bool> ShowCellPopupAsync(int position, CancellationToken ct)
-        {
-            if (_cellIcons == null || position < 0 || position >= _cellIcons.Length)
-            {
-                return false;
-            }
-            return await ShowCellPopupSpriteAsync(_cellIcons[position], ct);
-        }
-
-        /// <summary>
-        /// 任意の画像 <paramref name="sprite"/> を画面中央のポップアップに拡大表示する（消さない）。
-        /// マス画像とアイテム絵で共用する。画像が null なら false を返し何もしない。
-        /// </summary>
-        private async UniTask<bool> ShowCellPopupSpriteAsync(Sprite sprite, CancellationToken ct)
-        {
-            if (_cellPopup == null || sprite == null)
-            {
-                return false;
-            }
-
-            _cellPopup.style.backgroundImage = new StyleBackground(sprite);
-            _cellPopup.RemoveFromClassList("cell-popup--visible");
-            _cellPopup.style.display = DisplayStyle.Flex;
-
-            // 次フレームまで待ってから --visible を付け、縮小→等倍の transition を効かせる。
-            await UniTask.NextFrame(ct);
-            _cellPopup.AddToClassList("cell-popup--visible");
-            return true;
         }
 
         /// <summary>
@@ -817,7 +790,7 @@ namespace Main.Board
             // 取得を通知する前に絵をロードしておく（手札サムネイルがキャッシュから引けるようにする）。
             Sprite sprite = await LoadItemSpriteAsync(item, ct);
 
-            bool shown = await ShowCellPopupSpriteAsync(sprite, ct);
+            bool shown = await _landing.ShowCellPopupAsync(sprite, ct);
             if (shown)
             {
                 await UniTask.Delay(TimeSpan.FromSeconds(holdSeconds), cancellationToken: ct);
@@ -828,7 +801,7 @@ namespace Main.Board
 
             if (shown)
             {
-                await HideCellPopupAsync(ct);
+                await _landing.HideCellPopupAsync(ct);
             }
         }
 
@@ -843,7 +816,7 @@ namespace Main.Board
             {
                 return cached;
             }
-            Sprite sprite = await _iconLoader.LoadItemAsync(item.ImageAddress, ct);
+            Sprite sprite = await _iconLoader.LoadSpriteAsync(item.ImageAddress, "アイテム画像", ct);
             if (sprite != null)
             {
                 _itemSprites[item.Id] = sprite;
@@ -878,19 +851,6 @@ namespace Main.Board
             _itemHand.Add(el);
         }
 
-        /// <summary>表示中のマス画像ポップアップをフェードアウトして非表示にする。既に非表示なら何もしない。</summary>
-        private async UniTask HideCellPopupAsync(CancellationToken ct)
-        {
-            if (_cellPopup == null || _cellPopup.style.display == DisplayStyle.None)
-            {
-                return;
-            }
-            // 等倍→縮小のフェードアウト（USS transition）ぶん待ってから非表示にする。
-            _cellPopup.RemoveFromClassList("cell-popup--visible");
-            await UniTask.Delay(TimeSpan.FromSeconds(0.2f), cancellationToken: ct);
-            _cellPopup.style.display = DisplayStyle.None;
-        }
-
         /// <summary>
         /// コマが止まったマスのイベントを発動する。お金イベント（増減）と陣地マス（占拠）を扱い、
         /// 進む／戻る／休み／ミニゲームは従来どおり表示のみで未発動。
@@ -919,152 +879,11 @@ namespace Main.Board
                 _money.Add(player, delta);
                 _soundPlayer.PlaySafe(_soundStore?.MoneySE);
                 // 増減額（+n / -n）をポップ画像の底から上へ浮かび上がらせる。画像も浮遊テキストと同時に消す。
-                await ShowMoneyFloatAsync(delta, popupShown, floatSeconds, ct);
+                await _landing.ShowMoneyFloatAsync(delta, popupShown, floatSeconds, ct);
                 return popupShown;
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// お金マスの増減額を画面中央から上へ浮かび上がらせながらフェードアウトさせる演出。
-        /// <paramref name="delta"/> が正なら「+ n」を緑、負なら「- n」を赤で表示する。0 なら何もしない。
-        /// <paramref name="hidePopup"/> が true なら、表示中のマス画像ポップアップを
-        /// 浮遊テキストが消えるのと同じタイミングでフェードアウトさせる。
-        /// </summary>
-        private async UniTask ShowMoneyFloatAsync(int delta, bool hidePopup, float duration, CancellationToken ct)
-        {
-            if (_moneyFloat == null || delta == 0)
-            {
-                // 浮遊テキストが出せない場合でも、保持していた画像は消す。
-                if (hidePopup)
-                {
-                    await HideCellPopupAsync(ct);
-                }
-                return;
-            }
-
-            bool up = delta > 0;
-            _moneyFloat.text = up ? $"+ ${delta}" : $"- ${-delta}";
-            _moneyFloat.EnableInClassList("money-float--up", up);
-            _moneyFloat.EnableInClassList("money-float--down", !up);
-            _moneyFloat.style.display = DisplayStyle.Flex;
-
-            // 開始位置はポップ画像の中央やや下（中央 top:50% + 画像高さの一部）。画像が無ければ中央から。
-            float startY = hidePopup && _cellPopup != null ? _cellPopup.resolvedStyle.height * 0.1f : 0f;
-            const float rise = 170f;
-            // 画像ポップアップのフェードアウト（USS transition）ぶん手前で消し始め、テキストと同時に消えるようにする。
-            const float PopupFadeLead = 0.2f;
-            bool popupHideStarted = false;
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                // 前半は不透明のまま読ませ、後半でフェードアウトする。
-                _moneyFloat.style.opacity = t < 0.4f ? 1f : 1f - (t - 0.4f) / 0.6f;
-                // ポップ画像の底から上へ上昇する。
-                _moneyFloat.style.translate = new Translate(0f, startY - rise * t);
-
-                // 浮遊テキストが消えきるのに合わせて画像もフェードアウトを開始する。
-                if (hidePopup && !popupHideStarted && elapsed >= duration - PopupFadeLead)
-                {
-                    popupHideStarted = true;
-                    _cellPopup?.RemoveFromClassList("cell-popup--visible");
-                }
-
-                await UniTask.Yield(PlayerLoopTiming.Update, ct);
-            }
-
-            _moneyFloat.style.display = DisplayStyle.None;
-            _moneyFloat.style.opacity = 0f;
-            _moneyFloat.style.translate = new Translate(0f, 0f);
-
-            // フェードが終わった画像を非表示にする。
-            if (hidePopup && _cellPopup != null)
-            {
-                _cellPopup.style.display = DisplayStyle.None;
-            }
-        }
-
-        /// <summary>
-        /// 陣地マス着地の旗演出。プレイヤーのキャラの旗を画面中央に 1 秒表示してから、
-        /// 対象の陣地マスへ縮小移動して重ね、そこで占拠を確定する（占拠後そのマスは旗画像のまま）。
-        /// 旗が未ロード（未配置）のときは演出をスキップして占拠だけ行う。
-        /// </summary>
-        private async UniTask PlayTerritoryFlagSequenceAsync(int player, int position, CancellationToken ct)
-        {
-            Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
-            VisualElement root = _flagPopup?.parent;
-            if (_flagPopup == null || root == null || flag == null)
-            {
-                ApplyTerritoryLanding(player, position);
-                return;
-            }
-
-            // 表示・移動の基準になる座標（root ローカル）。
-            Vector2 center = new(root.contentRect.width * 0.5f, root.contentRect.height * 0.5f);
-
-            _flagPopup.style.backgroundImage = new StyleBackground(flag);
-            SetFlagTransform(center, 0.55f, 0f);
-            _flagPopup.style.display = DisplayStyle.Flex;
-
-            // ① 中央にポップイン（拡大＋フェードイン）→ 1.0 秒ホールド。
-            await AnimateFlagAsync(center, center, 0.55f, 1f, 0f, 1f, 0.15f, false, ct);
-            await UniTask.Delay(TimeSpan.FromSeconds(1f), cancellationToken: ct);
-
-            // ② 対象の陣地マス中心へ移動しつつ、マス幅に合わせて縮小する。
-            Vector2 target = center;
-            float targetScale = 0.3f;
-            VisualElement cell = _cells != null && position >= 0 && position < _cells.Length ? _cells[position] : null;
-            if (cell != null)
-            {
-                target = root.WorldToLocal(cell.worldBound.center);
-                float cellWidth = cell.resolvedStyle.width;
-                if (cellWidth > 1f)
-                {
-                    // 旗ポップの基準サイズは USS の 200px。マス幅に収まる倍率へ縮める。
-                    targetScale = Mathf.Clamp(cellWidth / 200f, 0.1f, 1f);
-                }
-            }
-            await AnimateFlagAsync(center, target, 1f, targetScale, 1f, 1f, 0.5f, true, ct);
-
-            // ③ マスに重なったところで占拠を確定（マス画像が旗に替わる）→ 旗ポップをフェードアウト。
-            ApplyTerritoryLanding(player, position);
-            await AnimateFlagAsync(target, target, targetScale, targetScale, 1f, 0f, 0.2f, false, ct);
-
-            _flagPopup.style.display = DisplayStyle.None;
-            _flagPopup.style.opacity = 0f;
-        }
-
-        /// <summary>旗ポップの中心位置（root ローカル px）・拡大率・不透明度をまとめて設定する。</summary>
-        private void SetFlagTransform(Vector2 position, float scale, float opacity)
-        {
-            _flagPopup.style.left = position.x;
-            _flagPopup.style.top = position.y;
-            _flagPopup.style.scale = new Scale(new Vector2(scale, scale));
-            _flagPopup.style.opacity = opacity;
-        }
-
-        /// <summary>
-        /// 旗ポップを <paramref name="duration"/> 秒かけて位置・拡大率・不透明度で補間する。
-        /// <paramref name="easeInOut"/> が true なら smoothstep、false なら線形。毎フレーム駆動。
-        /// </summary>
-        private async UniTask AnimateFlagAsync(
-            Vector2 from, Vector2 to, float scaleFrom, float scaleTo,
-            float opacityFrom, float opacityTo, float duration, bool easeInOut, CancellationToken ct)
-        {
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                float e = easeInOut ? Mathf.SmoothStep(0f, 1f, t) : t;
-                Vector2 position = Vector2.LerpUnclamped(from, to, e);
-                SetFlagTransform(position, Mathf.LerpUnclamped(scaleFrom, scaleTo, e), Mathf.Lerp(opacityFrom, opacityTo, e));
-                await UniTask.Yield(PlayerLoopTiming.Update, ct);
-            }
-            SetFlagTransform(to, scaleTo, opacityTo);
         }
 
         /// <summary>

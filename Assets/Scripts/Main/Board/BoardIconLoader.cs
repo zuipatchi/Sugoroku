@@ -57,28 +57,15 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 全マス共通の枠画像を 1 枚読み込んで返す。未配置・キャンセル時は null（枠なしにフォールバック）。
+        /// 画像を 1 枚読み込んで返す（枠画像・アイテム絵などの単発ロード用）。
+        /// 未配置・キャンセル時は null（呼び出し元のフォールバックに任せる）。
+        /// <paramref name="debugLabel"/> はロード失敗ログの表示名。
         /// </summary>
-        public async UniTask<Sprite> LoadFrameAsync(string address, CancellationToken ct)
+        public async UniTask<Sprite> LoadSpriteAsync(string address, string debugLabel, CancellationToken ct)
         {
             try
             {
-                return await _spriteLoader.TryLoadAsync(address, "盤面枠画像", ct);
-            }
-            catch (OperationCanceledException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// アイテム絵を 1 枚読み込んで返す。未配置・キャンセル時は null（プレースホルダ文字にフォールバック）。
-        /// </summary>
-        public async UniTask<Sprite> LoadItemAsync(string address, CancellationToken ct)
-        {
-            try
-            {
-                return await _spriteLoader.TryLoadAsync(address, "アイテム画像", ct);
+                return await _spriteLoader.TryLoadAsync(address, debugLabel, ct);
             }
             catch (OperationCanceledException)
             {

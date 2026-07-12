@@ -270,8 +270,7 @@ namespace MiniGame.RaceGame
             {
                 // 走行絵は明るめのプレースホルダにする（走者シルエットとして目立たせる）。
                 runner.style.backgroundImage = StyleKeyword.None;
-                runner.style.backgroundColor = CharacterPalette.PlaceholderColor(
-                    CharacterCatalog.IndexOf(id), CharacterCatalog.All.Count, 0.55f, 0.85f);
+                runner.style.backgroundColor = CharacterPalette.PlaceholderColorFor(id, 0.55f, 0.85f);
             }
         }
 

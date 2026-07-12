@@ -11,7 +11,7 @@ Unity 6 + NGO (Netcode for GameObjects) + UGS Multiplayer Services + MPM (Multip
 | 1 | NGO が Common シーンを破壊 | `MatchingService.CreateRoomAsync` / `JoinRoomAsync` | ✅ |
 | 2 | MPM で VContainer 親スコープが見つからない | `SceneExtensions.BuildLifetimeScopes` | ✅ |
 | 3 | MPM でロード済みシーンへの遷移が壊れる | `SceneTransitioner.Transit` | ✅ |
-| 4 | `CustomMessagingManager` が null | Main シーン実装時に適用 | ⬜ |
+| 4 | `CustomMessagingManager` が null | `NetworkSessionStartup.StartAsync` | ✅ |
 | 5 | `IsConnectedClient=true` でもメッセージが届かない | Main シーン実装時に適用 | ⬜ |
 | 6 | `PlayerJoined` イベントの競合 | `MatchingService.WaitForPlayerAsync` | ✅ |
 | 7 | MPM でフォーカスを失った画面の BGM・時間が止まる | `ProjectSettings` の `runInBackground` | ✅ |
@@ -139,7 +139,7 @@ foreach (Scene s in toUnload)
 
 ### 4. `CustomMessagingManager` が `JoinSessionByIdAsync` 直後に null になる
 
-**Main シーン実装時に適用**（テンプレートへの組み込み不要）
+**適用先**: `NetworkSessionStartup.StartAsync`（適用済み）
 
 **症状**: `messaging.RegisterNamedMessageHandler(...)` で NullReferenceException。
 
