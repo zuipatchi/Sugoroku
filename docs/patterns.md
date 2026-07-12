@@ -277,6 +277,17 @@ public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
 - **アセット未割り当てでも壊れないフォールバックを実行時側に持たせる**（`BoardDefinition.CreateRectangular` を `CreateInstance` で生成し、`OnDestroy` で `Destroy` する）。既存シーンは無改変で従来動作、データを割り当てたときだけ差し替わる。
 - **同種の SO 資産を複数から選ばせるには「カタログ SO ＋ Common に文字列 ID」で分ける**。`CharacterCatalog` のような静的クラスは Addressable アドレス（文字列）しか持てず SO 資産参照を持てないので、資産を並べるカタログ自体も `ScriptableObject` にする（例: [BoardCatalog.cs](../Assets/Scripts/Main/Board/BoardCatalog.cs) が `List<BoardDefinition>` を持ち `All`/`Default`/`Find` を公開）。選択状態をシーンをまたいで持つ Common シングルトン（[BoardSessionModel.cs](../Assets/Scripts/Common/Board/BoardSessionModel.cs)）は、**Common から Main の SO 型（`BoardDefinition`）を参照できない**ため識別子（資産名 `Object.name`）だけを文字列で持ち、消費側（`BoardPresenter`）が `catalog.Find(id)` で実体を解決する。カタログ資産は選択シーンと消費シーンの両方の Presenter にインスペクタで割り当てる。未選択・未割り当て時は単発フォールバック（`_definition`）に落ちる。
 
+## 12. 新しいカードを追加する
+
+カード取得マス（`BoardCellEvent.Card`）でもらえるカードは、ミニゲームと同じ「enum ＋ 静的カタログ」方式で増やす。
+
+1. [CardId.cs](../Assets/Scripts/Main/Card/CardId.cs) に種別を 1 つ足す
+2. カード絵を `Assets/AddressableAssets/Image/Card/` に置き、**Addressable アドレスを `Image/Card/<名前>`** に設定する（未配置でも動く。その場合は手札にカード名の文字が出る）
+3. [CardCatalog.cs](../Assets/Scripts/Main/Card/CardCatalog.cs) の `All` に 1 行足す（`CardId` → 表示名・画像アドレス）。`CardCatalog.RandomCard` はカタログ全体から抽選するので分岐追加は不要
+
+- 取得の保持は [CardModel.cs](../Assets/Scripts/Main/Card/CardModel.cs)（`MoneyModel`／`TerritoryModel` と同じ Scoped DI・参加者ごと）。着地演出・右下手札への反映は `BoardPresenter.PlayCardSequenceAsync`／`AppendCardToHand`。
+- **カードの「使用（効果発動）」は未実装**。手札は `CardModel` に貯まるだけなので、使う仕組みを足すときは使用 UI＋効果処理を新設して `TerritoryModel`／`MoneyModel`／`MiniGameLauncher` などにつなぐ。
+
 ---
 
 ## 共通ルール（抜粋）
