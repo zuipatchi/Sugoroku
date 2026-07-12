@@ -47,7 +47,7 @@ namespace Common.Store
         public AudioClip MoneySE => _moneySE;
 
         /// <summary>タップ連打ミニゲームのタップ時に鳴らすパンチ SE（1〜3 をランダムに再生）。</summary>
-        public AudioClip RandomPunchSE => _punchSE.Length > 0 ? _punchSE[Random.Range(0, _punchSE.Length)] : null;
+        public AudioClip RandomPunchSE => _punchSE.Length > 0 ? _punchSE[UnityEngine.Random.Range(0, _punchSE.Length)] : null;
 
         private AudioClip _mainBGM = null;
         private AudioClip _titleBGM = null;
