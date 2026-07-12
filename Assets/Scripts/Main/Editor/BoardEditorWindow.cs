@@ -214,6 +214,10 @@ namespace Main.EditorTools
                     return "お金アップ";
                 case BoardCellEvent.MoneyDown:
                     return "お金ダウン";
+                case BoardCellEvent.Territory:
+                    return "陣地";
+                case BoardCellEvent.Card:
+                    return "カード";
                 default:
                     return cellEvent.ToString();
             }

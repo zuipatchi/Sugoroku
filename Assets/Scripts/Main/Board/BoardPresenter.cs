@@ -6,6 +6,7 @@ using Common.Character;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
+using Main.Card;
 using Main.Money;
 using Main.Turn;
 using R3;
@@ -50,9 +51,12 @@ namespace Main.Board
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
         private MoneyModel _money;
+        private CardModel _cards;
         private BoardSessionModel _boardSession;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
+        // 手札を右下に出す人間プレイヤーの index（参加者リストから解決）。
+        private int _humanPlayer;
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
@@ -68,6 +72,12 @@ namespace Main.Board
         private VisualElement _flagPopup;
         private Label _moneyFloat;
         private Label _clearLabel;
+        // 取得したカードを並べる右下の手札コンテナ。
+        private VisualElement _cardHand;
+        // ロード済みカード絵のキャッシュ（取得マスで抽選するたびに使い回す）。
+        private readonly Dictionary<CardId, Sprite> _cardSprites = new();
+        // カード抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は CardCatalog にある）。
+        private readonly System.Random _cardRng = new();
         private BoardDefinition _boardDef;
         private BoardLayoutCalculator _layout;
         private BoardZoomController _zoomController;
@@ -99,6 +109,7 @@ namespace Main.Board
             CharacterSessionModel characterSession,
             GameParticipants participants,
             MoneyModel money,
+            CardModel cards,
             BoardSessionModel boardSession)
         {
             _model = model;
@@ -106,9 +117,30 @@ namespace Main.Board
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _money = money;
+            _cards = cards;
             _boardSession = boardSession;
             _characterPicker = new CpuCharacterPicker(participants, characterSession);
             _nameplateView = new PlayerNameplateView(participants, money, _characterPicker, _disposables);
+
+            // 手札を右下に出すのは人間プレイヤーだけ。参加者リストから最初の Human を採用する。
+            _humanPlayer = 0;
+            for (int i = 0; i < participants.Count; i++)
+            {
+                if (participants.KindOf(i) == PlayerKind.Human)
+                {
+                    _humanPlayer = i;
+                    break;
+                }
+            }
+
+            // カード取得を購読し、人間プレイヤーのぶんだけ右下の手札にサムネイルを足す。
+            _disposables.Add(_cards.Gained.Subscribe(gain =>
+            {
+                if (gain.Player == _humanPlayer)
+                {
+                    AppendCardToHand(gain.Card);
+                }
+            }));
 
             // コマ位置は Model を source of truth とし、Position を購読して描画へ反映する。
             // 購読と UI 構築（OnEnable / injection）の順序が不定のため、_pieces を null ガードする。
@@ -247,6 +279,7 @@ namespace Main.Board
             _flagPopup = root.Q<VisualElement>("FlagPopup");
             _moneyFloat = root.Q<Label>("MoneyFloat");
             _clearLabel = root.Q<Label>("ClearLabel");
+            _cardHand = root.Q<VisualElement>("CardHand");
             if (_boardArea == null || _clearLabel == null)
             {
                 Debug.LogError("Board の UI 要素が見つかりませんでした。");
@@ -350,6 +383,8 @@ namespace Main.Board
                     return $"$-{definition.Amount}";
                 case BoardCellEvent.Territory:
                     return "陣";
+                case BoardCellEvent.Card:
+                    return "カ";
                 default:
                     return null;
             }
@@ -698,6 +733,14 @@ namespace Main.Board
                 return;
             }
 
+            // カード取得マスは、抽選したカード絵を中央に見せてから手札（右下）へ加える。
+            if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
+                && _boardDef.Cell(position).Event == BoardCellEvent.Card)
+            {
+                await PlayCardSequenceAsync(player, CellPopupHoldSeconds, ct);
+                return;
+            }
+
             // 止まったマスの画像を中央に出す（消さずに保持）。
             bool popupShown = await ShowCellPopupAsync(position, ct);
             if (popupShown)
@@ -725,13 +768,20 @@ namespace Main.Board
         /// </summary>
         private async UniTask<bool> ShowCellPopupAsync(int position, CancellationToken ct)
         {
-            if (_cellPopup == null || _cellIcons == null || position < 0 || position >= _cellIcons.Length)
+            if (_cellIcons == null || position < 0 || position >= _cellIcons.Length)
             {
                 return false;
             }
+            return await ShowCellPopupSpriteAsync(_cellIcons[position], ct);
+        }
 
-            Sprite sprite = _cellIcons[position];
-            if (sprite == null)
+        /// <summary>
+        /// 任意の画像 <paramref name="sprite"/> を画面中央のポップアップに拡大表示する（消さない）。
+        /// マス画像とカード絵で共用する。画像が null なら false を返し何もしない。
+        /// </summary>
+        private async UniTask<bool> ShowCellPopupSpriteAsync(Sprite sprite, CancellationToken ct)
+        {
+            if (_cellPopup == null || sprite == null)
             {
                 return false;
             }
@@ -744,6 +794,88 @@ namespace Main.Board
             await UniTask.NextFrame(ct);
             _cellPopup.AddToClassList("cell-popup--visible");
             return true;
+        }
+
+        /// <summary>
+        /// カード取得マスの演出。カタログからランダムに 1 枚選び、そのカード絵を画面中央に
+        /// <paramref name="holdSeconds"/> 秒ほど見せてから <see cref="CardModel"/> へ加える
+        /// （人間プレイヤーなら購読で右下の手札へ足される）。カード絵が未配置なら演出をスキップして取得だけ行う。
+        /// </summary>
+        private async UniTask PlayCardSequenceAsync(int player, float holdSeconds, CancellationToken ct)
+        {
+            if (_cards == null)
+            {
+                return;
+            }
+
+            CardDefinition card = CardCatalog.RandomCard(_cardRng);
+            if (card == null)
+            {
+                return;
+            }
+
+            // 取得を通知する前に絵をロードしておく（手札サムネイルがキャッシュから引けるようにする）。
+            Sprite sprite = await LoadCardSpriteAsync(card, ct);
+
+            bool shown = await ShowCellPopupSpriteAsync(sprite, ct);
+            if (shown)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(holdSeconds), cancellationToken: ct);
+            }
+
+            _cards.Add(player, card.Id);
+            _soundPlayer.PlaySafe(_soundStore?.CheerSE);
+
+            if (shown)
+            {
+                await HideCellPopupAsync(ct);
+            }
+        }
+
+        /// <summary>カード絵をロードしてキャッシュから返す。未配置なら null（手札は文字プレースホルダになる）。</summary>
+        private async UniTask<Sprite> LoadCardSpriteAsync(CardDefinition card, CancellationToken ct)
+        {
+            if (card == null)
+            {
+                return null;
+            }
+            if (_cardSprites.TryGetValue(card.Id, out Sprite cached))
+            {
+                return cached;
+            }
+            Sprite sprite = await _iconLoader.LoadCardAsync(card.ImageAddress, ct);
+            if (sprite != null)
+            {
+                _cardSprites[card.Id] = sprite;
+            }
+            return sprite;
+        }
+
+        /// <summary>取得したカードのサムネイルを右下の手札に 1 枚足す。絵が未ロードならカード名の文字で代替する。</summary>
+        private void AppendCardToHand(CardId card)
+        {
+            if (_cardHand == null)
+            {
+                return;
+            }
+
+            VisualElement el = new();
+            el.AddToClassList("card-hand__card");
+            el.pickingMode = PickingMode.Ignore;
+
+            if (_cardSprites.TryGetValue(card, out Sprite sprite) && sprite != null)
+            {
+                el.style.backgroundImage = new StyleBackground(sprite);
+            }
+            else
+            {
+                CardDefinition def = CardCatalog.Find(card);
+                Label label = new(def?.DisplayName ?? "?") { pickingMode = PickingMode.Ignore };
+                label.AddToClassList("card-hand__label");
+                el.Add(label);
+            }
+
+            _cardHand.Add(el);
         }
 
         /// <summary>表示中のマス画像ポップアップをフェードアウトして非表示にする。既に非表示なら何もしない。</summary>

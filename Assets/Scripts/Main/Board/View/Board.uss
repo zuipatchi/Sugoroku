@@ -472,6 +472,50 @@
     border-bottom-width: 0;
 }
 
+/* 取得したカードを並べる右下の手札。右上のオプションアイコン・左下のズームピルを避けて
+   画面右下に固定し、カードを右詰め・横並びにする。多く取ると左へ伸びる。 */
+.card-hand {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    max-width: 60%;
+}
+
+/* 手札の 1 枚。カード絵を背景に敷き、金の細枠で縁取る。左隣との間隔を少し空ける。 */
+.card-hand__card {
+    width: 58px;
+    height: 82px;
+    margin-left: 6px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(18, 18, 30, 0.92);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 225, 120, 0.7);
+    border-right-color: rgba(255, 225, 120, 0.7);
+    border-top-color: rgba(255, 225, 120, 0.7);
+    border-bottom-color: rgba(255, 225, 120, 0.7);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* カード絵が未配置のときのプレースホルダ文字（カード名）。 */
+.card-hand__label {
+    font-size: 10px;
+    color: rgb(240, 226, 180);
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
 /* クリア表示。リング中央に重ねる。 */
 .board-clear {
     position: absolute;

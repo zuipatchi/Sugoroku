@@ -30,6 +30,9 @@ namespace Main.Board
         MoneyDown = 6,
 
         /// <summary>止まるとそのマスを占拠する（相手の陣地でも上書き）。盤面の陣地マスの過半数を占拠すると勝ち。</summary>
-        Territory = 7
+        Territory = 7,
+
+        /// <summary>止まるとランダムなカードを 1 枚もらえる（<see cref="Card.CardCatalog"/> から抽選。効果の発動は将来対応）。</summary>
+        Card = 8
     }
 }

@@ -66,6 +66,21 @@ namespace Main.Board
         }
 
         /// <summary>
+        /// カード絵を 1 枚読み込んで返す。未配置・キャンセル時は null（プレースホルダ文字にフォールバック）。
+        /// </summary>
+        public async UniTask<Sprite> LoadCardAsync(string address, CancellationToken ct)
+        {
+            try
+            {
+                return await _spriteLoader.TryLoadAsync(address, "カード画像", ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 各プレイヤーのコマ用アイコンを読み込み、成功するたびに
         /// <paramref name="onLoaded"/>(プレイヤー index, Sprite) を呼ぶ。
         /// アドレスは <paramref name="addressOf"/>(プレイヤー index) で解決する。

@@ -24,42 +24,42 @@ MonoBehaviour:
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 1, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 2, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 3, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 4, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 5, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 6, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 7, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 8, y: 0}
-    _event: 0
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}

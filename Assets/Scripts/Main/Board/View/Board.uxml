@@ -16,6 +16,9 @@
         <ui:VisualElement name="FlagPopup" class="flag-popup" picking-mode="Ignore" />
         <!-- お金マスに止まったときに増減額（+n / -n）を上へ浮かび上がらせる演出。BoardPresenter が制御する -->
         <ui:Label text="" name="MoneyFloat" class="money-float" picking-mode="Ignore" />
+        <!-- 取得したカードを並べる右下の手札。中身（サムネイル）は BoardPresenter が取得のたびに足す。
+             右上のオプションアイコンを避けた反対側（右下）に固定する -->
+        <ui:VisualElement name="CardHand" class="card-hand" picking-mode="Ignore" />
         <!-- ズームイン／アウトの連結ピル。左下に固定（右上のオプションアイコン・中央のスピンボタンを避ける）。
              + と − を1つの縦長カプセルに連結し、間を区切り線で分ける。中央の虫眼鏡は BoardZoomController が
              Image/lupe をロードできたときだけ表示する（未配置なら + と − が直接隣り合う） -->

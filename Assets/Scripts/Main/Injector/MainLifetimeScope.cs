@@ -1,4 +1,5 @@
 using Main.Board;
+using Main.Card;
 using Main.Money;
 using Main.Roulette;
 using Main.Turn;
@@ -26,6 +27,9 @@ namespace Main.Injector
 
             // 所持金（お金マス・将来のミニゲーム報酬で増減）。
             builder.Register<MoneyModel>(Lifetime.Scoped);
+
+            // 取得したカード（カード取得マスで増える。右下に手札表示）。
+            builder.Register<CardModel>(Lifetime.Scoped);
 
             builder.Register<BoardModel>(Lifetime.Scoped);
             // 陣地マスの占拠状態（過半数占拠で勝敗が決まる）。盤面 index 一覧は BoardPresenter が Initialize で渡す。
