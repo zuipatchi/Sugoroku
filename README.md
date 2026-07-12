@@ -9,7 +9,9 @@
 4. 問題なければ `/ship` を実行してコミット・ドキュメント更新まで行う
 
 ## テストプレイの仕方
-決まったら記載する
+- 一人用モード: Unity Editor で `Title` シーンから Play し、Home →「一人用モード」→ キャラ選択 → マップ選択 → Main で CPU 対戦
+- オンライン: Multiplayer Play Mode で複数プレイヤーを起動し、Home →「オンラインプレイ」からマッチング（詳細は [docs/matchmaking.md](docs/matchmaking.md)）
+- ミニゲーム単体: `MiniGameTest` シーンをエディタで直接開いて Play（本番フロー外の動作確認用）
 
 ## 使用 Package
 - Addressables
@@ -22,11 +24,11 @@
 - Live2D Cubism SDK（`Assets/Live2D/`、Git 管理対象）
 
 ## プラットフォーム
-決まったら記載する
+- オンライン対戦は Windows / Mac ビルド（WebGL は UGS の QoS フェーズ未サポートのため非対応。[docs/matchmaking.md](docs/matchmaking.md)）
+- タイトル動画は WebGL / Standalone 両対応の StreamingAssets 方式（[docs/architecture.md](docs/architecture.md)「例外: 動画は StreamingAssets」）
 
 ## 日本語フォント
-- ゲーム全体の既定フォントは NotoSansJP Bold (SDF)。テーマ（`Assets/UI Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss`）で全テキスト要素に適用済みなので、uxml ごとの個別指定は不要
-- 別の太さ・別フォントに変えたい場合は、新しい SDF を作ってテーマの `-unity-font-definition` の url を差し替える（詳細は [docs/design-system.md](docs/design-system.md)）
+- 既定フォントは NotoSansJP Bold (SDF) をテーマで全 UI に適用済み。詳細・差し替え方法は [docs/design-system.md](docs/design-system.md)「日本語フォント」を参照
 
 ## GitHub 連携（Claude Code GitHub Action）
 - `.github/workflows/claude.yml` で、GitHub の Issue / PR コメントに `@claude` とメンションすると Claude が動く

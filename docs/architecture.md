@@ -38,7 +38,7 @@ Title → Home ┬─（一人用モード）→ CharacterSelect → MapSelect �
 - シーン遷移は `SceneTransitioner.Transit(Scenes next)` を呼ぶだけでよい
 - 遷移時は `TransitionPresenter` が画面をフェードアウト→ロード→フェードインの演出を行う
 - **Home で2モードを分岐**する。「一人用モード」は `GameSessionModel.SetSinglePlayer()` を呼んで `CharacterSelect`（キャラ選択）へ遷移し、キャラ確定後に `MapSelect`（マップ選択）へ、マップ確定後に `Main` へ進み、**CPU と 1 対 1 のすごろく対戦**を行う。「オンラインプレイ」は `Matching` を経由する（マップは既定＝カタログ先頭）
-- **CharacterSelect** は選択中キャラの立ち絵を全画面背景に、カード絵の選択スロットを画面下部に表示する。各キャラは Addressables に 4 系統の画像アドレスを持つ（`Character/<名前>/Card`＝選択カード絵・`Character/<名前>/Icon`＝盤面コマの丸バッジ・`Character/<名前>/Portrait`＝立ち絵・`Image/<動物>Run`＝2Dレースミニゲームの走行絵）。CharacterSelect は Card と Portrait をロードし、盤面（`BoardPresenter`）はコマに Icon を、2Dレース（`RaceGamePlay`）は走者に Run を使う。未配置のアドレスは色面プレースホルダにフォールバックする。選択結果は Common シングルトンの `CharacterSessionModel` に保持し、`Main` でも参照できる（現状はオンライン非対応・一人用のみ）
+- **CharacterSelect** は選択中キャラの立ち絵を全画面背景に、カード絵の選択スロットを画面下部に表示する。各キャラは Addressables に 5 系統の画像アドレスを持つ（`Character/<名前>/Card`＝選択カード絵・`Character/<名前>/Icon`＝盤面コマの丸バッジ・`Character/<名前>/Portrait`＝立ち絵・`Image/<動物>Run`＝2Dレースミニゲームの走行絵・`Character/<名前>/Flag`＝陣地マス占拠時の旗絵）。CharacterSelect は Card と Portrait をロードし、盤面（`BoardPresenter`）はコマに Icon・陣地の旗演出と占拠マスの塗りに Flag を、2Dレース（`RaceGamePlay`）は走者に Run を使う。未配置のアドレスは色面プレースホルダにフォールバックする。選択結果は Common シングルトンの `CharacterSessionModel` に保持し、`Main` でも参照できる（現状はオンライン非対応・一人用のみ）
 - **MapSelect** は複数の盤面（`BoardDefinition`）から対戦マップを選ぶ。マップ一覧は `BoardCatalog`（ScriptableObject。`BoardDefinition` は SO 資産で静的クラスから参照できないため、キャラの `CharacterCatalog` とは異なりカタログ自身も SO にして資産参照のリストを持つ）が持ち、各マップは盤面の形を Painter2D で描く簡易サムネイル（`BoardSchematicView`・画像アセット不要）とマップ名（`BoardDefinition.DisplayName`。空なら資産名にフォールバック）でカード表示する。選択結果は Common シングルトンの `BoardSessionModel` に**識別子（マップ資産名）**として保持し、`Main` の `BoardPresenter` が `BoardCatalog.Find(識別子)` で実体を解決する（`CharacterSessionModel` と同型だが、Common から Main の `BoardDefinition` を参照できないため文字列 ID だけを持つ）。`BoardCatalog` 資産は `MapSelect` シーンの `MapSelectPresenter` と `Main` の `BoardPresenter` の両方にインスペクタで割り当てる。マップ未選択（オンライン等）や未割り当て時は `BoardPresenter._definition` にフォールバックする
 - `Main` の `NetworkSessionStartup` は `GameSessionModel.Mode == SinglePlayer` のとき NGO を起動せず即 `Connected` 扱いにする（一人用モードはネットワーク非依存）
 - **手番進行は `GameFlowController`（`Main/Turn/`）が統括する**。参加者は `GameParticipants` が `GameMode` から決める（一人用＝`[Human, Cpu]` の 1 対 1、オンライン＝`[Human]` の単独プレイ）。`GameFlowController` は接続完了を待ってから「手番プレイヤーを見る → 人間なら手動スピンの停止を待つ／CPU なら円盤を自動で回す → ルーレットが消える（`WaitForHideAsync`）のを待ってから出目ぶんそのプレイヤーのコマを進める → 勝者が出るまで `TurnModel.Next()` で交代」というループを回す。**勝敗は陣地マスの占拠で決まる**（周回ゴール勝利は廃止）ため、コマは 1 周で止まらず出目ぶんそのままスタート＝ゴールを通過してループし続ける。コマ位置は `BoardModel` がプレイヤーごとに保持し、勝者は着地イベントが `BoardModel.SetWinner` で確定する（`BoardModel.Winner` / `IsFinished`）。これまで各 Presenter に散在していた「ルーレット停止→コマ前進」「移動完了→ボタン再有効化」の購読チェーンを、このオーケストレータに集約した
@@ -61,6 +61,7 @@ Title → Home ┬─（一人用モード）→ CharacterSelect → MapSelect �
 CommonLifeTimeScope   全シーン共通のシングルトンを登録
   ├── GameSessionModel
   ├── CharacterSessionModel
+  ├── BoardSessionModel
   ├── MiniGameSessionModel
   ├── MiniGameLauncher
   ├── ModalStore
@@ -224,7 +225,7 @@ Assets/Scripts/<Scene>/<Feature>/
 ```
 Assets/AddressableAssets/
   ├── Icon/        SVG アイコン
-  ├── Image/       キャラのカード絵/コマ用バッジ/立ち絵（Character/<名前>/Card・/Icon・/Portrait）・2Dレースの走行絵（Image/<動物>Run）
+  ├── Image/       キャラのカード絵/コマ用バッジ/立ち絵/旗絵（Character/<名前>/Card・/Icon・/Portrait・/Flag）・2Dレースの走行絵（Image/<動物>Run）・アイテム絵（Image/Item/*）
   ├── MiniGame/    ミニゲームの UXML / USS
   ├── Modal/       Modal.uxml / Modal.uss
   └── Sound/       AudioClip
