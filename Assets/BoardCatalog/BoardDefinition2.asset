@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76f0efe3619fd7340a77117a15c7b458, type: 3}
   m_Name: BoardDefinition2
   m_EditorClassIdentifier: Main::Main.Board.BoardDefinition
-  _displayName: 
+  _displayName: "\u30A2\u30A4\u30C6\u30E0"
   _gridColumns: 10
   _gridRows: 5
-  _frameAddress: "\u30A2\u30A4\u30C6\u30E0"
+  _frameAddress: Board/Frame
   _eventArt:
   - _event: 8
     _address: Board/Item
