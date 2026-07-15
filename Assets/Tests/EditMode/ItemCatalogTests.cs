@@ -13,6 +13,16 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void 全アイテムに効果説明文がある()
+        {
+            for (int i = 0; i < ItemCatalog.All.Count; i++)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(ItemCatalog.All[i].Description),
+                    $"{ItemCatalog.All[i].Id} の Description が空です");
+            }
+        }
+
+        [Test]
         public void Findは対応するアイテム定義を返す()
         {
             ItemDefinition def = ItemCatalog.Find(ItemId.StealTerritory);

@@ -58,5 +58,61 @@ namespace Tests.EditMode
             Assert.AreEqual(1, received[0].Player);
             Assert.AreEqual(ItemId.StealTerritory, received[0].Item);
         }
+
+        [Test]
+        public void Useで手札から1つ減る()
+        {
+            using ItemModel items = TwoPlayerItems();
+            items.Add(0, ItemId.StealTerritory);
+            items.Add(0, ItemId.StealTerritory);
+
+            bool used = items.Use(0, ItemId.StealTerritory);
+
+            Assert.IsTrue(used);
+            Assert.AreEqual(1, items.Items(0).Count);
+        }
+
+        [Test]
+        public void Useで使用通知が飛ぶ()
+        {
+            using ItemModel items = TwoPlayerItems();
+            items.Add(1, ItemId.StealMoney);
+            List<ItemUse> received = new();
+            using IDisposable _ = items.Used.Subscribe(received.Add);
+
+            items.Use(1, ItemId.StealMoney);
+
+            Assert.AreEqual(1, received.Count);
+            Assert.AreEqual(1, received[0].Player);
+            Assert.AreEqual(ItemId.StealMoney, received[0].Item);
+        }
+
+        [Test]
+        public void 持っていないアイテムのUseは失敗して通知も飛ばない()
+        {
+            using ItemModel items = TwoPlayerItems();
+            items.Add(0, ItemId.StealTerritory);
+            List<ItemUse> received = new();
+            using IDisposable _ = items.Used.Subscribe(received.Add);
+
+            bool used = items.Use(0, ItemId.MiniGame);
+
+            Assert.IsFalse(used);
+            Assert.AreEqual(0, received.Count);
+            Assert.AreEqual(1, items.Items(0).Count);
+        }
+
+        [Test]
+        public void Useは他プレイヤーの手札に影響しない()
+        {
+            using ItemModel items = TwoPlayerItems();
+            items.Add(0, ItemId.StealTerritory);
+            items.Add(1, ItemId.StealTerritory);
+
+            items.Use(0, ItemId.StealTerritory);
+
+            Assert.AreEqual(0, items.Items(0).Count);
+            Assert.AreEqual(1, items.Items(1).Count);
+        }
     }
 }

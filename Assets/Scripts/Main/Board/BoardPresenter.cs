@@ -80,6 +80,11 @@ namespace Main.Board
         // 手札に並べたカード（同じアイテムはカードを増やさず 1 枚にまとめる）と、その所持枚数。
         private readonly Dictionary<ItemId, VisualElement> _handCards = new();
         private readonly Dictionary<ItemId, int> _handCounts = new();
+        // 手札の枚数バッジの USS クラス（追加・消費の両方から更新するため定数化）。
+        private const string HandCountClass = "item-hand__count";
+        private const string HandCountVisibleClass = "item-hand__count--visible";
+        // 手札クリックで開くアイテム詳細モーダル（使用する／閉じる）。BuildCells で生成。
+        private ItemModalPresenter _itemModal;
         // アイテム抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は ItemCatalog にある）。
         private readonly System.Random _itemRng = new();
         private BoardDefinition _boardDef;
@@ -143,6 +148,15 @@ namespace Main.Board
                 if (gain.Player == _humanPlayer)
                 {
                     AppendItemToHand(gain.Item);
+                }
+            }));
+
+            // アイテム使用（モーダルの「使用する」）を購読し、手札表示から 1 枚減らす。
+            _disposables.Add(_items.Used.Subscribe(use =>
+            {
+                if (use.Player == _humanPlayer)
+                {
+                    RemoveItemFromHand(use.Item);
                 }
             }));
 
@@ -281,6 +295,17 @@ namespace Main.Board
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _clearLabel = root.Q<Label>("ClearLabel");
             _itemHand = root.Q<VisualElement>("ItemHand");
+            // 手札クリックで開くアイテム詳細モーダル。BuildCells は Construct 後にしか走らないため
+            // _items / _humanPlayer は確定済み。アイテム絵はロード済みキャッシュから引く（未ロードは絵なし表示）。
+            VisualElement itemModalOverlay = root.Q<VisualElement>("ItemModal");
+            if (itemModalOverlay != null)
+            {
+                _itemModal = new ItemModalPresenter(
+                    itemModalOverlay,
+                    _items,
+                    _humanPlayer,
+                    item => _itemSprites.TryGetValue(item, out Sprite sprite) ? sprite : null);
+            }
             _landing = new BoardLandingPresentation(
                 root.Q<VisualElement>("CellPopup"),
                 root.Q<VisualElement>("FlagPopup"),
@@ -796,11 +821,17 @@ namespace Main.Board
             bool shown = await _landing.ShowCellPopupAsync(sprite, ct);
             if (shown)
             {
+                // 抽選したアイテム絵が見えた瞬間に取得 SE を鳴らす（手札へ加わるのはホールド後）。
+                _soundPlayer.PlaySafe(_soundStore?.ItemGetSE);
                 await UniTask.Delay(TimeSpan.FromSeconds(holdSeconds), cancellationToken: ct);
             }
 
             _items.Add(player, item.Id);
-            _soundPlayer.PlaySafe(_soundStore?.CheerSE);
+            if (!shown)
+            {
+                // 絵が未配置でポップアップを出せなかったときも、取得したことは SE で伝える。
+                _soundPlayer.PlaySafe(_soundStore?.ItemGetSE);
+            }
 
             if (shown)
             {
@@ -830,6 +861,7 @@ namespace Main.Board
         /// <summary>
         /// 取得したアイテムのサムネイルを右下の手札に足す。同じアイテムを重ねて取ったときは
         /// カードを増やさず、既存カード右下の枚数バッジを「x2」のように更新する。
+        /// カードはクリックで詳細モーダル（使用する／閉じる）を開く。
         /// 絵が未ロードならアイテム名の文字で代替する。
         /// </summary>
         private void AppendItemToHand(ItemId item)
@@ -844,18 +876,18 @@ namespace Main.Board
 
             if (_handCards.TryGetValue(item, out VisualElement existing))
             {
-                Label countLabel = existing.Q<Label>(className: "item-hand__count");
+                Label countLabel = existing.Q<Label>(className: HandCountClass);
                 if (countLabel != null)
                 {
                     countLabel.text = $"x{count}";
-                    countLabel.AddToClassList("item-hand__count--visible");
+                    countLabel.AddToClassList(HandCountVisibleClass);
                 }
                 return;
             }
 
             VisualElement el = new();
             el.AddToClassList("item-hand__card");
-            el.pickingMode = PickingMode.Ignore;
+            el.RegisterCallback<ClickEvent>(_ => _itemModal?.Open(item));
 
             if (_itemSprites.TryGetValue(item, out Sprite sprite) && sprite != null)
             {
@@ -871,11 +903,50 @@ namespace Main.Board
 
             // 枚数バッジ。1 枚目は USS 側で非表示のまま、2 枚目からクラス付与で表示する。
             Label badge = new() { pickingMode = PickingMode.Ignore };
-            badge.AddToClassList("item-hand__count");
+            badge.AddToClassList(HandCountClass);
             el.Add(badge);
 
             _handCards[item] = el;
             _itemHand.Add(el);
+        }
+
+        /// <summary>
+        /// 使用（消費）されたアイテムを手札表示へ反映する。枚数を 1 減らしてバッジを更新し、
+        /// 最後の 1 枚だったらカードごと取り除く。
+        /// </summary>
+        private void RemoveItemFromHand(ItemId item)
+        {
+            if (!_handCounts.TryGetValue(item, out int current) || current <= 0)
+            {
+                return;
+            }
+
+            int count = current - 1;
+            if (count <= 0)
+            {
+                _handCounts.Remove(item);
+                if (_handCards.TryGetValue(item, out VisualElement card))
+                {
+                    card.RemoveFromHierarchy();
+                    _handCards.Remove(item);
+                }
+                return;
+            }
+
+            _handCounts[item] = count;
+            if (_handCards.TryGetValue(item, out VisualElement existing))
+            {
+                Label countLabel = existing.Q<Label>(className: HandCountClass);
+                if (countLabel != null)
+                {
+                    countLabel.text = $"x{count}";
+                    if (count < 2)
+                    {
+                        // 1 枚に戻ったらバッジを隠す（取得時と同じ「1 枚はバッジなし」表示に揃える）。
+                        countLabel.RemoveFromClassList(HandCountVisibleClass);
+                    }
+                }
+            }
         }
 
         /// <summary>

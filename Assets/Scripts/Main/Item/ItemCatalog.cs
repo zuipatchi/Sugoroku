@@ -4,14 +4,15 @@ using System.Collections.Generic;
 namespace Main.Item
 {
     /// <summary>
-    /// アイテム 1 種類分のメタデータ。表示名と画像（Addressable アドレス）を持つ。
+    /// アイテム 1 種類分のメタデータ。表示名・効果説明・画像（Addressable アドレス）を持つ。
     /// </summary>
     public sealed class ItemDefinition
     {
-        public ItemDefinition(ItemId id, string displayName, string imageAddress)
+        public ItemDefinition(ItemId id, string displayName, string description, string imageAddress)
         {
             Id = id;
             DisplayName = displayName;
+            Description = description ?? string.Empty;
             ImageAddress = imageAddress ?? string.Empty;
         }
 
@@ -19,6 +20,9 @@ namespace Main.Item
 
         /// <summary>手札などに出す表示名。</summary>
         public string DisplayName { get; }
+
+        /// <summary>アイテムモーダルの本文に出す効果の説明文。</summary>
+        public string Description { get; }
 
         /// <summary>アイテム絵の Addressable アドレス。未配置ならプレースホルダ（表示名テキスト）にフォールバックする。</summary>
         public string ImageAddress { get; }
@@ -32,9 +36,9 @@ namespace Main.Item
     {
         public static readonly IReadOnlyList<ItemDefinition> All = new[]
         {
-            new ItemDefinition(ItemId.StealTerritory, "陣地よこどり", "Image/Item/StealTerritory"),
-            new ItemDefinition(ItemId.StealMoney, "お金よこどり", "Image/Item/StealMoney"),
-            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "Image/Item/MiniGame"),
+            new ItemDefinition(ItemId.StealTerritory, "陣地よこどり", "相手の陣地マスを 1 つ奪って自分の陣地にする。", "Image/Item/StealTerritory"),
+            new ItemDefinition(ItemId.StealMoney, "お金よこどり", "相手の所持金の一部を奪う。", "Image/Item/StealMoney"),
+            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "ミニゲームを起こして、勝てば報酬をもらえる。", "Image/Item/MiniGame"),
         };
 
         /// <summary>識別子 <paramref name="id"/> に対応するアイテム定義。無ければ null。</summary>

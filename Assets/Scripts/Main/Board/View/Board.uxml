@@ -29,5 +29,18 @@
                 <ui:Button text="-" name="ZoomOutButton" class="zoom-button zoom-button--bottom" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <!-- 手札のアイテムをクリックしたときの詳細モーダル。既定は非表示で、ItemModalPresenter が
+             開閉と中身（絵・名前・効果説明）の差し替えを行う。暗幕クリックでも閉じる -->
+        <ui:VisualElement name="ItemModal" class="item-modal">
+            <ui:VisualElement name="ItemModalCard" class="item-modal__card">
+                <ui:VisualElement name="ItemModalImage" class="item-modal__image" />
+                <ui:Label text="" name="ItemModalName" class="item-modal__name" />
+                <ui:Label text="" name="ItemModalDescription" class="item-modal__description" />
+                <ui:VisualElement class="item-modal__buttons">
+                    <ui:Button text="使用する" name="ItemModalUseButton" class="item-modal__button item-modal__button--use" />
+                    <ui:Button text="閉じる" name="ItemModalCloseButton" class="item-modal__button item-modal__button--close" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
