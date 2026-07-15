@@ -3,7 +3,6 @@
     <!-- ルートは全画面を覆うが picking-mode=Ignore にして、スピンボタン以外のクリックは
          下層（Board パネルの虫眼鏡ボタン等）へ通す（patterns.md #7）。円盤ビジュアルも Ignore にする -->
     <ui:VisualElement name="RouletteRoot" class="roulette-root" picking-mode="Ignore">
-        <ui:Label text="ルーレット" name="Title" class="roulette-title" picking-mode="Ignore" />
         <ui:VisualElement name="WheelArea" class="wheel-area" picking-mode="Ignore">
             <ui:VisualElement name="Wheel" class="roulette-wheel" picking-mode="Ignore" />
             <!-- Wheel より後に置き、円盤の上へ描画する（前に置くと円盤に覆われて隠れる） -->

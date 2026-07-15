@@ -51,7 +51,6 @@ namespace Main.Roulette
         // 円盤・タイトル・出目ラベルをまとめて表示/非表示する対象。回しているときだけ見せ、
         // それ以外は隠して背後の盤面を見せる。スピンボタンは手番トリガーとして常に残す。
         private VisualElement _wheelArea;
-        private Label _title;
         private Label _pointer;
         private Button _spinButton;
         private Label _resultLabel;
@@ -113,11 +112,10 @@ namespace Main.Roulette
 
             _wheel = root.Q<VisualElement>("Wheel");
             _wheelArea = root.Q<VisualElement>("WheelArea");
-            _title = root.Q<Label>("Title");
             _pointer = root.Q<Label>("Pointer");
             _spinButton = root.Q<Button>("SpinButton");
             _resultLabel = root.Q<Label>("ResultLabel");
-            if (_wheel == null || _wheelArea == null || _title == null
+            if (_wheel == null || _wheelArea == null
                 || _pointer == null || _spinButton == null || _resultLabel == null)
             {
                 Debug.LogError("Roulette の UI 要素が見つかりませんでした。");
@@ -276,6 +274,14 @@ namespace Main.Roulette
 
         private void OnPointerDown(PointerDownEvent evt)
         {
+            // 画像ボタンは円形の見た目なので、四隅（円の外）の押下は弾いて見た目と当たり判定を揃える。
+            // TrickleDown で Button 内部の Clickable より先に受けるため、ここで止めれば押下扱いにならない。
+            if (IsOutsideCircularButton(evt.localPosition))
+            {
+                evt.StopImmediatePropagation();
+                return;
+            }
+
             if (!CanStartSpin())
             {
                 return;
@@ -283,6 +289,25 @@ namespace Main.Roulette
 
             BeginSpinInternal();
             // ポインタ捕捉は Button の Clickable が行うため、ボタン外でリリースしても PointerUp は届く。
+        }
+
+        /// <summary>
+        /// スピンボタンが円形の画像表示のとき、ボタンローカル座標 <paramref name="localPosition"/> が
+        /// 内接円の外にあるか。文字フォールバック（矩形ボタン）のときは常に false。
+        /// </summary>
+        private bool IsOutsideCircularButton(Vector3 localPosition)
+        {
+            if (_spinButton == null || !_spinButton.ClassListContains(RouletteIconLoader.SpinButtonImageClass))
+            {
+                return false;
+            }
+
+            float halfWidth = _spinButton.resolvedStyle.width * 0.5f;
+            float halfHeight = _spinButton.resolvedStyle.height * 0.5f;
+            float radius = Mathf.Min(halfWidth, halfHeight);
+            float dx = localPosition.x - halfWidth;
+            float dy = localPosition.y - halfHeight;
+            return dx * dx + dy * dy > radius * radius;
         }
 
         /// <summary>回転を開始する内部処理。手動（PointerDown）と CPU 自動（<see cref="AutoSpinAsync"/>）で共有する。</summary>
@@ -419,7 +444,7 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 円盤・タイトル・出目ラベルをまとめて表示/非表示する。スピンボタンは対象外（手番トリガーとして常に残す）。
+        /// 円盤・出目ラベルをまとめて表示/非表示する。スピンボタンは対象外（手番トリガーとして常に残す）。
         /// レイアウトを保って（＝ボタンが動かないよう）透明にする <c>visibility</c> で切り替え、
         /// 隠している間は背後の盤面が透けて見える。
         /// </summary>
@@ -429,10 +454,6 @@ namespace Main.Roulette
             if (_wheelArea != null)
             {
                 _wheelArea.style.visibility = visibility;
-            }
-            if (_title != null)
-            {
-                _title.style.visibility = visibility;
             }
             if (_resultLabel != null)
             {

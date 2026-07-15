@@ -15,6 +15,12 @@ namespace Main.Roulette
     /// </summary>
     public sealed class RouletteIconLoader
     {
+        /// <summary>
+        /// 画像に差し替えたスピンボタンへ付ける USS クラス。円形の見た目になるため、
+        /// Presenter はこのクラスの有無で当たり判定を円に切り替える。
+        /// </summary>
+        public const string SpinButtonImageClass = "roulette-spin--image";
+
         private readonly AddressableSpriteLoader _spriteLoader = new();
 
         /// <summary>各セクターのアイコンにキャラ画像を貼る。未配置・失敗はプレースホルダ色のまま残す。</summary>
@@ -48,7 +54,7 @@ namespace Main.Roulette
             }
             button.style.backgroundImage = new StyleBackground(sprite);
             button.text = string.Empty;
-            button.AddToClassList("roulette-spin--image");
+            button.AddToClassList(SpinButtonImageClass);
         }
 
         /// <summary>保持している全ハンドルを解放する。Presenter の OnDestroy から呼ぶ。</summary>

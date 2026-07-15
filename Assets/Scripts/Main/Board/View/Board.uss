@@ -372,8 +372,8 @@
     background-color: rgba(0, 0, 0, 0);
 }
 
-/* ズームピルを置く左下のコンテナ。右上のオプションアイコン・中央のスピンボタンと
-   重ならないよう画面左下に固定する。 */
+/* ズームピルを置く左下のコンテナ。画面左下に固定し、スピンボタン（Roulette パネル・left:80px）が
+   右隣に並ぶ。 */
 .zoom-controls {
     position: absolute;
     left: 16px;

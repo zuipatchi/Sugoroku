@@ -4,13 +4,6 @@
     justify-content: center;
 }
 
-.roulette-title {
-    font-size: 28px;
-    color: rgb(240, 240, 255);
-    -unity-text-align: middle-center;
-    margin-bottom: 16px;
-}
-
 /* 円盤＋針をまとめる領域。針は円盤上端に絶対配置で重ねる。 */
 .wheel-area {
     width: 420px;
@@ -86,14 +79,19 @@
     -unity-text-outline-color: rgba(35, 30, 15, 0.9);
 }
 
+/* スピンボタンは画面左下のズームピル（Board パネル・left:16px・幅 52px）の右隣に固定する。
+   円盤の表示/非表示に関わらず手番トリガーとして常にこの位置に居る。 */
 .roulette-spin {
+    position: absolute;
+    left: 80px;
+    bottom: 16px;
     width: 160px;
-    margin-top: 16px;
 }
 
 /* 画像（Roulette.png）に差し替えたスピンボタン。青ボタンの装飾（背景色・余白）を消して
-   画像だけを見せる。押下時の縮小フィードバックは残す。RouletteIconLoader が画像ロード成功時に付与。 */
-.roulette-spin--image {
+   画像だけを見せる。押下時の縮小フィードバックは残す。RouletteIconLoader が画像ロード成功時に付与。
+   後方で定義される .btn-accent（青背景）に負けないよう、2クラス連結で詳細度を上げている。 */
+.btn-accent.roulette-spin--image {
     width: 130px;
     height: 130px;
     padding-top: 0;
@@ -101,20 +99,26 @@
     padding-bottom: 0;
     padding-left: 0;
     background-color: rgba(0, 0, 0, 0);
+    /* 正方形の画像を円形にくり抜く（半径＝一辺の半分）。画像の四隅は透過済み */
+    border-top-left-radius: 65px;
+    border-top-right-radius: 65px;
+    border-bottom-left-radius: 65px;
+    border-bottom-right-radius: 65px;
+    overflow: hidden;
     -unity-background-scale-mode: scale-to-fit;
 }
 
-.roulette-spin--image:hover,
-.roulette-spin--image:focus {
+.btn-accent.roulette-spin--image:hover,
+.btn-accent.roulette-spin--image:focus {
     background-color: rgba(0, 0, 0, 0);
 }
 
-.roulette-spin--image:active {
+.btn-accent.roulette-spin--image:active {
     background-color: rgba(0, 0, 0, 0);
     scale: 0.94 0.94;
 }
 
-.roulette-spin--image:disabled {
+.btn-accent.roulette-spin--image:disabled {
     background-color: rgba(0, 0, 0, 0);
     opacity: 0.4;
 }
