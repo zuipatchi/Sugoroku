@@ -285,7 +285,7 @@ public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
 2. アイテム絵を `Assets/AddressableAssets/Image/Item/` に置き、**Addressable アドレスを `Image/Item/<名前>`** に設定する（未配置でも動く。その場合は手札にアイテム名の文字が出る）
 3. [ItemCatalog.cs](../Assets/Scripts/Main/Item/ItemCatalog.cs) の `All` に 1 行足す（`ItemId` → 表示名・画像アドレス）。`ItemCatalog.RandomItem` はカタログ全体から抽選するので分岐追加は不要
 
-- 取得の保持は [ItemModel.cs](../Assets/Scripts/Main/Item/ItemModel.cs)（`MoneyModel`／`TerritoryModel` と同じ Scoped DI・参加者ごと）。着地演出・右下手札への反映は `BoardPresenter.PlayItemSequenceAsync`／`AppendItemToHand`。
+- 取得の保持は [ItemModel.cs](../Assets/Scripts/Main/Item/ItemModel.cs)（`MoneyModel`／`TerritoryModel` と同じ Scoped DI・参加者ごと）。着地演出・右下手札への反映は `BoardPresenter.PlayItemSequenceAsync`／`AppendItemToHand`（同じアイテムはカードを増やさず「x2」の枚数バッジで表示をまとめる。`ItemModel` 側の手札リストは重複を保持）。
 - **アイテムの「使用（効果発動）」は未実装**。手札は `ItemModel` に貯まるだけなので、使う仕組みを足すときは使用 UI＋効果処理を新設して `TerritoryModel`／`MoneyModel`／`MiniGameLauncher` などにつなぐ。
 
 ---
