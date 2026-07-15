@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76f0efe3619fd7340a77117a15c7b458, type: 3}
   m_Name: BoardDefinition 1
   m_EditorClassIdentifier: Main::Main.Board.BoardDefinition
-  _displayName: "\u30DC\u30FC\u30C92"
+  _displayName: "\u9663\u5730"
   _gridColumns: 4
   _gridRows: 5
   _frameAddress: Board/Frame
