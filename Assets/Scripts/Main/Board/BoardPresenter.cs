@@ -77,6 +77,9 @@ namespace Main.Board
         private VisualElement _itemHand;
         // ロード済みアイテム絵のキャッシュ（取得マスで抽選するたびに使い回す）。
         private readonly Dictionary<ItemId, Sprite> _itemSprites = new();
+        // 手札に並べたカード（同じアイテムはカードを増やさず 1 枚にまとめる）と、その所持枚数。
+        private readonly Dictionary<ItemId, VisualElement> _handCards = new();
+        private readonly Dictionary<ItemId, int> _handCounts = new();
         // アイテム抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は ItemCatalog にある）。
         private readonly System.Random _itemRng = new();
         private BoardDefinition _boardDef;
@@ -824,11 +827,29 @@ namespace Main.Board
             return sprite;
         }
 
-        /// <summary>取得したアイテムのサムネイルを右下の手札に 1 つ足す。絵が未ロードならアイテム名の文字で代替する。</summary>
+        /// <summary>
+        /// 取得したアイテムのサムネイルを右下の手札に足す。同じアイテムを重ねて取ったときは
+        /// カードを増やさず、既存カード右下の枚数バッジを「x2」のように更新する。
+        /// 絵が未ロードならアイテム名の文字で代替する。
+        /// </summary>
         private void AppendItemToHand(ItemId item)
         {
             if (_itemHand == null)
             {
+                return;
+            }
+
+            int count = _handCounts.TryGetValue(item, out int current) ? current + 1 : 1;
+            _handCounts[item] = count;
+
+            if (_handCards.TryGetValue(item, out VisualElement existing))
+            {
+                Label countLabel = existing.Q<Label>(className: "item-hand__count");
+                if (countLabel != null)
+                {
+                    countLabel.text = $"x{count}";
+                    countLabel.AddToClassList("item-hand__count--visible");
+                }
                 return;
             }
 
@@ -848,6 +869,12 @@ namespace Main.Board
                 el.Add(label);
             }
 
+            // 枚数バッジ。1 枚目は USS 側で非表示のまま、2 枚目からクラス付与で表示する。
+            Label badge = new() { pickingMode = PickingMode.Ignore };
+            badge.AddToClassList("item-hand__count");
+            el.Add(badge);
+
+            _handCards[item] = el;
             _itemHand.Add(el);
         }
 
