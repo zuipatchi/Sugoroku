@@ -40,6 +40,8 @@ namespace Main.Board
         [SerializeField] private int _columns = 5;
         [SerializeField] private int _rows = 7;
         [SerializeField] private float _stepInterval = 0.18f;
+        // 1 マス移動してからカメラがそのマスへパン追従するまでの間（コマの着地を見せてから追う）。
+        [SerializeField] private float _panFollowDelay = 0.09f;
         // マスの一辺をマス中心間隔の何割にするか。1 未満にすると隣接マスの間に隙間が空き、そこを接続線でつなぐ。
         [SerializeField, Range(0.3f, 1f)] private float _cellFillRatio = 0.62f;
         // 既定で画面幅に収める列数。列数がこれを超える横長盤面は、この列数ぶんを大きく表示し
@@ -718,6 +720,9 @@ namespace Main.Board
             CancellationToken ct = linked.Token;
             _model.BeginMove();
 
+            // 移動を始めたらズームを既定へ戻し、動かすコマを画面中央に据える（以後ステップごとに追従）。
+            FocusCameraOnPlayer(player, resetZoom: true);
+
             // 移動を始めたら走行 SE をループで流す。コマが止まった時点で止める（着地演出中は鳴らさない）。
             // キャンセル時は finally で確実に止める。
             _soundPlayer.PlayLoopSafe(_soundStore?.RunSE);
@@ -735,6 +740,14 @@ namespace Main.Board
 
                     int next = BoardMath.Advance(_model.Position(player).CurrentValue, 1, _cellCount);
                     _model.SetPosition(player, next); // Position 購読がコマの描画を更新する
+
+                    // コマが新しいマスに着いたのを見せてから、少し間を置いてカメラをそのマスへパン追従させる
+                    // （移動とパンを同フレームで行うとコマが中央に貼りついて "動いてから追う" 感じにならないため）。
+                    if (_panFollowDelay > 0f)
+                    {
+                        await UniTask.Delay(TimeSpan.FromSeconds(_panFollowDelay), cancellationToken: ct);
+                    }
+                    FocusCameraOnPlayer(player, resetZoom: false);
                 }
 
                 _model.EndMove();
@@ -750,6 +763,30 @@ namespace Main.Board
             {
                 _soundPlayer.StopLoopSafe();
             }
+        }
+
+        /// <summary>
+        /// プレイヤー <paramref name="player"/> のコマがいるマスが画面中央に来るようカメラ（ズーム領域）を寄せる。
+        /// <paramref name="resetZoom"/> が true ならズーム倍率を既定へ戻してから寄せる（移動開始時）。
+        /// </summary>
+        private void FocusCameraOnPlayer(int player, bool resetZoom)
+        {
+            if (_zoomController == null || _boardDef == null)
+            {
+                return;
+            }
+            int index = _model.Position(player).CurrentValue;
+            if (index < 0 || index >= _boardDef.CellCount)
+            {
+                return;
+            }
+            Vector2Int grid = _boardDef.Cell(index).Grid;
+            int columns = _boardDef.GridColumns;
+            int rows = _boardDef.GridRows;
+            Vector2 normalized = new(
+                columns > 1 ? grid.x / (float)(columns - 1) : 0.5f,
+                rows > 1 ? grid.y / (float)(rows - 1) : 0.5f);
+            _zoomController.CenterOn(normalized, resetZoom);
         }
 
         /// <summary>

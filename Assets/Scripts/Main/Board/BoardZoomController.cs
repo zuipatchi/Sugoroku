@@ -147,6 +147,46 @@ namespace Main.Board
             UpdateInteractivity(scaledExtent, container);
         }
 
+        /// <summary>
+        /// リング領域内の正規化位置 <paramref name="normalized"/>（各軸 0..1・左上原点）が画面中央に来るようパンする。
+        /// <paramref name="resetZoom"/> が true なら先にズーム倍率を基準列数（既定表示）へ戻す。
+        /// コマ移動の開始時（ズームを戻して中央寄せ）と移動中の追従に <see cref="BoardPresenter"/> から呼ぶ。
+        /// 盤面が画面を覆い続ける範囲へクランプするので、盤面端付近では中央に寄り切らない。
+        /// </summary>
+        public void CenterOn(Vector2 normalized, bool resetZoom)
+        {
+            if (_boardArea == null)
+            {
+                return;
+            }
+            if (resetZoom)
+            {
+                _levelIndex = Array.IndexOf(_columnLevels, _baseColumns);
+                if (_levelIndex < 0)
+                {
+                    _levelIndex = 0;
+                }
+                _zoom = ScaleForColumns(_columnLevels[_levelIndex], _baseColumns, _fillRatio);
+            }
+
+            if (!TryGetGeometry(out Vector2 center, out Vector2 scaledExtent, out Vector2 container))
+            {
+                ApplyTransform(); // 寸法未確定でもズームだけは反映しておく。
+                return;
+            }
+
+            // 対象点の、リング領域中心を原点としたローカル座標（スケール前）。
+            BoardLayoutCalculator.AreaLayout area = _layout.Area;
+            Vector2 localFromCenter = new Vector2(
+                (normalized.x - 0.5f) * area.Width,
+                (normalized.y - 0.5f) * area.Height);
+            // 対象点の画面位置は center + pan + zoom*localFromCenter。これがコンテナ中央に来る pan を解く。
+            Vector2 pan = container * 0.5f - center - _zoom * localFromCenter;
+            _pan = ClampPan(pan, center, scaledExtent, container);
+            ApplyTransform();
+            UpdateInteractivity(scaledExtent, container);
+        }
+
         /// <summary>ズーム段階を <paramref name="direction"/>（+1 拡大＝列を減らす / -1 縮小＝列を増やす）動かす。</summary>
         private void Step(int direction)
         {
