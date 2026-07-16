@@ -241,7 +241,7 @@ button.RegisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
 ```
 
 - **ポインタ捕捉は Clickable に任せる**（`CapturePointer` を自前で呼ばない）。Clickable が押下時に捕捉するため、**ボタン外で指を離しても `PointerUp` は届く**
-- 回転・連続処理の最中はボタンを `SetEnabled(false)` に**しない**（無効化すると押下中の `PointerUp` を受け取れない）。再入のガードは状態（`RouletteState.Spinning` など）でチェックする
+- **押し続けている間（`PointerUp` 待ち）はボタンを `SetEnabled(false)` にしない**（無効化すると押下中の `PointerUp` を受け取れない）。ただし**指を離した後（＝押下が完了した後）は無効化してよい**：捕捉中の `PointerUp` はこの後 Clickable が処理して捕捉を解放するため、`OnPointerUp` 内で同期的に `SetEnabled(false)` しても離し操作は壊れない。ルーレットは「離した瞬間に無効化して惰性回転中の再押下を防ぐ」ため、`_spinReleased` フラグを立てて `UpdateSpinEnabled` の有効条件に組み込み、次の手番開始（`SetInteractable(true)`）でクリアする（再入のガード自体は `RouletteState.Spinning` などの状態でもチェックする）
 - 保険として `PointerCaptureOutEvent` も購読しておくと、何らかの理由で捕捉が外れたときに「離した」扱いへフォールバックできる
 
 ---
