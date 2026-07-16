@@ -74,6 +74,9 @@ namespace Main.Roulette
         // 手番制御。ゲーム進行（GameFlowController）が現在の手番プレイヤーに応じて切り替える。
         // false の間は手動スピン不可（CPU の番・自分の番でないときなど）。
         private bool _turnInteractable;
+        // 押し続けを離してスピンが確定したか。true の間（惰性回転中）はボタンを無効にして
+        // 再押下を防ぐ。次の手番開始（SetInteractable(true)）でクリアして再び押せるようにする。
+        private bool _spinReleased;
 
         [Inject]
         public void Construct(RouletteModel model, BoardModel board, SoundStore soundStore, SoundPlayer soundPlayer)
@@ -346,6 +349,10 @@ namespace Main.Roulette
                 return;
             }
             _spinPhysics.Release(Random.Range(_minStopDuration, _maxStopDuration));
+            // 離した瞬間にボタンを無効化する（惰性回転中の再押下を防ぐ）。捕捉中の
+            // PointerUp はこの後 Clickable が処理して解放するため、同期無効化でも問題ない。
+            _spinReleased = true;
+            UpdateSpinEnabled();
         }
 
         private bool CanStartSpin()
@@ -509,6 +516,11 @@ namespace Main.Roulette
         public void SetInteractable(bool interactable)
         {
             _turnInteractable = interactable;
+            // 新しい手番で手動スピンを許可するときは、前回の「離した」状態をクリアして再び押せるようにする。
+            if (interactable)
+            {
+                _spinReleased = false;
+            }
             UpdateSpinEnabled();
         }
 
@@ -543,10 +555,10 @@ namespace Main.Roulette
                 return;
             }
 
-            // 回転中（Spinning）はボタンを押下したまま離す操作を受け取る必要があるため無効化しない。
-            // 再回転のガードは OnPointerDown 側の状態チェックで行う。
-            // 自分の手番でない（_turnInteractable == false）ときは常に無効化する。
-            bool canPress = _turnInteractable && !_board.IsMoving.CurrentValue && !_board.IsFinished;
+            // 押し続けて回している間（Spinning かつ未リリース）はボタンを押下したまま離す操作を
+            // 受け取る必要があるため無効化しない。離した後（_spinReleased）の惰性回転中は無効化して
+            // 再押下を防ぐ。自分の手番でない（_turnInteractable == false）ときは常に無効化する。
+            bool canPress = _turnInteractable && !_spinReleased && !_board.IsMoving.CurrentValue && !_board.IsFinished;
             _spinButton.SetEnabled(canPress);
         }
 
