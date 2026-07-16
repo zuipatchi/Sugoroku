@@ -22,31 +22,35 @@ namespace Main.Item
         private readonly VisualElement _image;
         private readonly Label _name;
         private readonly Label _description;
+        private readonly Button _useButton;
         private readonly ItemModel _items;
         private readonly int _player;
         // アイテム絵はロード済みキャッシュ（BoardPresenter._itemSprites）から引く。未ロードなら null。
         private readonly Func<ItemId, Sprite> _spriteResolver;
+        // 「使用する」を有効にしてよいか（判定内容は生成側が決める）。null なら常に有効。
+        private readonly Func<bool> _canUse;
         // モーダルを開いている間、Board の UIDocument を回転中のルーレット等より前面に出すため
         // SortingOrder を一時的に上げ、閉じたら元へ戻す。
         private readonly UIDocument _document;
         private float _baseSortingOrder;
         private ItemId _current;
 
-        public ItemModalPresenter(VisualElement overlay, ItemModel items, int player, Func<ItemId, Sprite> spriteResolver, UIDocument document)
+        public ItemModalPresenter(VisualElement overlay, ItemModel items, int player, Func<ItemId, Sprite> spriteResolver, UIDocument document, Func<bool> canUse)
         {
             _overlay = overlay;
             _items = items;
             _player = player;
             _spriteResolver = spriteResolver;
             _document = document;
+            _canUse = canUse;
             _image = overlay.Q<VisualElement>("ItemModalImage");
             _name = overlay.Q<Label>("ItemModalName");
             _description = overlay.Q<Label>("ItemModalDescription");
 
-            Button useButton = overlay.Q<Button>("ItemModalUseButton");
-            if (useButton != null)
+            _useButton = overlay.Q<Button>("ItemModalUseButton");
+            if (_useButton != null)
             {
-                useButton.clicked += UseCurrent;
+                _useButton.clicked += UseCurrent;
             }
 
             Button closeButton = overlay.Q<Button>("ItemModalCloseButton");
@@ -91,6 +95,12 @@ namespace Main.Item
                 {
                     _image.AddToClassList(ImageEmptyClass);
                 }
+            }
+
+            // 「使用する」は生成側の条件（自分の手番かつ未スピン等）を満たすときだけ有効にする。
+            if (_useButton != null)
+            {
+                _useButton.SetEnabled(_canUse == null || _canUse());
             }
 
             // 既に開いている状態で別カードから再度開かれても、持ち上げ済みの値を基準として

@@ -8,6 +8,7 @@ using Common.Store;
 using Cysharp.Threading.Tasks;
 using Main.Item;
 using Main.Money;
+using Main.Roulette;
 using Main.Turn;
 using R3;
 using UnityEngine;
@@ -54,6 +55,8 @@ namespace Main.Board
         private SoundPlayer _soundPlayer;
         private MoneyModel _money;
         private ItemModel _items;
+        private TurnModel _turn;
+        private RouletteModel _rouletteModel;
         private BoardSessionModel _boardSession;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
@@ -119,6 +122,8 @@ namespace Main.Board
             GameParticipants participants,
             MoneyModel money,
             ItemModel items,
+            TurnModel turn,
+            RouletteModel rouletteModel,
             BoardSessionModel boardSession)
         {
             _model = model;
@@ -127,6 +132,8 @@ namespace Main.Board
             _soundPlayer = soundPlayer;
             _money = money;
             _items = items;
+            _turn = turn;
+            _rouletteModel = rouletteModel;
             _boardSession = boardSession;
             _characterPicker = new CpuCharacterPicker(participants, characterSession);
             _nameplateView = new PlayerNameplateView(participants, money, _characterPicker, _disposables);
@@ -305,7 +312,11 @@ namespace Main.Board
                     _items,
                     _humanPlayer,
                     item => _itemSprites.TryGetValue(item, out Sprite sprite) ? sprite : null,
-                    _uiDocument);
+                    _uiDocument,
+                    // 「使用する」を有効にするのは自分の手番で、まだルーレットを回していない（Idle）ときだけ。
+                    // 回した後（Spinning/Stopped）やコマ移動中は無効にする。
+                    () => _turn.CurrentPlayer.CurrentValue == _humanPlayer
+                          && _rouletteModel.State.CurrentValue == RouletteState.Idle);
             }
             _landing = new BoardLandingPresentation(
                 root.Q<VisualElement>("CellPopup"),
