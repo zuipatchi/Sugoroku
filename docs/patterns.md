@@ -288,6 +288,7 @@ public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
 
 - 取得の保持は [ItemModel.cs](../Assets/Scripts/Main/Item/ItemModel.cs)（`MoneyModel`／`TerritoryModel` と同じ Scoped DI・参加者ごと）。着地演出・右下手札への反映は `BoardPresenter.PlayItemSequenceAsync`／`AppendItemToHand`（同じアイテムはカードを増やさず「x2」の枚数バッジで表示をまとめる。`ItemModel` 側の手札リストは重複を保持）。
 - 手札カードのクリックで [ItemModalPresenter.cs](../Assets/Scripts/Main/Item/ItemModalPresenter.cs) の詳細モーダル（絵・名前・効果説明＋「使用する」「閉じる」）が開き、「使用する」は `ItemModel.Use` で 1 枚消費して `Used` を通知する（手札 UI の減算は `BoardPresenter.RemoveItemFromHand`）。
+- 「使用する」ボタンは**自分の手番かつルーレット未回転（`RouletteState.Idle`）のときだけ有効**にする。`BoardPresenter` が使用可否の判定（`Func<bool>`＝`_turn.CurrentPlayer.CurrentValue == _humanPlayer && _rouletteModel.State.CurrentValue == RouletteState.Idle`）を `ItemModalPresenter` へ渡し、モーダルを開くたびに `SetEnabled` で評価する（回した後・コマ移動中・相手の手番中は無効）。
 - **アイテムの「効果発動」は未実装**。使用しても消費されるだけなので、効果を足すときは `ItemModalPresenter.UseCurrent`（または `Used` の購読側）から `TerritoryModel`／`MoneyModel`／`MiniGameLauncher` などにつなぐ。
 
 ---
