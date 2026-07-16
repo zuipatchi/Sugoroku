@@ -14,6 +14,9 @@ namespace Main.Item
     {
         private const string OpenClass = "item-modal--open";
         private const string ImageEmptyClass = "item-modal__image--empty";
+        // モーダルを開いている間だけ Board の UIDocument を前面へ持ち上げる SortingOrder。
+        // ルーレット(10)・ミニゲームトリガ(20)より上、Common のオプションオーバーレイ(1000+)より下。
+        private const float RaisedSortingOrder = 100f;
 
         private readonly VisualElement _overlay;
         private readonly VisualElement _image;
@@ -23,14 +26,19 @@ namespace Main.Item
         private readonly int _player;
         // アイテム絵はロード済みキャッシュ（BoardPresenter._itemSprites）から引く。未ロードなら null。
         private readonly Func<ItemId, Sprite> _spriteResolver;
+        // モーダルを開いている間、Board の UIDocument を回転中のルーレット等より前面に出すため
+        // SortingOrder を一時的に上げ、閉じたら元へ戻す。
+        private readonly UIDocument _document;
+        private float _baseSortingOrder;
         private ItemId _current;
 
-        public ItemModalPresenter(VisualElement overlay, ItemModel items, int player, Func<ItemId, Sprite> spriteResolver)
+        public ItemModalPresenter(VisualElement overlay, ItemModel items, int player, Func<ItemId, Sprite> spriteResolver, UIDocument document)
         {
             _overlay = overlay;
             _items = items;
             _player = player;
             _spriteResolver = spriteResolver;
+            _document = document;
             _image = overlay.Q<VisualElement>("ItemModalImage");
             _name = overlay.Q<Label>("ItemModalName");
             _description = overlay.Q<Label>("ItemModalDescription");
@@ -85,6 +93,14 @@ namespace Main.Item
                 }
             }
 
+            // 既に開いている状態で別カードから再度開かれても、持ち上げ済みの値を基準として
+            // 取り込まないよう、閉→開の遷移でだけ SortingOrder を退避・変更する。
+            if (_document != null && !_overlay.ClassListContains(OpenClass))
+            {
+                _baseSortingOrder = _document.sortingOrder;
+                _document.sortingOrder = RaisedSortingOrder;
+            }
+
             _overlay.AddToClassList(OpenClass);
         }
 
@@ -101,6 +117,11 @@ namespace Main.Item
         private void Close()
         {
             _overlay.RemoveFromClassList(OpenClass);
+
+            if (_document != null)
+            {
+                _document.sortingOrder = _baseSortingOrder;
+            }
         }
     }
 }

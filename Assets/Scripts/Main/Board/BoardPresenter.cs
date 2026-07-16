@@ -304,7 +304,8 @@ namespace Main.Board
                     itemModalOverlay,
                     _items,
                     _humanPlayer,
-                    item => _itemSprites.TryGetValue(item, out Sprite sprite) ? sprite : null);
+                    item => _itemSprites.TryGetValue(item, out Sprite sprite) ? sprite : null,
+                    _uiDocument);
             }
             _landing = new BoardLandingPresentation(
                 root.Q<VisualElement>("CellPopup"),
