@@ -221,10 +221,12 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 3. [MiniGameCatalog.cs](../Assets/Scripts/Common/MiniGame/MiniGameCatalog.cs) の `All` に 1 行足す（`MiniGameId` → 表示名・UXML アドレス）。`MiniGameHostPresenter.AddressFor` はカタログ引きなので分岐追加は不要で、**動作確認用の `MiniGameTest` シーンにもボタンが自動で並ぶ**
 4. 進行ロジックを実装する。状態は純粋ロジックの Model（[TapGameModel.cs](../Assets/Scripts/MiniGame/TapGame/TapGameModel.cs) / [RaceGameModel.cs](../Assets/Scripts/MiniGame/RaceGame/RaceGameModel.cs) に倣う）に分け、EditMode テストを書く。[MiniGameHostPresenter.cs](../Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) は `CurrentGame` で分岐するディスパッチャなので、UI が異なるゲームは**専用の `<名前>GamePlay` クラス**（プレーンクラス。[RaceGamePlay.cs](../Assets/Scripts/MiniGame/RaceGame/RaceGamePlay.cs) 参照。`BuildAsync`＝表示前ロード／`RunAsync`＝入力待ち・進行してスコアを返す）に切り出し、ホストの `ReadyAsync` に 1 分岐足して委譲する（タップ連打も [TapGamePlay.cs](../Assets/Scripts/MiniGame/TapGame/TapGamePlay.cs) に切り出して同じ構造にしている）
 5. Play クラスと Model を [MiniGameLifetimeScope.cs](../Assets/Scripts/MiniGame/Injector/MiniGameLifetimeScope.cs) に `Lifetime.Scoped` で登録する（DI が生成・破棄する。Addressables ハンドルの解放は各クラスの `Dispose` に書く）
-6. 起動は `MiniGameLauncher.PlayAsync(MiniGameId.<種別>, ct)`。結果は `MiniGameResult.Score` で受け取る（意味はゲームごと。タップ連打＝タップ数、2Dレース＝勝ち1/負け0）。動作確認は `MiniGameTest` シーン（[MiniGameTestPresenter.cs](../Assets/Scripts/MiniGame/Test/MiniGameTestPresenter.cs)）をエディタで直接開いて Play する
+6. 起動は `MiniGameLauncher.PlayAsync(MiniGameId.<種別>, ct)`。結果は `MiniGameResult.Score` で受け取る（意味はゲームごと。タップ連打＝タップ数、2Dレース＝勝ち1/負け0、被っちゃやーよ＝獲得1/被り・無効票0）。動作確認は `MiniGameTest` シーン（[MiniGameTestPresenter.cs](../Assets/Scripts/MiniGame/Test/MiniGameTestPresenter.cs)）をエディタで直接開いて Play する
 7. ホストは表示前に UXML をロードするため `ISceneReady` を実装している（ロード完了まで暗幕を維持）。`Report` で結果を返すとランチャーがシーンをアンロードする
 
 > ローカル完結のため、盤面反映やゲーム内トリガー（特殊マス・手番連携）はまだ Main に組み込んでいない。全員同時プレイのスコア同期も今後の課題（[networking.md](networking.md) の永続ハンドラ方式に乗せる）。
+
+**Main のカタログ（`ItemCatalog` 等）を再利用するとき**は `MiniGame` asmdef に `Main` 参照を足す（被っちゃやーよがアイテム絵の再利用で追加済み）。`Main` は `MiniGame` を参照しないので循環しない。**参加者数に依存するミニゲーム**（被っちゃやーよは提示枚数＝参加者数）は、値をハードコードせず Config の定数（`OverlapGameConfig.DefaultPlayerCount`）に置く。MiniGame シーンは別スコープで `GameParticipants` を直接注入できないため、将来プレイヤー数を増やすときはセッション経由で供給する差し替え1点で済むようにしておく。
 
 ---
 
