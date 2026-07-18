@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Main.Board;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -11,7 +10,8 @@ namespace Main.EditorTools
     /// <summary>
     /// すごろく盤面（<see cref="BoardDefinition"/>）をビジュアルに編集するエディタウィンドウ。
     /// 方眼をクリックして経路順にマスを置き（クリック順が経路。0＝スタート＝ゴール）、
-    /// 選択したマスのイベント・数値・色・アイコンアドレスを右パネルで編集する。
+    /// 選択したマスのイベント・数値・色を右パネルで編集する。
+    /// マスの画像はイベント種別ごとに全マップ共通（<see cref="BoardEventArtCatalog"/>）なので、盤面ごとの設定は無い。
     /// メニュー「Window > Sugoroku > Board Editor」で開く。
     /// 方眼グリッドの描画は <see cref="BoardEditorGridView"/>、右パネルの編集 UI は
     /// <see cref="BoardCellInspector"/> に委譲し、本体はツールバーとアセット操作・状態の統括を担う。
@@ -26,7 +26,6 @@ namespace Main.EditorTools
         private IntegerField _columnsField;
         private IntegerField _rowsField;
         private TextField _frameField;
-        private Dictionary<BoardCellEvent, TextField> _eventArtFields;
         private Label _infoLabel;
         private BoardEditorGridView _gridView;
         private BoardCellInspector _cellInspector;
@@ -158,41 +157,9 @@ namespace Main.EditorTools
             });
             root.Add(_frameField);
 
-            BuildEventArtSection(root);
-
             _infoLabel = new Label();
             _infoLabel.style.marginTop = 4f;
             root.Add(_infoLabel);
-        }
-
-        /// <summary>
-        /// イベント種別ごとの画像アドレス設定（盤面共通）。折りたたみに各イベントの入力欄を並べる。
-        /// 該当イベントのマスすべてに同じ画像が貼られる（マス個別指定は廃止）。
-        /// </summary>
-        private void BuildEventArtSection(VisualElement root)
-        {
-            Foldout foldout = new() { text = "イベント画像アドレス", value = false };
-            foldout.style.marginTop = 6f;
-
-            _eventArtFields = new Dictionary<BoardCellEvent, TextField>();
-            foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
-            {
-                TextField field = new(EventLabel(cellEvent)) { isDelayed = true };
-                field.RegisterValueChangedCallback(evt =>
-                {
-                    if (_target == null)
-                    {
-                        return;
-                    }
-                    Undo.RecordObject(_target, "イベント画像変更");
-                    _target.SetEventIconAddress(cellEvent, evt.newValue);
-                    EditorUtility.SetDirty(_target);
-                });
-                foldout.Add(field);
-                _eventArtFields[cellEvent] = field;
-            }
-
-            root.Add(foldout);
         }
 
         /// <summary>イベント種別の日本語ラベル。</summary>
@@ -324,10 +291,6 @@ namespace Main.EditorTools
             _columnsField.SetValueWithoutNotify(_target.GridColumns);
             _rowsField.SetValueWithoutNotify(_target.GridRows);
             _frameField.SetValueWithoutNotify(_target.FrameAddress);
-            foreach (KeyValuePair<BoardCellEvent, TextField> pair in _eventArtFields)
-            {
-                pair.Value.SetValueWithoutNotify(_target.EventIconAddress(pair.Key));
-            }
         }
 
         private void ApplyGridSize()

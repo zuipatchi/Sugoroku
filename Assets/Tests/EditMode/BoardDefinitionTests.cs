@@ -97,44 +97,6 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void EventIconAddressは未設定なら空文字を返す()
-        {
-            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
-            Assert.AreEqual(string.Empty, definition.EventIconAddress(BoardCellEvent.MoneyUp));
-            Object.DestroyImmediate(definition);
-        }
-
-        [Test]
-        public void SetEventIconAddressで設定した値をEventIconAddressが返す()
-        {
-            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
-            definition.SetEventIconAddress(BoardCellEvent.MoneyUp, "Board/MoneyUp");
-            Assert.AreEqual("Board/MoneyUp", definition.EventIconAddress(BoardCellEvent.MoneyUp));
-            Object.DestroyImmediate(definition);
-        }
-
-        [Test]
-        public void SetEventIconAddressは同じイベントを上書きする()
-        {
-            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
-            definition.SetEventIconAddress(BoardCellEvent.Forward, "Board/Old");
-            definition.SetEventIconAddress(BoardCellEvent.Forward, "Board/New");
-            Assert.AreEqual("Board/New", definition.EventIconAddress(BoardCellEvent.Forward));
-            Object.DestroyImmediate(definition);
-        }
-
-        [Test]
-        public void SetEventIconAddressはイベントごとに独立して保持する()
-        {
-            BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();
-            definition.SetEventIconAddress(BoardCellEvent.MoneyUp, "Board/MoneyUp");
-            definition.SetEventIconAddress(BoardCellEvent.MoneyDown, "Board/MoneyDown");
-            Assert.AreEqual("Board/MoneyUp", definition.EventIconAddress(BoardCellEvent.MoneyUp));
-            Assert.AreEqual("Board/MoneyDown", definition.EventIconAddress(BoardCellEvent.MoneyDown));
-            Object.DestroyImmediate(definition);
-        }
-
-        [Test]
         public void FrameAddressはSetFrameAddressで読み書きできる()
         {
             BoardDefinition definition = ScriptableObject.CreateInstance<BoardDefinition>();

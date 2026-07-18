@@ -13,23 +13,10 @@ namespace Main.Board
     [CreateAssetMenu(menuName = "Sugoroku/Board Definition", fileName = "BoardDefinition")]
     public sealed class BoardDefinition : ScriptableObject
     {
-        /// <summary>
-        /// スタート＝ゴール（経路 index 0）のマスに使う固定の画像アドレス（Addressables）。
-        /// イベント種別ごとの画像（<see cref="EventIconAddress"/>）より優先する。未配置なら記号表示にフォールバックする。
-        /// </summary>
-        public const string StartCellIconAddress = "Board/Start";
-
-        /// <summary>
-        /// アイテム取得マス（<see cref="BoardCellEvent.Item"/>）に使う既定の画像アドレス（Addressables）。
-        /// 盤面がイベント画像（<see cref="EventIconAddress"/>）を明示設定していないときのフォールバックに使う。
-        /// </summary>
-        public const string ItemCellIconAddress = "Board/Item";
-
         [SerializeField] private string _displayName = string.Empty;
         [SerializeField] private int _gridColumns = 5;
         [SerializeField] private int _gridRows = 7;
         [SerializeField] private string _frameAddress = string.Empty;
-        [SerializeField] private List<BoardEventArt> _eventArt = new();
         [SerializeField] private List<BoardCellDefinition> _cells = new();
 
         /// <summary>盤面の表示名（任意）。</summary>
@@ -40,22 +27,6 @@ namespace Main.Board
 
         /// <summary>枠画像が指定されているか。</summary>
         public bool HasFrame => !string.IsNullOrEmpty(_frameAddress);
-
-        /// <summary>
-        /// イベント種別 <paramref name="cellEvent"/> のマスに貼る画像の Addressables アドレスを返す。
-        /// 未設定なら空文字（呼び出し側は記号表示にフォールバックする）。
-        /// </summary>
-        public string EventIconAddress(BoardCellEvent cellEvent)
-        {
-            for (int i = 0; i < _eventArt.Count; i++)
-            {
-                if (_eventArt[i].Event == cellEvent)
-                {
-                    return _eventArt[i].Address;
-                }
-            }
-            return string.Empty;
-        }
 
         /// <summary>方眼キャンバスの列数（座標の正規化とレイアウト比に使う）。</summary>
         public int GridColumns => _gridColumns;
@@ -106,20 +77,6 @@ namespace Main.Board
         public void SetFrameAddress(string address)
         {
             _frameAddress = address ?? string.Empty;
-        }
-
-        /// <summary>イベント種別ごとの画像アドレスを設定する（既存があれば更新、なければ追加）。</summary>
-        public void SetEventIconAddress(BoardCellEvent cellEvent, string address)
-        {
-            for (int i = 0; i < _eventArt.Count; i++)
-            {
-                if (_eventArt[i].Event == cellEvent)
-                {
-                    _eventArt[i].SetAddress(address);
-                    return;
-                }
-            }
-            _eventArt.Add(new BoardEventArt(cellEvent, address));
         }
 
         public void SetGridSize(int columns, int rows)
