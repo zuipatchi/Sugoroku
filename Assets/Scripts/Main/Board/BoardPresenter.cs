@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Common.Board;
 using Common.Character;
+using Common.MiniGame;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
@@ -57,6 +58,8 @@ namespace Main.Board
         private SoundPlayer _soundPlayer;
         private MoneyModel _money;
         private ItemModel _items;
+        // ミニゲームアイテムの効果でミニゲームシーンを Additive 起動するのに使う。
+        private MiniGameLauncher _launcher;
         private TurnModel _turn;
         private RouletteModel _rouletteModel;
         // 陣地獲得アイテムの選択・演出中にスピンボタンを一時無効化するために保持する。
@@ -92,6 +95,8 @@ namespace Main.Board
         private const string HandCountVisibleClass = "item-hand__count--visible";
         // 手札クリックで開くアイテム詳細モーダル（使用する／閉じる）。BuildCells で生成。
         private ItemModalPresenter _itemModal;
+        // ミニゲームアイテム使用時に遊ぶミニゲームを選ばせるモーダル。BuildCells で生成。
+        private MiniGameSelectPresenter _miniGameSelect;
         // 陣地獲得アイテムのマス選択ガイドバナー（USS で既定非表示・選択中だけ表示）。
         private VisualElement _territorySelectBanner;
         // 陣地選択の結果を受け渡す完了ソース（選んだ盤面 index／キャンセル・破棄で -1）。選択中だけ非 null。
@@ -136,6 +141,7 @@ namespace Main.Board
             GameParticipants participants,
             MoneyModel money,
             ItemModel items,
+            MiniGameLauncher launcher,
             TurnModel turn,
             RouletteModel rouletteModel,
             RoulettePresenter roulette,
@@ -147,6 +153,7 @@ namespace Main.Board
             _soundPlayer = soundPlayer;
             _money = money;
             _items = items;
+            _launcher = launcher;
             _turn = turn;
             _rouletteModel = rouletteModel;
             _roulette = roulette;
@@ -329,6 +336,13 @@ namespace Main.Board
                     item => _itemSprites.TryGetValue(item, out Sprite sprite) ? sprite : null,
                     _uiDocument,
                     CanUseItem);
+            }
+
+            // ミニゲームアイテム使用時に遊ぶミニゲームを選ばせるモーダル。
+            VisualElement miniGameSelectOverlay = root.Q<VisualElement>("MiniGameSelectModal");
+            if (miniGameSelectOverlay != null)
+            {
+                _miniGameSelect = new MiniGameSelectPresenter(miniGameSelectOverlay, _uiDocument);
             }
 
             // 陣地獲得アイテムのマス選択ガイド（バナー＋キャンセル）。既定は USS で非表示。
@@ -1085,6 +1099,7 @@ namespace Main.Board
         /// <summary>
         /// アイテム「使用する」の効果ハンドラ。アイテム種別で分岐する。
         /// 陣地獲得（<see cref="ItemId.StealTerritory"/>）はマス選択→占拠の演出を起こし、確定時に消費する。
+        /// ミニゲーム（<see cref="ItemId.MiniGame"/>）は遊ぶミニゲームを選ばせて起動し、勝てば所持金報酬を与える。
         /// 効果未実装のアイテムは従来どおり即消費する。効果はターンを消費しない（使用後もルーレットを回せる）。
         /// </summary>
         private void HandleItemUse(ItemId item)
@@ -1100,8 +1115,105 @@ namespace Main.Board
                 return;
             }
 
+            if (item == ItemId.MiniGame)
+            {
+                RunMiniGameAsync(_destroyCt).Forget();
+                return;
+            }
+
             // 効果未実装のアイテムは消費のみ（従来どおり）。
             _items.Use(_humanPlayer, item);
+        }
+
+        /// <summary>
+        /// ミニゲームアイテムで勝ったときに得る所持金報酬。
+        /// </summary>
+        private const int MiniGameRewardMoney = 500;
+        // タップ連打の勝敗に使う CPU の想定タップ数レンジ（5 秒間・両端含む）。
+        // 人間のタップ数がこの抽選値以上なら 1 位＝勝ちとする。
+        private const int MiniGameCpuTapMin = 25;
+        private const int MiniGameCpuTapMax = 40;
+
+        /// <summary>
+        /// ミニゲームアイテムの効果。遊ぶミニゲームを選ばせ（キャンセルなら消費せず終了）、
+        /// 選んだミニゲームを <see cref="MiniGameLauncher"/> で起動する。勝てば所持金報酬を与える。
+        /// 選択・プレイの間はスピンボタンを無効化する（使用後は自分の手番のまま通常のルーレットを回せる）。
+        /// </summary>
+        private async UniTaskVoid RunMiniGameAsync(CancellationToken ct)
+        {
+            if (_miniGameSelect == null || _launcher == null)
+            {
+                return;
+            }
+
+            _itemEffectRunning = true;
+            if (_roulette != null)
+            {
+                _roulette.SetInteractable(false);
+            }
+            try
+            {
+                // 「使用する」を押したアイテム詳細モーダルが Close で sortingOrder を元へ戻すのは
+                // このメソッド呼び出しの直後（同フレーム）。それを待たずに選択モーダルを開くと、
+                // 持ち上げ済みの sortingOrder を base として取り込んでしまい閉じても戻らなくなるため、
+                // 1 フレーム待って詳細モーダルの Close を先に完了させてから開く。
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+
+                MiniGameId? chosen = await _miniGameSelect.SelectAsync(ct);
+                if (chosen == null)
+                {
+                    return; // キャンセル・破棄：消費しない
+                }
+
+                _items.Use(_humanPlayer, ItemId.MiniGame); // 手札からの減算は Used 購読側
+
+                MiniGameResult result = await _launcher.PlayAsync(chosen.Value, ct);
+                if (this == null)
+                {
+                    return;
+                }
+
+                // 勝てば所持金報酬。増額を中央の浮遊テキストで見せる（負けは報酬なし）。
+                if (DetermineMiniGameWin(result))
+                {
+                    _money.Add(_humanPlayer, MiniGameRewardMoney);
+                    _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+                    await _landing.ShowMoneyFloatAsync(MiniGameRewardMoney, false, 1.5f, ct);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // シーン破棄によるキャンセルは正常終了として扱う。
+            }
+            finally
+            {
+                _itemEffectRunning = false;
+                // プレイを終えても自分の手番かつ Idle のままなので、スピンを再び押せるように戻す。
+                if (_roulette != null && !_model.IsFinished
+                    && _turn.CurrentPlayer.CurrentValue == _humanPlayer
+                    && _rouletteModel.State.CurrentValue == RouletteState.Idle)
+                {
+                    _roulette.SetInteractable(true);
+                }
+            }
+        }
+
+        /// <summary>
+        /// ミニゲームの結果 <paramref name="result"/> から人間プレイヤーの勝ち（1 位）かを判定する。
+        /// 2D レースは先着（スコア 1=勝ち）、タップ連打はスコア＝タップ数を CPU の想定タップ数と比べて
+        /// 同数以上なら勝ち（順位づけの CPU 側は <see cref="_itemRng"/> で抽選する）。
+        /// </summary>
+        private bool DetermineMiniGameWin(MiniGameResult result)
+        {
+            switch (result.Game)
+            {
+                case MiniGameId.Race:
+                    return result.Score == 1;
+                case MiniGameId.Tap:
+                default:
+                    int cpuTaps = _itemRng.Next(MiniGameCpuTapMin, MiniGameCpuTapMax + 1);
+                    return result.Score >= cpuTaps;
+            }
         }
 
         /// <summary>

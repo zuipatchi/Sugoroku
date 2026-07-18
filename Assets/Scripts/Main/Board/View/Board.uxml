@@ -48,5 +48,14 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+        <!-- ミニゲームアイテム使用時に、遊ぶミニゲームを選ばせるモーダル。既定は非表示で、
+             MiniGameSelectPresenter が開閉とゲームボタンの生成（MiniGameSelectList）を行う。暗幕クリックでも閉じる -->
+        <ui:VisualElement name="MiniGameSelectModal" class="item-modal">
+            <ui:VisualElement name="MiniGameSelectCard" class="item-modal__card">
+                <ui:Label text="ミニゲームを選ぶ" name="MiniGameSelectTitle" class="item-modal__name" />
+                <ui:VisualElement name="MiniGameSelectList" class="minigame-select__list" />
+                <ui:Button text="キャンセル" name="MiniGameSelectCancel" class="item-modal__button item-modal__button--close" />
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

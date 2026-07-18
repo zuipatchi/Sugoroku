@@ -38,7 +38,7 @@ namespace Main.Item
         {
             new ItemDefinition(ItemId.StealTerritory, "陣地獲得", "好きな陣地マスを 1 つ選んで自分のものにする（相手の陣地も奪える）。", "Image/Item/StealTerritory"),
             new ItemDefinition(ItemId.StealMoney, "お金よこどり", "相手の所持金の一部を奪う。", "Image/Item/StealMoney"),
-            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "ミニゲームを起こして、勝てば報酬をもらえる。", "Image/Item/MiniGame"),
+            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "好きなミニゲームを選んで遊び、勝てば所持金がもらえる。", "Image/Item/MiniGame"),
         };
 
         /// <summary>識別子 <paramref name="id"/> に対応するアイテム定義。無ければ null。</summary>

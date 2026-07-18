@@ -13,7 +13,7 @@ namespace Main.Item
         /// <summary>相手の所持金を奪うアイテム（効果の発動は将来対応）。</summary>
         StealMoney = 1,
 
-        /// <summary>ミニゲームを起こすアイテム（効果の発動は将来対応）。</summary>
+        /// <summary>好きなミニゲームを選んで遊び、勝てば所持金報酬をもらえるアイテム。</summary>
         MiniGame = 2
     }
 }

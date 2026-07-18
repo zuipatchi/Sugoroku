@@ -740,6 +740,49 @@
     scale: 0.96 0.96;
 }
 
+/* ミニゲーム選択モーダルのゲームボタンを縦に積むリスト。中身は MiniGameSelectPresenter が生成する。 */
+.minigame-select__list {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 16px;
+    margin-bottom: 10px;
+}
+
+/* ミニゲーム選択ボタン。金アクセントの主ボタン調で横幅いっぱいに積む。 */
+.minigame-select__button {
+    margin-top: 6px;
+    margin-bottom: 6px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background-color: rgb(235, 200, 90);
+    color: rgb(24, 22, 16);
+    font-size: 18px;
+    transition-property: background-color, scale;
+    transition-duration: 0.1s;
+}
+
+.minigame-select__button:hover {
+    background-color: rgb(255, 225, 120);
+}
+
+.minigame-select__button:focus {
+    background-color: rgb(255, 225, 120);
+}
+
+.minigame-select__button:active {
+    background-color: rgb(255, 225, 120);
+    scale: 0.98 0.98;
+}
+
 /* 陣地獲得アイテムのマス選択ガイド。上部（ネームプレートの下）に横並びで出す。
    既定は非表示で、BoardPresenter が選択中だけ display:flex にする。コンテナは picking-mode=Ignore で
    盤面タップを通し、キャンセルボタンだけ反応する。 */
