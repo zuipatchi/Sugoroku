@@ -86,5 +86,37 @@ namespace Tests.EditMode
             Assert.AreEqual(int.MaxValue, territory.RequiredToWin);
             Assert.IsFalse(territory.HasMajority(0));
         }
+
+        [Test]
+        public void CellsNotOwnedByは未占拠と相手占拠を返し自分の占拠を除く()
+        {
+            using TerritoryModel territory = new();
+            territory.Initialize(new[] { 2, 5, 8 });
+
+            territory.Claim(0, 2); // 自分（p0）が占拠
+            territory.Claim(1, 5); // 相手（p1）が占拠
+            // 8 は未占拠のまま
+
+            // 陣地獲得で p0 が選べるのは「自分以外」＝相手占拠(5)＋未占拠(8)。
+            Assert.That(territory.CellsNotOwnedBy(0), Is.EquivalentTo(new[] { 5, 8 }));
+            // p1 から見れば自分(5)を除いた 2, 8。
+            Assert.That(territory.CellsNotOwnedBy(1), Is.EquivalentTo(new[] { 2, 8 }));
+        }
+
+        [Test]
+        public void CellsNotOwnedByは全マス自分の占拠なら空()
+        {
+            using TerritoryModel territory = new();
+            territory.Initialize(new[] { 2, 5 });
+
+            territory.Claim(0, 2);
+            territory.Claim(0, 5);
+
+            Assert.IsEmpty(territory.CellsNotOwnedBy(0));
+            // 陣地マスが無い盤面でも空。
+            using TerritoryModel empty = new();
+            empty.Initialize(new int[0]);
+            Assert.IsEmpty(empty.CellsNotOwnedBy(0));
+        }
     }
 }

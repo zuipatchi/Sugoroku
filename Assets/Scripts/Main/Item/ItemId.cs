@@ -7,7 +7,7 @@ namespace Main.Item
     /// </summary>
     public enum ItemId
     {
-        /// <summary>相手の陣地を横取りするアイテム（効果の発動は将来対応）。</summary>
+        /// <summary>好きな陣地マス（自分以外が持つマス）を 1 つ選んで占拠するアイテム。</summary>
         StealTerritory = 0,
 
         /// <summary>相手の所持金を奪うアイテム（効果の発動は将来対応）。</summary>

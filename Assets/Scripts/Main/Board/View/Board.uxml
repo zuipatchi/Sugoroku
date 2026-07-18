@@ -29,6 +29,12 @@
                 <ui:Button text="-" name="ZoomOutButton" class="zoom-button zoom-button--bottom" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <!-- 陣地獲得アイテム使用時のマス選択ガイド。既定は非表示（USS）で、BoardPresenter が表示/非表示を切り替える。
+             コンテナは picking-mode=Ignore で盤面タップ（ドラッグ層）を通し、キャンセルボタンだけ反応する -->
+        <ui:VisualElement name="TerritorySelectBanner" class="territory-select" picking-mode="Ignore">
+            <ui:Label text="占領するマスを選んでください" name="TerritorySelectLabel" class="territory-select__label" picking-mode="Ignore" />
+            <ui:Button text="キャンセル" name="TerritorySelectCancel" class="territory-select__cancel" />
+        </ui:VisualElement>
         <!-- 手札のアイテムをクリックしたときの詳細モーダル。既定は非表示で、ItemModalPresenter が
              開閉と中身（絵・名前・効果説明）の差し替えを行う。暗幕クリックでも閉じる -->
         <ui:VisualElement name="ItemModal" class="item-modal">

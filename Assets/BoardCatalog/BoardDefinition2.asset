@@ -66,7 +66,7 @@ MonoBehaviour:
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 9, y: 0}
-    _event: 0
+    _event: 7
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}

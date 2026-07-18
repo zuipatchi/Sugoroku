@@ -94,6 +94,45 @@
     border-bottom-color: rgb(140, 225, 235);
 }
 
+/* 陣地獲得アイテムで占領先に選べる陣地マス。明るい金の太枠で強調する
+   （territory / owned クラスより後に定義して枠色・太さを上書きする）。
+   さらに上に重ねるキラキラのリング（board-cell__glow）を BoardPresenter が動かす。 */
+.board-cell--selectable {
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgb(255, 240, 150);
+    border-right-color: rgb(255, 240, 150);
+    border-top-color: rgb(255, 240, 150);
+    border-bottom-color: rgb(255, 240, 150);
+}
+
+/* 選択できる陣地マスに重ねるキラキラのリング。中心は透過で、金の枠だけがマスの外へ
+   広がりながら消える「パルス（ping）」を BoardPresenter が opacity/scale で毎フレーム駆動する
+   （既定は opacity:0 で見えない）。マス画像を隠さないよう背景は透明。 */
+.board-cell__glow {
+    position: absolute;
+    left: -4px;
+    right: -4px;
+    top: -4px;
+    bottom: -4px;
+    opacity: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgb(255, 244, 176);
+    border-right-color: rgb(255, 244, 176);
+    border-top-color: rgb(255, 244, 176);
+    border-bottom-color: rgb(255, 244, 176);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
 /* 全マス共通で最前面に重ねる枠画像（BoardDefinition の FrameAddress）。マス全面を覆い、
    中央は透過想定でマス画像・番号を見せる。BoardPresenter が枠画像を貼る。 */
 .board-cell__frame {
@@ -698,6 +737,78 @@
 
 .item-modal__button--close:active {
     background-color: rgba(255, 225, 120, 0.14);
+    scale: 0.96 0.96;
+}
+
+/* 陣地獲得アイテムのマス選択ガイド。上部（ネームプレートの下）に横並びで出す。
+   既定は非表示で、BoardPresenter が選択中だけ display:flex にする。コンテナは picking-mode=Ignore で
+   盤面タップを通し、キャンセルボタンだけ反応する。 */
+.territory-select {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 84px;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ガイド文言のピル（暗いガラス地＋金の細枠）。 */
+.territory-select__label {
+    padding-top: 7px;
+    padding-right: 14px;
+    padding-bottom: 7px;
+    padding-left: 14px;
+    background-color: rgba(18, 18, 30, 0.92);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 225, 120, 0.7);
+    border-right-color: rgba(255, 225, 120, 0.7);
+    border-top-color: rgba(255, 225, 120, 0.7);
+    border-bottom-color: rgba(255, 225, 120, 0.7);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    font-size: 14px;
+    color: rgb(255, 235, 150);
+    -unity-text-align: middle-center;
+}
+
+/* キャンセルボタン。副ボタン（暗い地＋金枠）でガイド文言の右隣に置く。 */
+.territory-select__cancel {
+    margin-left: 10px;
+    padding-top: 7px;
+    padding-right: 16px;
+    padding-bottom: 7px;
+    padding-left: 16px;
+    background-color: rgba(18, 18, 30, 0.92);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 225, 120, 0.7);
+    border-right-color: rgba(255, 225, 120, 0.7);
+    border-top-color: rgba(255, 225, 120, 0.7);
+    border-bottom-color: rgba(255, 225, 120, 0.7);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    font-size: 14px;
+    color: rgb(255, 225, 120);
+    transition-property: background-color, scale;
+    transition-duration: 0.1s;
+}
+
+.territory-select__cancel:hover {
+    background-color: rgba(255, 225, 120, 0.14);
+}
+
+.territory-select__cancel:active {
     scale: 0.96 0.96;
 }
 

@@ -36,7 +36,7 @@ namespace Main.Item
     {
         public static readonly IReadOnlyList<ItemDefinition> All = new[]
         {
-            new ItemDefinition(ItemId.StealTerritory, "陣地よこどり", "相手の陣地マスを 1 つ奪って自分の陣地にする。", "Image/Item/StealTerritory"),
+            new ItemDefinition(ItemId.StealTerritory, "陣地獲得", "好きな陣地マスを 1 つ選んで自分のものにする（相手の陣地も奪える）。", "Image/Item/StealTerritory"),
             new ItemDefinition(ItemId.StealMoney, "お金よこどり", "相手の所持金の一部を奪う。", "Image/Item/StealMoney"),
             new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "ミニゲームを起こして、勝てば報酬をもらえる。", "Image/Item/MiniGame"),
         };

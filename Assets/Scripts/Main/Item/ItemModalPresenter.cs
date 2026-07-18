@@ -6,9 +6,11 @@ namespace Main.Item
 {
     /// <summary>
     /// 手札のアイテムをクリックしたときに開く詳細モーダル。アイテム絵・名前・効果説明を表示し、
-    /// 「使用する」で <see cref="ItemModel.Use"/> による消費（効果の発動は未実装）、
-    /// 「閉じる」または暗幕クリックで閉じる。<c>BoardPresenter</c> が生成して手札クリックから
-    /// <see cref="Open"/> を呼ぶ協調クラス（<c>BoardLandingPresentation</c> と同様）。
+    /// 「使用する」で生成側から渡された効果ハンドラ（<c>onUse</c>）を呼び、「閉じる」または暗幕クリックで閉じる。
+    /// アイテムの消費（<see cref="ItemModel.Use"/>）や効果の発動は <c>onUse</c> の中身（<c>BoardPresenter</c>）が担う。
+    /// 陣地獲得のようにマス選択のキャンセルで消費しない効果があるため、消費のタイミングは効果側へ委ねる。
+    /// <c>BoardPresenter</c> が生成して手札クリックから <see cref="Open"/> を呼ぶ協調クラス
+    /// （<c>BoardLandingPresentation</c> と同様）。
     /// </summary>
     public sealed class ItemModalPresenter
     {
@@ -23,8 +25,8 @@ namespace Main.Item
         private readonly Label _name;
         private readonly Label _description;
         private readonly Button _useButton;
-        private readonly ItemModel _items;
-        private readonly int _player;
+        // 「使用する」で呼ぶ効果ハンドラ。消費（ItemModel.Use）や効果発動はこの中身（BoardPresenter）が担う。
+        private readonly Action<ItemId> _onUse;
         // アイテム絵はロード済みキャッシュ（BoardPresenter._itemSprites）から引く。未ロードなら null。
         private readonly Func<ItemId, Sprite> _spriteResolver;
         // 「使用する」を有効にしてよいか（判定内容は生成側が決める）。null なら常に有効。
@@ -35,11 +37,10 @@ namespace Main.Item
         private float _baseSortingOrder;
         private ItemId _current;
 
-        public ItemModalPresenter(VisualElement overlay, ItemModel items, int player, Func<ItemId, Sprite> spriteResolver, UIDocument document, Func<bool> canUse)
+        public ItemModalPresenter(VisualElement overlay, Action<ItemId> onUse, Func<ItemId, Sprite> spriteResolver, UIDocument document, Func<bool> canUse)
         {
             _overlay = overlay;
-            _items = items;
-            _player = player;
+            _onUse = onUse;
             _spriteResolver = spriteResolver;
             _document = document;
             _canUse = canUse;
@@ -115,12 +116,13 @@ namespace Main.Item
         }
 
         /// <summary>
-        /// 表示中のアイテムを 1 つ消費して閉じる。手札 UI の更新は <see cref="ItemModel.Used"/> の
-        /// 購読側（BoardPresenter）が行うため、ここでは Model を呼ぶだけ。
+        /// 表示中のアイテムの効果ハンドラを呼んで閉じる。消費（<see cref="ItemModel.Use"/>）や効果の発動、
+        /// 手札 UI の更新は生成側（BoardPresenter）が <c>onUse</c> の中と <see cref="ItemModel.Used"/> の
+        /// 購読で行うため、ここではハンドラを呼ぶだけ。
         /// </summary>
         private void UseCurrent()
         {
-            _items.Use(_player, _current);
+            _onUse?.Invoke(_current);
             Close();
         }
 

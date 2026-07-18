@@ -47,6 +47,12 @@ namespace Main.Board
         private int _dragPointerId = -1;
         private Vector2 _dragStartPointer;
         private Vector2 _dragStartPan;
+        // 押下位置からこの距離（px）以内で離したらタップ（＝マス選択）、超えたらドラッグ（＝パン）とみなす。
+        private const float TapThresholdSq = 100f;
+        // ポインタ押下からの最大移動量（タップ/ドラッグ判定用）。
+        private float _dragMaxMoveSq;
+        // 陣地選択モード中に「タップ位置（パネル座標）でマスを選べるか試す」コールバック。null なら選択モードでない。
+        private Func<Vector2, bool> _trySelectAtScreenPos;
 
         /// <summary>
         /// <paramref name="root"/> から虫眼鏡ボタン・ドラッグ層を取得して配線する。ズーム段階は
@@ -215,11 +221,40 @@ namespace Main.Board
             }
         }
 
+        /// <summary>
+        /// 陣地選択モードを開始する。ドラッグ層を常に反応させ（盤面が画面内に収まっていてもタップを拾えるように）、
+        /// ポインタ操作を「ほぼ動かなければタップ＝<paramref name="trySelectAtScreenPos"/> を呼ぶ／動けばパン」に振り分ける。
+        /// <paramref name="trySelectAtScreenPos"/> はタップ位置（パネル座標）にマスがあれば選択して true を返す。
+        /// </summary>
+        public void BeginCellSelection(Func<Vector2, bool> trySelectAtScreenPos)
+        {
+            _trySelectAtScreenPos = trySelectAtScreenPos;
+            if (_dragLayer != null)
+            {
+                _dragLayer.pickingMode = PickingMode.Position;
+            }
+        }
+
+        /// <summary>陣地選択モードを終える。ドラッグ層の反応可否を通常（盤面がはみ出すときだけ有効）へ戻す。</summary>
+        public void EndCellSelection()
+        {
+            _trySelectAtScreenPos = null;
+            if (TryGetGeometry(out _, out Vector2 scaledExtent, out Vector2 container))
+            {
+                UpdateInteractivity(scaledExtent, container);
+            }
+            else if (_dragLayer != null)
+            {
+                _dragLayer.pickingMode = PickingMode.Ignore;
+            }
+        }
+
         private void OnPointerDown(PointerDownEvent evt)
         {
             _dragPointerId = evt.pointerId;
             _dragStartPointer = evt.position;
             _dragStartPan = _pan;
+            _dragMaxMoveSq = 0f;
             _dragLayer.CapturePointer(evt.pointerId);
             evt.StopPropagation();
         }
@@ -230,11 +265,12 @@ namespace Main.Board
             {
                 return;
             }
+            Vector2 delta = (Vector2)evt.position - _dragStartPointer;
+            _dragMaxMoveSq = Mathf.Max(_dragMaxMoveSq, delta.sqrMagnitude);
             if (!TryGetGeometry(out Vector2 center, out Vector2 scaledExtent, out Vector2 container))
             {
                 return;
             }
-            Vector2 delta = (Vector2)evt.position - _dragStartPointer;
             _pan = ClampPan(_dragStartPan + delta, center, scaledExtent, container);
             ApplyTransform();
             evt.StopPropagation();
@@ -251,6 +287,12 @@ namespace Main.Board
                 _dragLayer.ReleasePointer(evt.pointerId);
             }
             _dragPointerId = -1;
+
+            // 選択モード中に「ほぼ動かさず離した」ら、その位置のマスを選ぶ（動かしていたらパン操作だったとみなす）。
+            if (_trySelectAtScreenPos != null && _dragMaxMoveSq <= TapThresholdSq)
+            {
+                _trySelectAtScreenPos.Invoke(evt.position);
+            }
             evt.StopPropagation();
         }
 
@@ -265,8 +307,9 @@ namespace Main.Board
         {
             _zoomInButton.SetEnabled(_levelIndex > 0);                        // まだ拡大（列を減らす）余地がある
             _zoomOutButton.SetEnabled(_levelIndex < _columnLevels.Length - 1); // まだ縮小（列を増やす）余地がある
+            // 陣地選択モード中は盤面が画面内に収まっていてもタップを拾うため常に反応させる。
             bool pannable = scaledExtent.x > container.x + 0.5f || scaledExtent.y > container.y + 0.5f;
-            _dragLayer.pickingMode = pannable ? PickingMode.Position : PickingMode.Ignore;
+            _dragLayer.pickingMode = pannable || _trySelectAtScreenPos != null ? PickingMode.Position : PickingMode.Ignore;
         }
 
         /// <summary>

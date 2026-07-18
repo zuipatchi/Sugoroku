@@ -59,6 +59,8 @@ namespace Main.Board
         private ItemModel _items;
         private TurnModel _turn;
         private RouletteModel _rouletteModel;
+        // 陣地獲得アイテムの選択・演出中にスピンボタンを一時無効化するために保持する。
+        private RoulettePresenter _roulette;
         private BoardSessionModel _boardSession;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
@@ -90,6 +92,16 @@ namespace Main.Board
         private const string HandCountVisibleClass = "item-hand__count--visible";
         // 手札クリックで開くアイテム詳細モーダル（使用する／閉じる）。BuildCells で生成。
         private ItemModalPresenter _itemModal;
+        // 陣地獲得アイテムのマス選択ガイドバナー（USS で既定非表示・選択中だけ表示）。
+        private VisualElement _territorySelectBanner;
+        // 陣地選択の結果を受け渡す完了ソース（選んだ盤面 index／キャンセル・破棄で -1）。選択中だけ非 null。
+        private UniTaskCompletionSource<int> _territorySelectionTcs;
+        // アイテム効果（選択→演出）の実行中フラグ。多重起動と、実行中の「使用する」再有効化を防ぐ。
+        private bool _itemEffectRunning;
+        // 陣地選択のハイライトを付けたマスの USS クラス。
+        private const string SelectableCellClass = "board-cell--selectable";
+        // 選択できるマスに重ねるキラキラのリング要素の USS クラス。
+        private const string SelectableGlowClass = "board-cell__glow";
         // アイテム抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は ItemCatalog にある）。
         private readonly System.Random _itemRng = new();
         private BoardDefinition _boardDef;
@@ -126,6 +138,7 @@ namespace Main.Board
             ItemModel items,
             TurnModel turn,
             RouletteModel rouletteModel,
+            RoulettePresenter roulette,
             BoardSessionModel boardSession)
         {
             _model = model;
@@ -136,6 +149,7 @@ namespace Main.Board
             _items = items;
             _turn = turn;
             _rouletteModel = rouletteModel;
+            _roulette = roulette;
             _boardSession = boardSession;
             _characterPicker = new CpuCharacterPicker(participants, characterSession);
             _nameplateView = new PlayerNameplateView(participants, money, _characterPicker, _disposables);
@@ -311,14 +325,18 @@ namespace Main.Board
             {
                 _itemModal = new ItemModalPresenter(
                     itemModalOverlay,
-                    _items,
-                    _humanPlayer,
+                    HandleItemUse,
                     item => _itemSprites.TryGetValue(item, out Sprite sprite) ? sprite : null,
                     _uiDocument,
-                    // 「使用する」を有効にするのは自分の手番で、まだルーレットを回していない（Idle）ときだけ。
-                    // 回した後（Spinning/Stopped）やコマ移動中は無効にする。
-                    () => _turn.CurrentPlayer.CurrentValue == _humanPlayer
-                          && _rouletteModel.State.CurrentValue == RouletteState.Idle);
+                    CanUseItem);
+            }
+
+            // 陣地獲得アイテムのマス選択ガイド（バナー＋キャンセル）。既定は USS で非表示。
+            _territorySelectBanner = root.Q<VisualElement>("TerritorySelectBanner");
+            Button territoryCancel = root.Q<Button>("TerritorySelectCancel");
+            if (territoryCancel != null)
+            {
+                territoryCancel.clicked += () => _territorySelectionTcs?.TrySetResult(-1);
             }
             _landing = new BoardLandingPresentation(
                 root.Q<VisualElement>("CellPopup"),
@@ -1050,6 +1068,218 @@ namespace Main.Board
             if (_territory.HasMajority(player))
             {
                 _model.SetWinner(player);
+            }
+        }
+
+        /// <summary>
+        /// モーダルの「使用する」を有効にしてよいか。自分の手番で、まだルーレットを回していない（Idle）ときだけ。
+        /// 回した後（Spinning/Stopped）・コマ移動中・別のアイテム効果の実行中は無効にする。
+        /// </summary>
+        private bool CanUseItem()
+        {
+            return !_itemEffectRunning
+                   && _turn.CurrentPlayer.CurrentValue == _humanPlayer
+                   && _rouletteModel.State.CurrentValue == RouletteState.Idle;
+        }
+
+        /// <summary>
+        /// アイテム「使用する」の効果ハンドラ。アイテム種別で分岐する。
+        /// 陣地獲得（<see cref="ItemId.StealTerritory"/>）はマス選択→占拠の演出を起こし、確定時に消費する。
+        /// 効果未実装のアイテムは従来どおり即消費する。効果はターンを消費しない（使用後もルーレットを回せる）。
+        /// </summary>
+        private void HandleItemUse(ItemId item)
+        {
+            if (_itemEffectRunning)
+            {
+                return;
+            }
+
+            if (item == ItemId.StealTerritory)
+            {
+                RunTerritoryStealAsync(_destroyCt).Forget();
+                return;
+            }
+
+            // 効果未実装のアイテムは消費のみ（従来どおり）。
+            _items.Use(_humanPlayer, item);
+        }
+
+        /// <summary>
+        /// 陣地獲得の効果。自分以外が持つ陣地マス（未占拠＋相手占拠）から 1 つをプレイヤーに選ばせ、
+        /// 選んだマスを占拠する。対象が無ければ消費せず何もしない。キャンセル・シーン破棄でも消費しない。
+        /// 選択・演出の間はスピンボタンを無効化する（使用後は自分の手番のまま通常のルーレットを回せる）。
+        /// </summary>
+        private async UniTaskVoid RunTerritoryStealAsync(CancellationToken ct)
+        {
+            if (_territory == null || _cells == null)
+            {
+                return;
+            }
+
+            IReadOnlyList<int> eligible = _territory.CellsNotOwnedBy(_humanPlayer);
+            if (eligible.Count == 0)
+            {
+                // 奪える・占領できる陣地マスが無い（すべて自分の占拠 or 陣地マス自体が無い）。消費しない。
+                return;
+            }
+
+            _itemEffectRunning = true;
+            if (_roulette != null)
+            {
+                _roulette.SetInteractable(false);
+            }
+            try
+            {
+                int chosen = await SelectTerritoryCellAsync(eligible, ct);
+                if (chosen < 0)
+                {
+                    return; // キャンセル・破棄：消費しない
+                }
+
+                _items.Use(_humanPlayer, ItemId.StealTerritory); // 手札からの減算は Used 購読側
+
+                // 着地時と同じ旗演出→占拠確定（上書きで奪う）→過半数なら勝者。
+                Sprite flag = _flagIcons != null && _humanPlayer < _flagIcons.Length ? _flagIcons[_humanPlayer] : null;
+                VisualElement targetCell = chosen < _cells.Length ? _cells[chosen] : null;
+                await _landing.PlayTerritoryFlagSequenceAsync(flag, targetCell, () => ApplyTerritoryLanding(_humanPlayer, chosen), ct);
+            }
+            catch (OperationCanceledException)
+            {
+                // シーン破棄によるキャンセルは正常終了として扱う。
+            }
+            finally
+            {
+                _itemEffectRunning = false;
+                // 選択・演出を終えても自分の手番かつ Idle のままなので、スピンを再び押せるように戻す。
+                if (_roulette != null && !_model.IsFinished
+                    && _turn.CurrentPlayer.CurrentValue == _humanPlayer
+                    && _rouletteModel.State.CurrentValue == RouletteState.Idle)
+                {
+                    _roulette.SetInteractable(true);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 対象の陣地マス <paramref name="eligible"/> を金枠で強調し、ガイドバナーを出して、
+        /// 盤面タップ（<see cref="BoardZoomController.BeginCellSelection"/> 経由・パンは有効のまま）または
+        /// キャンセルを待つ。選んだ盤面 index を返す（キャンセル・破棄は -1）。
+        /// </summary>
+        private async UniTask<int> SelectTerritoryCellAsync(IReadOnlyList<int> eligible, CancellationToken ct)
+        {
+            // 選択できるマスを金枠で強調し、上にキラキラのリング要素を重ねる（パルスは下のループが動かす）。
+            List<VisualElement> glows = new();
+            for (int i = 0; i < eligible.Count; i++)
+            {
+                int index = eligible[i];
+                if (index >= 0 && index < _cells.Length && _cells[index] != null)
+                {
+                    _cells[index].AddToClassList(SelectableCellClass);
+                    VisualElement glow = new() { pickingMode = PickingMode.Ignore };
+                    glow.AddToClassList(SelectableGlowClass);
+                    _cells[index].Add(glow);
+                    glows.Add(glow);
+                }
+            }
+            ShowTerritoryBanner(true);
+
+            UniTaskCompletionSource<int> tcs = new();
+            _territorySelectionTcs = tcs;
+            _zoomController?.BeginCellSelection(screenPos => TryPickCell(eligible, screenPos));
+
+            // 選択が終わる（確定・キャンセル・破棄）までキラキラを回し、finally で止める。
+            using CancellationTokenSource pulseCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            AnimateSelectableGlowAsync(glows, pulseCts.Token).Forget();
+
+            try
+            {
+                using (ct.Register(() => tcs.TrySetResult(-1)))
+                {
+                    return await tcs.Task;
+                }
+            }
+            finally
+            {
+                pulseCts.Cancel();
+                _zoomController?.EndCellSelection();
+                ShowTerritoryBanner(false);
+                for (int i = 0; i < eligible.Count; i++)
+                {
+                    int index = eligible[i];
+                    if (index >= 0 && index < _cells.Length && _cells[index] != null)
+                    {
+                        _cells[index].RemoveFromClassList(SelectableCellClass);
+                    }
+                }
+                for (int i = 0; i < glows.Count; i++)
+                {
+                    glows[i].RemoveFromHierarchy();
+                }
+                _territorySelectionTcs = null;
+            }
+        }
+
+        /// <summary>
+        /// 選択できる陣地マスのキラキラ演出。各マスに重ねたリング（<paramref name="glows"/>）を、
+        /// マスの外へ広がりながら消える「パルス（ping）」として毎フレーム動かす。マスごとに位相をずらして
+        /// 時間差でキラッとさせる。<paramref name="ct"/> のキャンセル（選択終了・破棄）で静かに止まる。
+        /// </summary>
+        private async UniTaskVoid AnimateSelectableGlowAsync(List<VisualElement> glows, CancellationToken ct)
+        {
+            // 1 秒あたりのパルス回数と、マスごとの位相ずらし量。
+            const float Speed = 0.9f;
+            const float PhaseStep = 0.35f;
+            try
+            {
+                float elapsed = 0f;
+                while (!ct.IsCancellationRequested)
+                {
+                    elapsed += Time.deltaTime;
+                    for (int i = 0; i < glows.Count; i++)
+                    {
+                        // 0→1 を繰り返す位相。小さいうちは明るく、広がるにつれて消える（＝ping）。
+                        float cycle = Mathf.Repeat(elapsed * Speed + i * PhaseStep, 1f);
+                        glows[i].style.opacity = (1f - cycle) * 0.85f;
+                        float scale = Mathf.Lerp(0.95f, 1.55f, cycle);
+                        glows[i].style.scale = new Scale(new Vector2(scale, scale));
+                    }
+                    await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        /// <summary>
+        /// タップ位置 <paramref name="screenPos"/>（パネル座標）が対象マスの上なら、そのマスを選択して true を返す。
+        /// どの対象マスにも当たらなければ false（選択は継続）。
+        /// </summary>
+        private bool TryPickCell(IReadOnlyList<int> eligible, Vector2 screenPos)
+        {
+            for (int i = 0; i < eligible.Count; i++)
+            {
+                int index = eligible[i];
+                if (index < 0 || index >= _cells.Length)
+                {
+                    continue;
+                }
+                VisualElement cell = _cells[index];
+                if (cell != null && cell.worldBound.Contains(screenPos))
+                {
+                    _territorySelectionTcs?.TrySetResult(index);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>陣地選択ガイドバナーの表示/非表示を切り替える。</summary>
+        private void ShowTerritoryBanner(bool visible)
+        {
+            if (_territorySelectBanner != null)
+            {
+                _territorySelectBanner.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
             }
         }
     }

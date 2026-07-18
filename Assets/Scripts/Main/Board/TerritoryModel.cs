@@ -69,6 +69,23 @@ namespace Main.Board
             }
         }
 
+        /// <summary>
+        /// プレイヤー <paramref name="player"/> が所有していない陣地マスの盤面 index 一覧
+        /// （未占拠＋他プレイヤー占拠）。陣地獲得アイテムで「自分以外の陣地マス」を選ばせるのに使う。
+        /// </summary>
+        public IReadOnlyList<int> CellsNotOwnedBy(int player)
+        {
+            List<int> cells = new();
+            foreach (KeyValuePair<int, ReactiveProperty<int>> entry in _owners)
+            {
+                if (entry.Value.Value != player)
+                {
+                    cells.Add(entry.Key);
+                }
+            }
+            return cells;
+        }
+
         /// <summary>プレイヤー <paramref name="player"/> が占拠している陣地マス数。</summary>
         public int CountOwnedBy(int player)
         {
