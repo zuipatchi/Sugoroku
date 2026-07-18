@@ -1,3 +1,4 @@
+using MiniGame.OverlapGame;
 using MiniGame.RaceGame;
 using MiniGame.TapGame;
 using VContainer;
@@ -14,6 +15,8 @@ namespace MiniGame.Injector
             builder.Register<TapGamePlay>(Lifetime.Scoped);
             builder.Register<RaceGameModel>(Lifetime.Scoped);
             builder.Register<RaceGamePlay>(Lifetime.Scoped);
+            builder.Register<OverlapGameModel>(Lifetime.Scoped);
+            builder.Register<OverlapGamePlay>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<MiniGameHostPresenter>().AsSelf();
         }
     }

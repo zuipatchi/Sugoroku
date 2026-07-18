@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="OverlapGame.uss" />
+    <ui:VisualElement name="OverlapRoot" class="overlap-root">
+        <ui:Label text="被っちゃやーよ" name="TitleLabel" class="overlap-title" />
+        <ui:Label text="ほかの人とかぶらないアイテムを選ぼう！" name="HintLabel" class="overlap-hint" />
+        <ui:Label text="" name="TimerLabel" class="overlap-timer" />
+
+        <ui:VisualElement name="ChoiceRow" class="overlap-choices" />
+
+        <ui:Label text="3" name="CountdownLabel" class="overlap-countdown" />
+
+        <ui:VisualElement name="ResultPanel" class="overlap-result">
+            <ui:Label text="結果" name="ResultLabel" class="overlap-result__label" />
+            <ui:Button name="CloseButton" text="結果を反映" class="overlap-close-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
