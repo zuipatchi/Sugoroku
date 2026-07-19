@@ -930,6 +930,12 @@ namespace Main.Board
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.Territory)
             {
+                // すでに自分が占拠している陣地マスなら、占拠状態は変わらないので旗演出をスキップする。
+                ReadOnlyReactiveProperty<int> currentOwner = _territory?.Owner(position);
+                if (currentOwner != null && currentOwner.CurrentValue == player)
+                {
+                    return;
+                }
                 Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
                 VisualElement targetCell = _cells != null && position < _cells.Length ? _cells[position] : null;
                 await _landing.PlayTerritoryFlagSequenceAsync(flag, targetCell, () => ApplyTerritoryLanding(player, position), ct);
