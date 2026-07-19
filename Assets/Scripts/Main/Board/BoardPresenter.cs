@@ -4,6 +4,7 @@ using System.Threading;
 using Common.Board;
 using Common.Character;
 using Common.MiniGame;
+using Common.SceneManagement;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
@@ -65,6 +66,8 @@ namespace Main.Board
         // 陣地獲得アイテムの選択・演出中にスピンボタンを一時無効化するために保持する。
         private RoulettePresenter _roulette;
         private BoardSessionModel _boardSession;
+        // 勝敗確定後に「ホームに戻る」で Home シーンへ遷移するのに使う。
+        private SceneTransitioner _sceneTransitioner;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
         // 手札を右下に出す人間プレイヤーの index（参加者リストから解決）。
@@ -83,6 +86,11 @@ namespace Main.Board
         // 着地演出のビュー（ポップアップ・お金浮遊テキスト・旗トゥイーン）。BuildCells で UI 要素とともに生成。
         private BoardLandingPresentation _landing;
         private Label _clearLabel;
+        // 勝敗確定後に出す「ホームに戻る」ボタンとその帯（既定は USS で非表示）。
+        private VisualElement _gameOverActions;
+        private Button _homeReturnButton;
+        // ホームへの遷移を二重に起動しないためのガード。
+        private bool _returningHome;
         // 取得したアイテムを並べる右下の手札コンテナ。
         private VisualElement _itemHand;
         // ロード済みアイテム絵のキャッシュ（取得マスで抽選するたびに使い回す）。
@@ -145,7 +153,8 @@ namespace Main.Board
             TurnModel turn,
             RouletteModel rouletteModel,
             RoulettePresenter roulette,
-            BoardSessionModel boardSession)
+            BoardSessionModel boardSession,
+            SceneTransitioner sceneTransitioner)
         {
             _model = model;
             _territory = territory;
@@ -158,6 +167,7 @@ namespace Main.Board
             _rouletteModel = rouletteModel;
             _roulette = roulette;
             _boardSession = boardSession;
+            _sceneTransitioner = sceneTransitioner;
             _characterPicker = new CpuCharacterPicker(participants, characterSession);
             _nameplateView = new PlayerNameplateView(participants, money, territory, _characterPicker, _iconLoader, destroyCancellationToken, _disposables);
 
@@ -216,6 +226,8 @@ namespace Main.Board
                 }
                 _clearLabel.text = WinnerText(winner);
                 _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
+                // 勝敗が決まったら「ホームに戻る」ボタンを出す。
+                ShowGameOverActions();
             }));
 
             _constructed = true;
@@ -326,6 +338,18 @@ namespace Main.Board
             _boardArea = root.Q<VisualElement>("BoardArea");
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _clearLabel = root.Q<Label>("ClearLabel");
+            // 勝敗確定後に出す「ホームに戻る」ボタン。既定は USS で非表示。
+            _gameOverActions = root.Q<VisualElement>("GameOverActions");
+            _homeReturnButton = root.Q<Button>("HomeReturnButton");
+            if (_homeReturnButton != null)
+            {
+                _homeReturnButton.clicked += OnHomeReturnClicked;
+            }
+            // BuildCells より先に勝者が確定していた場合に備えて、確定済みなら即座に出す。
+            if (_model.IsFinished)
+            {
+                ShowGameOverActions();
+            }
             _itemHand = root.Q<VisualElement>("ItemHand");
             // 手札クリックで開くアイテム詳細モーダル。BuildCells は Construct 後にしか走らないため
             // _items / _humanPlayer は確定済み。アイテム絵はロード済みキャッシュから引く（未ロードは絵なし表示）。
@@ -719,6 +743,24 @@ namespace Main.Board
                 return "ゴール！";
             }
             return winner == 0 ? "あなたの勝ち！" : "CPUの勝ち！";
+        }
+
+        // 勝敗確定後に「ホームに戻る」ボタンの帯を表示する。
+        private void ShowGameOverActions()
+        {
+            _gameOverActions?.AddToClassList("board-gameover-actions--visible");
+        }
+
+        // 「ホームに戻る」を押したら Home シーンへ遷移する（連打・多重遷移をガード）。
+        private void OnHomeReturnClicked()
+        {
+            if (_returningHome)
+            {
+                return;
+            }
+            _returningHome = true;
+            _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
+            _sceneTransitioner.Transit(Scenes.Home).Forget();
         }
 
         /// <summary>

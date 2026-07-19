@@ -10,6 +10,11 @@
         <!-- 自分（YOU）のネームプレートを載せる上部ヘッダー。中身は BoardPresenter が生成する -->
         <ui:VisualElement name="PlayerHeader" class="player-header" picking-mode="Ignore" />
         <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
+        <!-- 勝敗確定後に出す「ホームに戻る」ボタン。既定は非表示（USS）で、勝者確定時に BoardPresenter が表示する。
+             コンテナは picking-mode=Ignore で盤面タップを通し、ボタンだけ反応する -->
+        <ui:VisualElement name="GameOverActions" class="board-gameover-actions" picking-mode="Ignore">
+            <ui:Button text="ホームに戻る" name="HomeReturnButton" class="board-home-return" />
+        </ui:VisualElement>
         <!-- コマが止まったマスの画像を画面中央に一瞬拡大表示する演出。中身は BoardPresenter が制御する -->
         <ui:VisualElement name="CellPopup" class="cell-popup" picking-mode="Ignore" />
         <!-- 陣地マス占拠時に、そのコマのキャラの旗を中央に表示→縮小しながらマスへ重ねる演出。BoardPresenter が制御する -->

@@ -1172,3 +1172,52 @@
     font-size: 48px;
     color: rgb(235, 200, 90);
 }
+
+/* 勝敗確定後に「ホームに戻る」ボタンを置く帯。既定は非表示で、勝者確定時に --visible を付けて出す。
+   コンテナは全幅で中央寄せ、勝敗テキスト（中央）の下に来るよう画面下寄りに置く。 */
+.board-gameover-actions {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 16%;
+    align-items: center;
+}
+
+.board-gameover-actions--visible {
+    display: flex;
+}
+
+/* 「ホームに戻る」ボタン。item-modal の主ボタンと同じ金アクセントで統一する。 */
+.board-home-return {
+    padding-left: 32px;
+    padding-right: 32px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    font-size: 22px;
+    background-color: rgb(235, 200, 90);
+    color: rgb(24, 22, 16);
+    transition-property: background-color, scale;
+    transition-duration: 0.1s;
+}
+
+.board-home-return:hover {
+    background-color: rgb(255, 225, 120);
+}
+
+.board-home-return:focus {
+    background-color: rgb(255, 225, 120);
+}
+
+.board-home-return:active {
+    background-color: rgb(255, 225, 120);
+    scale: 0.96 0.96;
+}
