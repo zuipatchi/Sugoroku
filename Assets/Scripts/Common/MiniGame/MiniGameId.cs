@@ -9,6 +9,9 @@ namespace Common.MiniGame
         Tap = 0,
 
         /// <summary>メーターのタイミングで前進する CPU との 2D レース。</summary>
-        Race = 1
+        Race = 1,
+
+        /// <summary>参加者数ぶんのアイテムから 1 つ選び、他の誰とも被らなければ獲得する「被っちゃやーよ」。</summary>
+        Overlap = 2
     }
 }

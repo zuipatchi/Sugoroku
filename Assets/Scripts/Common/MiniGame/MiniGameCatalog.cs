@@ -34,6 +34,7 @@ namespace Common.MiniGame
         {
             new MiniGameDefinition(MiniGameId.Tap, "タップ連打", "MiniGame/TapGame"),
             new MiniGameDefinition(MiniGameId.Race, "2Dレース", "MiniGame/RaceGame"),
+            new MiniGameDefinition(MiniGameId.Overlap, "被っちゃやーよ", "MiniGame/OverlapGame"),
         };
 
         public static MiniGameDefinition Find(MiniGameId id)

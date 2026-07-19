@@ -34,9 +34,10 @@
 - アイテム取得（アイテム取得マス〔イベント「Item」〕に止まると `ItemCatalog` からランダムに1枚もらえる。取得したアイテムは画面右下に手札としてサムネイル表示〔自分＝人間プレイヤーのぶんのみ。CPU は内部的に貯まるが非表示。同じアイテムはカードを増やさず「x2」の枚数バッジでまとめる〕。手札のアイテムはクリックで詳細モーダル〔絵・名前・効果説明＋「使用する」「閉じる」〕が開き、「使用する」で効果が発動して手札から 1 枚消費される〔x2 バッジ減算・最後の 1 枚ならカード消滅〕。**「使用する」は自分の手番かつルーレット未回転のときだけ有効**〔回した後・コマ移動中・相手の手番中・別のアイテム効果の実行中は無効〕。**「陣地獲得」は効果実装済み**〔使用すると自分以外が持つ陣地マスが金枠＋キラキラで強調され、盤面タップ〔ドラッグでパンも可〕で 1 つ選んで占拠する。既存の旗演出→占拠→過半数なら勝利。選択のキャンセルでは消費しない。ターンは消費せず使用後もルーレットを回せる〕。**「ミニゲーム」も効果実装済み**〔使用すると遊ぶミニゲームを選ぶモーダル〔`MiniGameCatalog` をボタン一覧〕が開き、選んだミニゲームを起動して勝てば所持金報酬〔既定 +500〕をもらえる。2Dレースは先着で勝ち・タップ連打はタップ数を CPU 想定値と比べて 1 位なら勝ち。キャンセルでは消費しない。ターン非消費で選択・プレイ中はスピン無効〕。残る「お金よこどり」は消費のみで効果は未実装。アイテム種別・画像・効果説明は `ItemId`／`ItemCatalog`、手札の保持・消費は `ItemModel`、モーダルは `ItemModalPresenter`、効果の発動は `BoardPresenter.HandleItemUse`。アイテム画像は Addressables〔`Image/Item/*`〕、未配置ならアイテム名の文字で代替）→ [Assets/Scripts/Main/Item/](../Assets/Scripts/Main/Item/)
 - マス着地の演出（コマが止まると、止まったマスの種別に応じた演出＝マス画像の中央ポップ・お金の増減額浮遊テキスト・陣地の旗演出・アイテムの抽選絵表示を再生する。実装は `BoardPresenter.PlayLandingSequenceAsync`。演出フロー・秒数の詳細は [architecture.md](architecture.md)「シーン構成」の着地演出の項）→ [Assets/Scripts/Main/Board/](../Assets/Scripts/Main/Board/)
 - 盤面エディタ（`Window > Sugoroku > Board Editor`。方眼をクリックして経路順にマスを置き＝盤面の形・経路を自作、マップ名（マップ選択に表示）・選択マスのイベント・数値・色を編集し、盤面共通の枠画像アドレス・方眼サイズを設定して `BoardDefinition` アセットとして保存（マスのイベント画像はイベント種別ごとに全マップ共通＝`BoardEventArtCatalog` なので盤面ごとの設定は無い）。グリッドのマスはイベント種別ごとの色で塗り分けられ〔カスタム色未設定時〕、色→イベントの対応表もグリッド下に出るので、どのマスに何のイベントを置いたか一目で分かる。作った盤面は `BoardCatalog` にまとめて MapSelect で選ばせる〔単発なら `BoardPresenter` の Definition 欄に割り当ててフォールバック使用も可〕）→ [Assets/Scripts/Main/Editor/](../Assets/Scripts/Main/Editor/)
-- ミニゲーム（現状2種。いずれも Main を残したまま MiniGame シーンを Additive で重ねて起動し、中身は `MiniGameId`／`MiniGameCatalog` で差し替える〔将来最大5種類〕。動作確認は専用の MiniGameTest シーンから行う）→ [architecture.md](architecture.md)「シーン構成」・[Assets/Scripts/MiniGame/](../Assets/Scripts/MiniGame/)
+- ミニゲーム（現状3種。いずれも Main を残したまま MiniGame シーンを Additive で重ねて起動し、中身は `MiniGameId`／`MiniGameCatalog` で差し替える〔将来最大5種類〕。動作確認は専用の MiniGameTest シーンから行う）→ [architecture.md](architecture.md)「シーン構成」・[Assets/Scripts/MiniGame/](../Assets/Scripts/MiniGame/)
   - タップ連打：5秒間のタップ数を競う。選択中キャラのカード絵をタップボタンの上に表示し、タップのたびにカードが「がたがた」振動＋「パンチ」拡大で弾む。タップ数はボタン上に表示（カウントダウン中は非表示）
   - 2Dレース：選択キャラ vs CPU の1対1。走者が右から左へ進み先着で勝ち。全員ベース速度でゆっくり進み、プレイヤーは高速往復するメーターをタップで止め、Great（大きく前進）／Good（少し前進）／Miss（進まない）の判定で前へ（タップ後は一瞬フリーズして自動再開）。CPU はプレイヤーと同じベース速度で進み、ランダム間隔で Great/Good/Miss を抽選して前進（Great は低確率）。スコアは勝ち=1／負け=0。各キャラの走行絵は動物 Run 画像（`RunAddress`）
+  - 被っちゃやーよ：参加者数ぶんのランダムなアイテム（`ItemCatalog` から重複なしで抽選・アイテム絵は `Image/Item/*`）から1枚を選び、他の誰とも被らなければ獲得＝勝ち。CPU の選択は seed で確定（決定的）。アイテム選択は3秒の制限時間があり、時間内に選べなければ無効票（獲得できない）。提示枚数は参加者数と一致（現状は自分＋CPU の2枚。将来プレイヤー数が増えたら `OverlapGameConfig.DefaultPlayerCount`／`GameParticipants` 連携で増える）。スコアは獲得=1／被り・無効票=0
 
 ## 未実装（今後の課題）
 
@@ -45,4 +46,4 @@
 - 盤面マスのイベント発動（お金アップ/ダウン・陣地・アイテム取得は着地で発動する。進む/戻る/休み/ミニゲームは `BoardDefinition` で編集・盤面に記号表示できるが、止まったときに実際に発動させる処理は未実装。発動には `GameFlowController` / `TurnModel` への組み込みが必要）
 - 残りのアイテムの効果発動（効果ディスパッチ `BoardPresenter.HandleItemUse` は実装済みで、**「陣地獲得」「ミニゲーム」は効果実装済み**。残るは「お金よこどり」＝相手の所持金を奪う、の効果処理を `HandleItemUse` の分岐に追加して `MoneyModel` へつなぐのが残作業）
 - オンライン対戦の手番同期（現状 `GameFlowController` は CPU 対戦とローカル単独プレイのみ。NGO 経由での手番・出目の同期は未実装）
-- 3種類目以降のミニゲーム（最大5種類を想定。現状はタップ連打・2Dレースの2種。`MiniGameId`／`MiniGameCatalog` への追加と対応 UXML・進行ロジックの実装で増やす。MiniGameTest シーンにボタンが自動で並ぶ）
+- 4種類目以降のミニゲーム（最大5種類を想定。現状はタップ連打・2Dレース・被っちゃやーよの3種。`MiniGameId`／`MiniGameCatalog` への追加と対応 UXML・進行ロジックの実装で増やす。MiniGameTest シーンにボタンが自動で並ぶ）
