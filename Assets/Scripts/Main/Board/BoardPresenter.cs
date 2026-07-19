@@ -737,12 +737,14 @@ namespace Main.Board
 
         private string WinnerText(int winner)
         {
-            // 単独プレイ（オンライン参加者 1 人）は従来通りゴール表示。CPU 戦は勝敗を表示する。
+            // 単独プレイ（オンライン参加者 1 人）は従来通りゴール表示。CPU 戦は勝者のキャラ名を出す。
             if (_model.PlayerCount <= 1)
             {
                 return "ゴール！";
             }
-            return winner == 0 ? "あなたの勝ち！" : "CPUの勝ち！";
+            CharacterId id = _characterPicker.ResolveCharacter(winner);
+            string characterName = CharacterCatalog.Find(id).DisplayName;
+            return $"{characterName}の勝ち！";
         }
 
         // 勝敗確定後に「ホームに戻る」ボタンの帯を表示する。
