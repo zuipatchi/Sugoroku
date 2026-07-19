@@ -1,13 +1,15 @@
 using System.Threading;
 using Common.MiniGame;
 using Cysharp.Threading.Tasks;
+using Main.Board;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Main.Item
 {
     /// <summary>
     /// ミニゲームアイテム使用時に「どのミニゲームを遊ぶか」を選ばせるモーダル。
-    /// <see cref="MiniGameCatalog"/> の各ゲームをボタンで並べ、選んだゲームの ID を返す
+    /// <see cref="MiniGameCatalog"/> の各ゲームをサムネイル画像＋ゲーム名のカードで並べ、選んだゲームの ID を返す
     /// （キャンセル・暗幕クリック・破棄では null）。<see cref="ItemModalPresenter"/> と同じく
     /// <c>BoardPresenter</c> が new する協調クラスで、開いている間だけ Board の <see cref="UIDocument"/> の
     /// sortingOrder を上げてスピンボタン等より前面に出す。UI は Board.uxml の <c>MiniGameSelectModal</c>。
@@ -15,20 +17,27 @@ namespace Main.Item
     public sealed class MiniGameSelectPresenter
     {
         private const string OpenClass = "item-modal--open";
+        private const string CardImageEmptyClass = "minigame-card__image--empty";
         // モーダルを開いている間だけ Board の UIDocument を前面へ持ち上げる SortingOrder（ItemModalPresenter と同値）。
         private const float RaisedSortingOrder = 100f;
 
         private readonly VisualElement _overlay;
         private readonly VisualElement _list;
         private readonly UIDocument _document;
+        // カードのサムネイル画像を Addressables からロードするローダ（BoardPresenter が持つ共有インスタンス）。
+        private readonly BoardIconLoader _iconLoader;
+        // 画像ロードを打ち切るためのトークン（シーン破棄）。
+        private readonly CancellationToken _ct;
         private float _baseSortingOrder;
         // 選択結果を受け渡す完了ソース（選んだゲーム／キャンセル・破棄で null）。開いている間だけ非 null。
         private UniTaskCompletionSource<MiniGameId?> _selectionSource;
 
-        public MiniGameSelectPresenter(VisualElement overlay, UIDocument document)
+        public MiniGameSelectPresenter(VisualElement overlay, UIDocument document, BoardIconLoader iconLoader, CancellationToken ct)
         {
             _overlay = overlay;
             _document = document;
+            _iconLoader = iconLoader;
+            _ct = ct;
             _list = overlay.Q<VisualElement>("MiniGameSelectList");
 
             Button cancel = overlay.Q<Button>("MiniGameSelectCancel");
@@ -46,11 +55,14 @@ namespace Main.Item
                 }
             });
 
-            BuildButtons();
+            BuildCards();
         }
 
-        /// <summary>カタログの各ミニゲームを 1 ボタンずつ生成する。増えたら自動で並ぶ。</summary>
-        private void BuildButtons()
+        /// <summary>
+        /// カタログの各ミニゲームを「サムネイル画像＋ゲーム名」のカードで生成する。増えたら自動で並ぶ。
+        /// 画像は Addressables から遅延ロードし、未配置なら名前テキストのプレースホルダにフォールバックする。
+        /// </summary>
+        private void BuildCards()
         {
             if (_list == null)
             {
@@ -60,11 +72,40 @@ namespace Main.Item
             foreach (MiniGameDefinition definition in MiniGameCatalog.All)
             {
                 MiniGameId id = definition.Id;
-                Button button = new() { text = definition.DisplayName };
-                button.AddToClassList("minigame-select__button");
-                button.clicked += () => Resolve(id);
-                _list.Add(button);
+
+                VisualElement card = new();
+                card.AddToClassList("minigame-card");
+                card.RegisterCallback<ClickEvent>(_ => Resolve(id));
+
+                VisualElement image = new();
+                image.AddToClassList("minigame-card__image");
+                image.AddToClassList(CardImageEmptyClass);
+                card.Add(image);
+
+                Label name = new() { text = definition.DisplayName };
+                name.AddToClassList("minigame-card__name");
+                card.Add(name);
+
+                _list.Add(card);
+
+                LoadCardImageAsync(definition.ImageAddress, image).Forget();
             }
+        }
+
+        /// <summary>カード 1 枚のサムネイル画像をロードして貼る。未配置・キャンセルなら何もしない（名前のみ表示）。</summary>
+        private async UniTaskVoid LoadCardImageAsync(string address, VisualElement image)
+        {
+            if (_iconLoader == null || string.IsNullOrEmpty(address))
+            {
+                return;
+            }
+            Sprite sprite = await _iconLoader.LoadSpriteAsync(address, "ミニゲーム画像", _ct);
+            if (sprite == null || image == null)
+            {
+                return;
+            }
+            image.style.backgroundImage = new StyleBackground(sprite);
+            image.RemoveFromClassList(CardImageEmptyClass);
         }
 
         /// <summary>

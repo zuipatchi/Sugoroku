@@ -342,7 +342,7 @@ namespace Main.Board
             VisualElement miniGameSelectOverlay = root.Q<VisualElement>("MiniGameSelectModal");
             if (miniGameSelectOverlay != null)
             {
-                _miniGameSelect = new MiniGameSelectPresenter(miniGameSelectOverlay, _uiDocument);
+                _miniGameSelect = new MiniGameSelectPresenter(miniGameSelectOverlay, _uiDocument, _iconLoader, _destroyCt);
             }
 
             // 陣地獲得アイテムのマス選択ガイド（バナー＋キャンセル）。既定は USS で非表示。

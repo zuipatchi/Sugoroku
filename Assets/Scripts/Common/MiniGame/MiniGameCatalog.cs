@@ -7,11 +7,12 @@ namespace Common.MiniGame
     /// </summary>
     public sealed class MiniGameDefinition
     {
-        public MiniGameDefinition(MiniGameId id, string displayName, string uxmlAddress)
+        public MiniGameDefinition(MiniGameId id, string displayName, string uxmlAddress, string imageAddress)
         {
             Id = id;
             DisplayName = displayName;
             UxmlAddress = uxmlAddress;
+            ImageAddress = imageAddress ?? string.Empty;
         }
 
         public MiniGameId Id { get; }
@@ -21,6 +22,12 @@ namespace Common.MiniGame
 
         /// <summary>中身の UI（UXML）の Addressable アドレス。<see cref="MiniGameHostPresenter"/> がロードに使う。</summary>
         public string UxmlAddress { get; }
+
+        /// <summary>
+        /// ミニゲーム選択カードに出すサムネイル画像の Addressable アドレス。
+        /// 未配置ならプレースホルダ（表示名テキスト）にフォールバックする。
+        /// </summary>
+        public string ImageAddress { get; }
     }
 
     /// <summary>
@@ -32,9 +39,9 @@ namespace Common.MiniGame
     {
         public static readonly IReadOnlyList<MiniGameDefinition> All = new[]
         {
-            new MiniGameDefinition(MiniGameId.Tap, "タップ連打", "MiniGame/TapGame"),
-            new MiniGameDefinition(MiniGameId.Race, "2Dレース", "MiniGame/RaceGame"),
-            new MiniGameDefinition(MiniGameId.Overlap, "被っちゃやーよ", "MiniGame/OverlapGame"),
+            new MiniGameDefinition(MiniGameId.Tap, "タップ連打", "MiniGame/TapGame", "Image/MiniGame/Renda"),
+            new MiniGameDefinition(MiniGameId.Race, "2Dレース", "MiniGame/RaceGame", "Image/MiniGame/Lace"),
+            new MiniGameDefinition(MiniGameId.Overlap, "被っちゃやーよ", "MiniGame/OverlapGame", "Image/MiniGame/kaburi"),
         };
 
         public static MiniGameDefinition Find(MiniGameId id)

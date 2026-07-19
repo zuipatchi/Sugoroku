@@ -84,6 +84,21 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 70a718de7b1f5904495dc5a4ad271b1e
+    m_Address: Image/MiniGame/Renda
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 26a44bcd44bbb2e4985cca64e9449e0b
+    m_Address: Image/MiniGame/Lace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 321ff60c8d3d7d0468b16ec72bc36e8f
+    m_Address: Image/MiniGame/kaburi
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 26f733a8790db8e4497162e1ffc8c937
     m_Address: Character/Character4/Flag
     m_ReadOnly: 0

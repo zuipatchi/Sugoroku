@@ -740,47 +740,79 @@
     scale: 0.96 0.96;
 }
 
-/* ミニゲーム選択モーダルのゲームボタンを縦に積むリスト。中身は MiniGameSelectPresenter が生成する。 */
+/* ミニゲーム選択モーダルのカードを横並び（折り返し）で置くリスト。中身は MiniGameSelectPresenter が生成する。 */
 .minigame-select__list {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
     margin-top: 16px;
     margin-bottom: 10px;
 }
 
-/* ミニゲーム選択ボタン。金アクセントの主ボタン調で横幅いっぱいに積む。 */
-.minigame-select__button {
+/* ミニゲーム 1 種類分の選択カード（サムネイル画像＋ゲーム名）。暗いガラス地＋金の細枠。 */
+.minigame-card {
+    width: 120px;
+    margin-left: 6px;
+    margin-right: 6px;
     margin-top: 6px;
     margin-bottom: 6px;
-    padding-top: 12px;
-    padding-bottom: 12px;
-    border-left-width: 0;
-    border-right-width: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    background-color: rgb(235, 200, 90);
-    color: rgb(24, 22, 16);
-    font-size: 18px;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    padding-left: 8px;
+    padding-right: 8px;
+    align-items: center;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(196, 160, 74);
+    border-right-color: rgb(196, 160, 74);
+    border-top-color: rgb(196, 160, 74);
+    border-bottom-color: rgb(196, 160, 74);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    background-color: rgba(24, 22, 16, 0.85);
     transition-property: background-color, scale;
     transition-duration: 0.1s;
 }
 
-.minigame-select__button:hover {
-    background-color: rgb(255, 225, 120);
+.minigame-card:hover {
+    background-color: rgba(60, 52, 30, 0.9);
+    scale: 1.03 1.03;
 }
 
-.minigame-select__button:focus {
-    background-color: rgb(255, 225, 120);
-}
-
-.minigame-select__button:active {
-    background-color: rgb(255, 225, 120);
+.minigame-card:active {
     scale: 0.98 0.98;
+}
+
+/* サムネイル画像。正方形の枠に収める。未配置時は minigame-card__image--empty で暗い座面のまま。 */
+.minigame-card__image {
+    width: 100px;
+    height: 100px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.06);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.minigame-card__image--empty {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* カード下のゲーム名。折り返して中央揃え。 */
+.minigame-card__name {
+    margin-top: 8px;
+    width: 100%;
+    font-size: 15px;
+    color: rgb(255, 225, 120);
+    white-space: normal;
+    -unity-text-align: middle-center;
 }
 
 /* 陣地獲得アイテムのマス選択ガイド。上部（ネームプレートの下）に横並びで出す。
