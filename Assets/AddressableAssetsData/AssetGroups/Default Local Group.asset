@@ -250,6 +250,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b2c3d4e5f6a70819293a4b5c6d7e8f01
+    m_Address: MiniGame/OverlapGame
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a450d432e1c26ac4e92555c6afaabe42
     m_Address: Image/DragonRun
     m_ReadOnly: 0

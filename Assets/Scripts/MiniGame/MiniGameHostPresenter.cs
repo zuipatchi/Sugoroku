@@ -3,6 +3,7 @@ using System.Threading;
 using Common.MiniGame;
 using Common.SceneManagement;
 using Cysharp.Threading.Tasks;
+using MiniGame.OverlapGame;
 using MiniGame.RaceGame;
 using MiniGame.TapGame;
 using UnityEngine;
@@ -24,6 +25,7 @@ namespace MiniGame
         private MiniGameSessionModel _session;
         private TapGamePlay _tap;
         private RaceGamePlay _race;
+        private OverlapGamePlay _overlap;
 
         private UIDocument _uiDocument;
 
@@ -33,11 +35,13 @@ namespace MiniGame
         public void Construct(
             MiniGameSessionModel session,
             TapGamePlay tap,
-            RaceGamePlay race)
+            RaceGamePlay race,
+            OverlapGamePlay overlap)
         {
             _session = session;
             _tap = tap;
             _race = race;
+            _overlap = overlap;
         }
 
         private void Awake()
@@ -77,6 +81,13 @@ namespace MiniGame
             {
                 await _race.BuildAsync(root, ct);
                 ReportAsync(_race.RunAsync, _destroyCt).Forget();
+                return;
+            }
+
+            if (_session.CurrentGame == MiniGameId.Overlap)
+            {
+                await _overlap.BuildAsync(root, ct);
+                ReportAsync(_overlap.RunAsync, _destroyCt).Forget();
                 return;
             }
 
