@@ -36,9 +36,12 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void 参加者1人ならNextしても手番は0のまま()
+        public void オンラインは2人の手番が0と1で巡回する()
         {
+            // オンラインは最低 2 人（単独プレイ廃止）なので単独プレイと同じく 0→1→0 で巡回する。
             using TurnModel turn = OnlineTurn();
+            turn.Next();
+            Assert.AreEqual(1, turn.CurrentPlayer.CurrentValue);
             turn.Next();
             Assert.AreEqual(0, turn.CurrentPlayer.CurrentValue);
         }

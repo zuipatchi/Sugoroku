@@ -17,7 +17,7 @@ namespace Tests.EditMode
 
         private static GameParticipants Online()
         {
-            // 既定 Mode は Online。人数モデルは使われない。
+            // 既定 Mode は Online。人数モデル（一人用の人数）は使われない。
             return new GameParticipants(new GameSessionModel(), new PlayerCountSessionModel());
         }
 
@@ -61,11 +61,13 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void オンラインは人数選択に依らずHumanの1人でCpuなし()
+        public void オンラインは人数選択に依らずHumanが2人でCpuなし()
         {
+            // 単独プレイは廃止＝最低 2 人。2 人固定ルームに合わせて全員 Human。
             GameParticipants participants = Online();
-            Assert.AreEqual(1, participants.Count);
+            Assert.AreEqual(2, participants.Count);
             Assert.AreEqual(PlayerKind.Human, participants.KindOf(0));
+            Assert.AreEqual(PlayerKind.Human, participants.KindOf(1));
             Assert.IsFalse(participants.HasCpu);
         }
     }

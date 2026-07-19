@@ -12,7 +12,7 @@ namespace Main.Turn
     /// ターン進行を統括する。手番に応じてルーレット（人間は手動・CPU は自動）を回し、
     /// 出た目ぶん手番プレイヤーのコマを進め、勝者が出るまで手番を巡回させる。
     /// これまで各 Presenter に散在していた「ルーレット停止 → コマ前進」の連鎖をここへ集約する。
-    /// 一人用モードは [Human, Cpu] の 1 対 1、オンラインは [Human] のみで従来どおり回る。
+    /// 一人用モードは [Human, Cpu, ...]、オンラインは接続した実プレイヤーぶんの [Human, Human, ...]（最低 2 人）で回る。
     /// </summary>
     public sealed class GameFlowController : IAsyncStartable
     {
