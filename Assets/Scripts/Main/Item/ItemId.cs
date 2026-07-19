@@ -10,7 +10,7 @@ namespace Main.Item
         /// <summary>好きな陣地マス（自分以外が持つマス）を 1 つ選んで占拠するアイテム。</summary>
         StealTerritory = 0,
 
-        /// <summary>相手の所持金を奪うアイテム（効果の発動は将来対応）。</summary>
+        /// <summary>相手の所持金の一部（ランダムな割合）を奪って自分に足すアイテム。</summary>
         StealMoney = 1,
 
         /// <summary>好きなミニゲームを選んで遊び、勝てば所持金報酬をもらえるアイテム。</summary>

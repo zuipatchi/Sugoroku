@@ -1100,7 +1100,8 @@ namespace Main.Board
         /// アイテム「使用する」の効果ハンドラ。アイテム種別で分岐する。
         /// 陣地獲得（<see cref="ItemId.StealTerritory"/>）はマス選択→占拠の演出を起こし、確定時に消費する。
         /// ミニゲーム（<see cref="ItemId.MiniGame"/>）は遊ぶミニゲームを選ばせて起動し、勝てば所持金報酬を与える。
-        /// 効果未実装のアイテムは従来どおり即消費する。効果はターンを消費しない（使用後もルーレットを回せる）。
+        /// お金よこどり（<see cref="ItemId.StealMoney"/>）は相手の所持金の一部を奪って自分に足す。
+        /// 効果ハンドラを持たないアイテムは従来どおり即消費する。効果はターンを消費しない（使用後もルーレットを回せる）。
         /// </summary>
         private void HandleItemUse(ItemId item)
         {
@@ -1121,7 +1122,13 @@ namespace Main.Board
                 return;
             }
 
-            // 効果未実装のアイテムは消費のみ（従来どおり）。
+            if (item == ItemId.StealMoney)
+            {
+                RunMoneyStealAsync(_destroyCt).Forget();
+                return;
+            }
+
+            // ここに来るのは効果ハンドラを持たないアイテム（現状なし）。将来の未実装アイテムは消費のみ。
             _items.Use(_humanPlayer, item);
         }
 
@@ -1213,6 +1220,78 @@ namespace Main.Board
                 default:
                     int cpuTaps = _itemRng.Next(MiniGameCpuTapMin, MiniGameCpuTapMax + 1);
                     return result.Score >= cpuTaps;
+            }
+        }
+
+        /// <summary>
+        /// お金よこどりの効果。自分以外の参加者（1 対 1 では CPU）それぞれの所持金の一部を
+        /// <see cref="MoneyStealRule"/> でランダムに奪い、その合計を自分に足す。奪える額が無い
+        /// （相手がいない・全員の所持金が 0 以下）ときは消費せず何もしない。増額は中央の浮遊テキストで見せる。
+        /// 相手の所持金は UI 非表示なので相手側の演出は無い。効果はターン非消費で、演出の間はスピンを無効化する。
+        /// </summary>
+        private async UniTaskVoid RunMoneyStealAsync(CancellationToken ct)
+        {
+            if (_money == null)
+            {
+                return;
+            }
+
+            // 奪える相手（自分以外で所持金が正）ごとの奪取額を先に集計する。合計 0 なら消費しない。
+            List<(int Player, int Amount)> steals = new();
+            int total = 0;
+            for (int player = 0; player < _money.PlayerCount; player++)
+            {
+                if (player == _humanPlayer)
+                {
+                    continue;
+                }
+                int amount = MoneyStealRule.Amount(_money.Money(player).CurrentValue, _itemRng);
+                if (amount > 0)
+                {
+                    steals.Add((player, amount));
+                    total += amount;
+                }
+            }
+
+            if (total <= 0)
+            {
+                // 奪える相手がいない（全員 0 以下 or 相手なし）。消費しない。
+                return;
+            }
+
+            _itemEffectRunning = true;
+            if (_roulette != null)
+            {
+                _roulette.SetInteractable(false);
+            }
+            try
+            {
+                _items.Use(_humanPlayer, ItemId.StealMoney); // 手札からの減算は Used 購読側
+
+                // 相手から引いて自分に足す（合計は保存される）。
+                foreach ((int player, int amount) in steals)
+                {
+                    _money.Add(player, -amount);
+                }
+                _money.Add(_humanPlayer, total);
+
+                _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+                await _landing.ShowMoneyFloatAsync(total, false, 1.5f, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                // シーン破棄によるキャンセルは正常終了として扱う。
+            }
+            finally
+            {
+                _itemEffectRunning = false;
+                // 演出を終えても自分の手番かつ Idle のままなので、スピンを再び押せるように戻す。
+                if (_roulette != null && !_model.IsFinished
+                    && _turn.CurrentPlayer.CurrentValue == _humanPlayer
+                    && _rouletteModel.State.CurrentValue == RouletteState.Idle)
+                {
+                    _roulette.SetInteractable(true);
+                }
             }
         }
 
