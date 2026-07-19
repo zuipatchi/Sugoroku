@@ -230,15 +230,17 @@
     padding-right: 64px;
 }
 
-/* 自分のネームプレート。暗いカードに上辺の金アクセント（自分のコマ --p0 と同色）を載せる。 */
+/* 自分のネームプレート。暗いカードに上辺の金アクセント（自分のコマ --p0 と同色）を載せる。
+   横型レイアウト：左に丸アイコン、右に情報列を並べる。 */
 .board-nameplate {
-    min-width: 104px;
-    max-width: 168px;
-    padding-top: 7px;
-    padding-right: 12px;
-    padding-bottom: 9px;
-    padding-left: 12px;
+    flex-direction: row;
     align-items: center;
+    min-width: 168px;
+    max-width: 248px;
+    padding-top: 8px;
+    padding-right: 14px;
+    padding-bottom: 8px;
+    padding-left: 10px;
     overflow: hidden;
     background-color: rgba(18, 18, 30, 0.92);
     border-left-width: 1px;
@@ -255,39 +257,55 @@
     border-bottom-right-radius: 10px;
 }
 
-/* ロールタグ（YOU）。金のピルに濃色文字を載せる（自分のコマ --p0 と同色）。 */
-.board-nameplate__role {
-    margin-bottom: 4px;
-    padding-top: 1px;
-    padding-right: 8px;
-    padding-bottom: 1px;
-    padding-left: 8px;
-    font-size: 10px;
-    color: rgb(24, 24, 36);
-    background-color: rgb(235, 200, 90);
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    -unity-text-align: middle-center;
+/* キャラの丸バッジアイコン（盤面コマと同じ Icon 画像）。円形の枠に収める（scale-to-fit）。
+   画像未ロード時は board-nameplate__avatar--empty で薄い座面のまま。 */
+.board-nameplate__avatar {
+    width: 52px;
+    height: 52px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgb(255, 225, 120);
+    border-right-color: rgb(255, 225, 120);
+    border-top-color: rgb(255, 225, 120);
+    border-bottom-color: rgb(255, 225, 120);
+    border-top-left-radius: 26px;
+    border-top-right-radius: 26px;
+    border-bottom-left-radius: 26px;
+    border-bottom-right-radius: 26px;
+    background-color: rgba(255, 255, 255, 0.06);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.board-nameplate__avatar--empty {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* アイコン右の情報列（名前行／所持金／占領地を縦に積む）。 */
+.board-nameplate__info {
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 /* キャラ名。長い名前は省略記号でクリップして横幅を守る。 */
 .board-nameplate__name {
-    font-size: 15px;
+    font-size: 16px;
     color: rgb(240, 240, 255);
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-    max-width: 144px;
-    -unity-text-align: middle-center;
+    max-width: 128px;
+    -unity-text-align: middle-left;
 }
 
-/* 所持金の行（コイン風バッジ＋金額）。キャラ名の下に置く。 */
+/* 所持金の行（コイン風バッジ＋金額）。名前行の下に置く。 */
 .board-nameplate__money {
     flex-direction: row;
     align-items: center;
-    margin-top: 5px;
+    margin-top: 4px;
 }
 
 /* コイン風の金色バッジ（グリフに頼らず USS の円で描く）。 */
@@ -319,6 +337,53 @@
 
 .board-nameplate__money-value--negative {
     color: rgb(240, 130, 130);
+}
+
+/* 占領地の行（旗風バッジ＋「占拠数 / 総数」）。所持金の行の下に置く。 */
+.board-nameplate__territory {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 4px;
+}
+
+/* 旗風の四角バッジ（グリフに頼らず USS の角丸四角で描く。円のコインと形で区別する）。 */
+.board-nameplate__flag {
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    background-color: rgb(120, 205, 140);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(60, 130, 80);
+    border-right-color: rgb(60, 130, 80);
+    border-top-color: rgb(60, 130, 80);
+    border-bottom-color: rgb(60, 130, 80);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+/* 占領地の「占拠数 / 総数」。 */
+.board-nameplate__territory-value {
+    font-size: 15px;
+    color: rgb(200, 240, 205);
+    -unity-text-align: middle-center;
+}
+
+/* Image/Icon のアイコン画像を貼ったバッジ（コイン／旗）。USS 描画の下地（色・枠）を消し、
+   画像だけを少し大きめの箱に scale-to-fit で見せる。PlayerNameplateView が読み込み成功時に付ける。 */
+.board-nameplate__badge--image {
+    width: 18px;
+    height: 18px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 /* コマが止まったマスの画像を画面中央に一瞬表示する演出のカード。

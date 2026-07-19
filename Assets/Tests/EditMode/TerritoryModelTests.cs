@@ -1,5 +1,7 @@
+using System;
 using Main.Board;
 using NUnit.Framework;
+using R3;
 
 namespace Tests.EditMode
 {
@@ -33,6 +35,23 @@ namespace Tests.EditMode
             Assert.AreEqual(1, territory.Owner(2).CurrentValue);
             Assert.AreEqual(0, territory.CountOwnedBy(0));
             Assert.AreEqual(1, territory.CountOwnedBy(1));
+        }
+
+        [Test]
+        public void ChangedはInitializeと有効なClaimで発火する()
+        {
+            using TerritoryModel territory = new();
+            int count = 0;
+            using IDisposable sub = territory.Changed.Subscribe(_ => count++);
+
+            territory.Initialize(new[] { 2, 5 });
+            Assert.AreEqual(1, count, "Initialize で1回発火");
+
+            territory.Claim(0, 2);
+            Assert.AreEqual(2, count, "有効な Claim で1回発火");
+
+            territory.Claim(0, 7); // 陣地マスでない → 発火しない
+            Assert.AreEqual(2, count, "陣地マス以外の Claim では発火しない");
         }
 
         [Test]

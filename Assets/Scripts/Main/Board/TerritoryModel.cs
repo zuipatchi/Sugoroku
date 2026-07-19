@@ -16,8 +16,15 @@ namespace Main.Board
         // 陣地マスの盤面 index → 所有者（-1 = 未占拠）。生成順は Initialize の渡し順。
         private readonly Dictionary<int, ReactiveProperty<int>> _owners = new();
 
+        // 占拠状態が変化した（Initialize / Claim）ときに通知する。占拠数の集計表示の購読に使う
+        // （個々のマスの色替えは Owner(index) を購読する）。
+        private readonly Subject<Unit> _changed = new();
+
         /// <summary>盤面上の陣地マス総数。</summary>
         public int Total => _owners.Count;
+
+        /// <summary>占拠状態が変化した（<see cref="Initialize"/> / <see cref="Claim"/>）ときに通知する。占拠数表示の購読に使う。</summary>
+        public Observable<Unit> Changed => _changed;
 
         /// <summary>勝利に必要な占拠数（陣地マス総数の過半数）。陣地マスが無い盤面では到達不能（int.MaxValue）。</summary>
         public int RequiredToWin => Total > 0 ? Total / 2 + 1 : int.MaxValue;
@@ -46,6 +53,7 @@ namespace Main.Board
                     _owners.Add(cell, new ReactiveProperty<int>(-1));
                 }
             }
+            _changed.OnNext(Unit.Default);
         }
 
         /// <summary>マス <paramref name="cellIndex"/> が陣地マスか。</summary>
@@ -66,6 +74,7 @@ namespace Main.Board
             if (_owners.TryGetValue(cellIndex, out ReactiveProperty<int> owner))
             {
                 owner.Value = player;
+                _changed.OnNext(Unit.Default);
             }
         }
 
@@ -113,6 +122,7 @@ namespace Main.Board
                 owner.Dispose();
             }
             _owners.Clear();
+            _changed.Dispose();
         }
     }
 }

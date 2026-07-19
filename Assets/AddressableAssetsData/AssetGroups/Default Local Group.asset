@@ -84,6 +84,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0f5aab72c70624d4ab5b0d93ecd894ae
+    m_Address: Image/Icon/CoinIcon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d339fece79d15b34493790c60e2c6788
+    m_Address: Image/Icon/TeritoryIcon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 70a718de7b1f5904495dc5a4ad271b1e
     m_Address: Image/MiniGame/Renda
     m_ReadOnly: 0
