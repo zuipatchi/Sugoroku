@@ -61,6 +61,88 @@
     background-color: rgba(0, 0, 0, 0.5);
 }
 
+/* プレイヤー人数（自分＋CPU）のステッパー行。ラベル＋−／数値／＋。カード一覧の上に置く。 */
+.ms-players {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.ms-players__label {
+    margin-right: 14px;
+    font-size: 18px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+}
+
+/* −／数値／＋ をまとめる暗いピル。 */
+.ms-stepper {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(22, 22, 35, 0.85);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.2);
+    border-right-color: rgba(255, 255, 255, 0.2);
+    border-top-color: rgba(255, 255, 255, 0.2);
+    border-bottom-color: rgba(255, 255, 255, 0.2);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    padding-top: 4px;
+    padding-right: 6px;
+    padding-bottom: 4px;
+    padding-left: 6px;
+}
+
+/* −／＋ の丸ボタン。金アクセントの文字に暗い座面。 */
+.ms-stepper__btn {
+    width: 40px;
+    height: 40px;
+    padding-top: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    margin-left: 4px;
+    margin-right: 4px;
+    font-size: 24px;
+    color: rgb(24, 24, 36);
+    background-color: rgb(235, 200, 90);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    -unity-text-align: middle-center;
+}
+
+.ms-stepper__btn:hover {
+    background-color: rgb(255, 225, 120);
+}
+
+.ms-stepper__btn:active {
+    scale: 0.94 0.94;
+}
+
+.ms-stepper__btn:disabled {
+    opacity: 0.3;
+}
+
+/* 現在の人数。 */
+.ms-stepper__value {
+    min-width: 44px;
+    font-size: 26px;
+    color: rgb(255, 226, 140);
+    -unity-text-align: middle-center;
+}
+
 /* カードを横並び・折り返しで中央に配置する。 */
 .ms-grid {
     flex-direction: row;

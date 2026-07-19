@@ -94,6 +94,55 @@
     border-bottom-color: rgb(140, 225, 235);
 }
 
+/* プレイヤー 2〜7 が占拠中の陣地マス。コマ --p2〜--p7 と同じ色で塗る。 */
+.board-cell--owned-p2 {
+    background-color: rgba(225, 105, 95, 0.5);
+    border-left-color: rgb(245, 150, 140);
+    border-right-color: rgb(245, 150, 140);
+    border-top-color: rgb(245, 150, 140);
+    border-bottom-color: rgb(245, 150, 140);
+}
+
+.board-cell--owned-p3 {
+    background-color: rgba(120, 195, 110, 0.5);
+    border-left-color: rgb(165, 225, 150);
+    border-right-color: rgb(165, 225, 150);
+    border-top-color: rgb(165, 225, 150);
+    border-bottom-color: rgb(165, 225, 150);
+}
+
+.board-cell--owned-p4 {
+    background-color: rgba(170, 130, 225, 0.5);
+    border-left-color: rgb(200, 170, 240);
+    border-right-color: rgb(200, 170, 240);
+    border-top-color: rgb(200, 170, 240);
+    border-bottom-color: rgb(200, 170, 240);
+}
+
+.board-cell--owned-p5 {
+    background-color: rgba(235, 155, 70, 0.5);
+    border-left-color: rgb(250, 190, 120);
+    border-right-color: rgb(250, 190, 120);
+    border-top-color: rgb(250, 190, 120);
+    border-bottom-color: rgb(250, 190, 120);
+}
+
+.board-cell--owned-p6 {
+    background-color: rgba(225, 120, 185, 0.5);
+    border-left-color: rgb(245, 165, 210);
+    border-right-color: rgb(245, 165, 210);
+    border-top-color: rgb(245, 165, 210);
+    border-bottom-color: rgb(245, 165, 210);
+}
+
+.board-cell--owned-p7 {
+    background-color: rgba(95, 140, 225, 0.5);
+    border-left-color: rgb(150, 180, 245);
+    border-right-color: rgb(150, 180, 245);
+    border-top-color: rgb(150, 180, 245);
+    border-bottom-color: rgb(150, 180, 245);
+}
+
 /* 陣地獲得アイテムで占領先に選べる陣地マス。明るい金の太枠で強調する
    （territory / owned クラスより後に定義して枠色・太さを上書きする）。
    さらに上に重ねるキラキラのリング（board-cell__glow）を BoardPresenter が動かす。 */
@@ -174,8 +223,8 @@
     border-right-color: rgba(0, 0, 0, 0.4);
     border-top-color: rgba(0, 0, 0, 0.4);
     border-bottom-color: rgba(0, 0, 0, 0.4);
-    transition-property: left, top;
-    transition-duration: 0.15s, 0.15s;
+    transition-property: left, top, translate;
+    transition-duration: 0.15s, 0.15s, 0.15s;
 }
 
 /* あなたのコマ（先攻・プレイヤー 0）。従来の金色。アイコン表示時は枠線で色を残す。 */
@@ -194,6 +243,55 @@
     border-right-color: rgb(140, 225, 235);
     border-top-color: rgb(140, 225, 235);
     border-bottom-color: rgb(140, 225, 235);
+}
+
+/* プレイヤー 2〜7 のコマ（3 人以上のときの CPU）。色相で見分ける。 */
+.board-piece--p2 {
+    background-color: rgb(225, 105, 95);
+    border-left-color: rgb(245, 150, 140);
+    border-right-color: rgb(245, 150, 140);
+    border-top-color: rgb(245, 150, 140);
+    border-bottom-color: rgb(245, 150, 140);
+}
+
+.board-piece--p3 {
+    background-color: rgb(120, 195, 110);
+    border-left-color: rgb(165, 225, 150);
+    border-right-color: rgb(165, 225, 150);
+    border-top-color: rgb(165, 225, 150);
+    border-bottom-color: rgb(165, 225, 150);
+}
+
+.board-piece--p4 {
+    background-color: rgb(170, 130, 225);
+    border-left-color: rgb(200, 170, 240);
+    border-right-color: rgb(200, 170, 240);
+    border-top-color: rgb(200, 170, 240);
+    border-bottom-color: rgb(200, 170, 240);
+}
+
+.board-piece--p5 {
+    background-color: rgb(235, 155, 70);
+    border-left-color: rgb(250, 190, 120);
+    border-right-color: rgb(250, 190, 120);
+    border-top-color: rgb(250, 190, 120);
+    border-bottom-color: rgb(250, 190, 120);
+}
+
+.board-piece--p6 {
+    background-color: rgb(225, 120, 185);
+    border-left-color: rgb(245, 165, 210);
+    border-right-color: rgb(245, 165, 210);
+    border-top-color: rgb(245, 165, 210);
+    border-bottom-color: rgb(245, 165, 210);
+}
+
+.board-piece--p7 {
+    background-color: rgb(95, 140, 225);
+    border-left-color: rgb(150, 180, 245);
+    border-right-color: rgb(150, 180, 245);
+    border-top-color: rgb(150, 180, 245);
+    border-bottom-color: rgb(150, 180, 245);
 }
 
 /* キャラアイコン（バッジ）を貼ったコマ。色背景は透過にしてバッジを見せ、
@@ -215,8 +313,9 @@
     -unity-text-align: middle-center;
 }
 
-/* 自分（YOU）のネームプレートを載せる上部ヘッダー。左右に 64px の内側余白を取り、
-   右上のオプションアイコン（60×60）を避けつつ中央寄せする。 */
+/* 全プレイヤーのネームプレートを載せる上部ヘッダー。左右端に三角のページ送りボタン、
+   中央にプレート列（トラック）を置く。右上のオプションアイコン（60×60）を避けるため右側に
+   広めの余白を取り、三角ボタンはさらに内側に置く。 */
 .player-header {
     position: absolute;
     left: 0;
@@ -224,19 +323,95 @@
     right: 0;
     flex-direction: row;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
     padding-top: 14px;
-    padding-left: 64px;
-    padding-right: 64px;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 
-/* 自分のネームプレート。暗いカードに上辺の金アクセント（自分のコマ --p0 と同色）を載せる。
+/* 三角ボタンの間を埋めてプレート列を中央に置くラッパ。 */
+.player-header__track-wrap {
+    flex-grow: 1;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* 現在ページのプレートを横 1 行に並べるトラック。 */
+.player-header__track {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+/* 左右端のページ送り三角ボタン。暗いガラス地＋金の細枠の円。 */
+.player-pager {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    margin-left: 4px;
+    margin-right: 4px;
+    padding-top: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    padding-left: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(18, 18, 30, 0.9);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(255, 225, 120);
+    border-right-color: rgb(255, 225, 120);
+    border-top-color: rgb(255, 225, 120);
+    border-bottom-color: rgb(255, 225, 120);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+}
+
+.player-pager:hover {
+    background-color: rgba(45, 45, 66, 0.95);
+}
+
+.player-pager:disabled {
+    opacity: 0.3;
+}
+
+/* 三角形は border トリックで描く（0×0 の箱に太い片側ボーダーと透明な上下ボーダー）。 */
+.player-pager__triangle {
+    width: 0;
+    height: 0;
+    border-top-width: 7px;
+    border-bottom-width: 7px;
+    border-top-color: rgba(0, 0, 0, 0);
+    border-bottom-color: rgba(0, 0, 0, 0);
+}
+
+/* 左向き三角（右ボーダーを金色にする）。 */
+.player-pager__triangle--left {
+    border-left-width: 0;
+    border-right-width: 11px;
+    border-right-color: rgb(255, 225, 120);
+}
+
+/* 右向き三角（左ボーダーを金色にする）。 */
+.player-pager__triangle--right {
+    border-right-width: 0;
+    border-left-width: 11px;
+    border-left-color: rgb(255, 225, 120);
+}
+
+/* 各プレイヤーのネームプレート。暗いカードに上辺の金アクセント（自分のコマ --p0 と同色）を載せる。
    横型レイアウト：左に丸アイコン、右に情報列を並べる。 */
 .board-nameplate {
     flex-direction: row;
     align-items: center;
     min-width: 168px;
     max-width: 248px;
+    margin-left: 6px;
+    margin-right: 6px;
     padding-top: 8px;
     padding-right: 14px;
     padding-bottom: 8px;
@@ -255,6 +430,40 @@
     border-top-right-radius: 10px;
     border-bottom-left-radius: 10px;
     border-bottom-right-radius: 10px;
+}
+
+/* ネームプレート上辺のアクセントをプレイヤー色（コマ・陣地と同じ）にして、盤面の色分けの凡例にする。
+   .board-nameplate より後に定義して border-top-color を上書きする。 */
+.board-nameplate--p0 {
+    border-top-color: rgb(255, 225, 120);
+}
+
+.board-nameplate--p1 {
+    border-top-color: rgb(140, 225, 235);
+}
+
+.board-nameplate--p2 {
+    border-top-color: rgb(245, 150, 140);
+}
+
+.board-nameplate--p3 {
+    border-top-color: rgb(165, 225, 150);
+}
+
+.board-nameplate--p4 {
+    border-top-color: rgb(200, 170, 240);
+}
+
+.board-nameplate--p5 {
+    border-top-color: rgb(250, 190, 120);
+}
+
+.board-nameplate--p6 {
+    border-top-color: rgb(245, 165, 210);
+}
+
+.board-nameplate--p7 {
+    border-top-color: rgb(150, 180, 245);
 }
 
 /* キャラの丸バッジアイコン（盤面コマと同じ Icon 画像）。円形の枠に収める（scale-to-fit）。

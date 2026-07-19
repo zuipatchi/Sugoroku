@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using Common.Board;
+using Common.GameSession;
 using Common.SceneManagement;
 using Common.SoundManagement;
 using Common.Store;
@@ -28,6 +29,7 @@ namespace MapSelect.Presenter
 
         private SceneTransitioner _sceneTransitioner;
         private BoardSessionModel _boardSession;
+        private PlayerCountSessionModel _playerCountSession;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
 
@@ -38,21 +40,27 @@ namespace MapSelect.Presenter
         private Label _title;
         private Button _confirmButton;
         private Button _backButton;
+        private Button _playerCountMinus;
+        private Button _playerCountPlus;
+        private Label _playerCountValue;
 
         private readonly Dictionary<string, VisualElement> _cards = new();
         private string _selectedId = string.Empty;
         private BoardDefinition _previewBoard;
+        private int _playerCount;
         private bool _transiting;
 
         [Inject]
         public void Construct(
             SceneTransitioner sceneTransitioner,
             BoardSessionModel boardSession,
+            PlayerCountSessionModel playerCountSession,
             SoundStore soundStore,
             SoundPlayer soundPlayer)
         {
             _sceneTransitioner = sceneTransitioner;
             _boardSession = boardSession;
+            _playerCountSession = playerCountSession;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
         }
@@ -77,7 +85,11 @@ namespace MapSelect.Presenter
             _title = _root.Q<Label>("MapTitle");
             _confirmButton = _root.Q<Button>("ConfirmButton");
             _backButton = _root.Q<Button>("BackButton");
-            if (_grid == null || _preview == null || _title == null || _confirmButton == null || _backButton == null)
+            _playerCountMinus = _root.Q<Button>("PlayerCountMinus");
+            _playerCountPlus = _root.Q<Button>("PlayerCountPlus");
+            _playerCountValue = _root.Q<Label>("PlayerCountValue");
+            if (_grid == null || _preview == null || _title == null || _confirmButton == null || _backButton == null
+                || _playerCountMinus == null || _playerCountPlus == null || _playerCountValue == null)
             {
                 Debug.LogError("MapSelect の UI 要素が見つかりませんでした。");
                 return UniTask.CompletedTask;
@@ -90,9 +102,50 @@ namespace MapSelect.Presenter
             BuildCards();
             UpdateSelection();
 
+            // プレイヤー人数：前回の選択（既定 2）から始め、−／＋ で範囲内を増減する。
+            _playerCount = _playerCountSession != null ? _playerCountSession.Count : PlayerCountSessionModel.Min;
+            UpdatePlayerCount();
+
+            _playerCountMinus.clicked += OnPlayerCountMinusClicked;
+            _playerCountPlus.clicked += OnPlayerCountPlusClicked;
             _confirmButton.clicked += OnConfirmClicked;
             _backButton.clicked += OnBackClicked;
             return UniTask.CompletedTask;
+        }
+
+        private void OnPlayerCountMinusClicked()
+        {
+            ChangePlayerCount(-1);
+        }
+
+        private void OnPlayerCountPlusClicked()
+        {
+            ChangePlayerCount(1);
+        }
+
+        // 人数を増減して表示・ボタンの有効状態を更新する（SE つき）。範囲端では何もしない。
+        private void ChangePlayerCount(int delta)
+        {
+            if (_transiting)
+            {
+                return;
+            }
+            int next = Mathf.Clamp(_playerCount + delta, PlayerCountSessionModel.Min, PlayerCountSessionModel.Max);
+            if (next == _playerCount)
+            {
+                return;
+            }
+            _playerCount = next;
+            _soundPlayer.PlaySE(_soundStore.Enter3SE);
+            UpdatePlayerCount();
+        }
+
+        // 現在の人数を数値ラベルに反映し、下限/上限で −／＋ を無効化する。
+        private void UpdatePlayerCount()
+        {
+            _playerCountValue.text = _playerCount.ToString();
+            _playerCountMinus.SetEnabled(_playerCount > PlayerCountSessionModel.Min);
+            _playerCountPlus.SetEnabled(_playerCount < PlayerCountSessionModel.Max);
         }
 
         private void BuildCards()
@@ -181,6 +234,7 @@ namespace MapSelect.Presenter
             }
             _transiting = true;
             _boardSession.Select(_selectedId);
+            _playerCountSession?.Select(_playerCount);
             _soundPlayer.PlaySE(_soundStore.Enter1SE);
             _sceneTransitioner.Transit(Scenes.Main).Forget();
         }
@@ -205,6 +259,14 @@ namespace MapSelect.Presenter
             if (_backButton != null)
             {
                 _backButton.clicked -= OnBackClicked;
+            }
+            if (_playerCountMinus != null)
+            {
+                _playerCountMinus.clicked -= OnPlayerCountMinusClicked;
+            }
+            if (_playerCountPlus != null)
+            {
+                _playerCountPlus.clicked -= OnPlayerCountPlusClicked;
             }
         }
     }

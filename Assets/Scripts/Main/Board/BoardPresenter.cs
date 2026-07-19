@@ -201,6 +201,8 @@ namespace Main.Board
                     if (_pieces != null && player < _pieces.Length && _pieces[player] != null)
                     {
                         _layout?.PlaceAtCell(_pieces[player], position);
+                        // 移動でマスの占有状況が変わるので、全コマのずらし表示を組み直す。
+                        RefreshPieceOffsets();
                     }
                 }));
             }
@@ -545,14 +547,13 @@ namespace Main.Board
             {
                 VisualElement piece = new();
                 piece.AddToClassList("board-piece");
-                piece.AddToClassList(player == 0 ? "board-piece--p0" : "board-piece--p1");
+                piece.AddToClassList($"board-piece--p{PlayerColors.IndexOf(player)}");
                 piece.pickingMode = PickingMode.Ignore;
 
                 Label tag = new(PieceLabel(player)) { pickingMode = PickingMode.Ignore };
                 tag.AddToClassList("board-piece__label");
                 piece.Add(tag);
 
-                ApplyPieceOffset(piece, player);
                 _layout?.PlaceAtCell(piece, _model.Position(player).CurrentValue);
                 _boardArea.Add(piece);
                 _pieces[player] = piece;
@@ -560,10 +561,13 @@ namespace Main.Board
                 // アイコンのロードが先に終わっていれば、この時点で貼り付ける。
                 ApplyPieceIcon(player);
             }
+
+            // 同マスに乗ったコマが重ならないよう、全コマの中心オフセットを占有状況から決める。
+            RefreshPieceOffsets();
         }
 
         /// <summary>
-        /// 上部ヘッダーに自分（人間プレイヤー）のネームプレートだけを表示する。
+        /// 上部ヘッダーに全プレイヤーのネームプレート（横 1 行・最大 2 人／ページ・三角ボタンでページ送り）を表示する。
         /// 構築の本体は <see cref="PlayerNameplateView"/> が担う。
         /// マス（BuildCells）と injection（Construct）の両方がそろってから 1 度だけ構築する。
         /// </summary>
@@ -622,8 +626,10 @@ namespace Main.Board
         /// </summary>
         private void ApplyTerritoryOwner(VisualElement cell, int index, int owner)
         {
-            cell.RemoveFromClassList("board-cell--owned-p0");
-            cell.RemoveFromClassList("board-cell--owned-p1");
+            for (int i = 0; i < PlayerColors.Count; i++)
+            {
+                cell.RemoveFromClassList($"board-cell--owned-p{i}");
+            }
 
             if (owner < 0)
             {
@@ -635,7 +641,7 @@ namespace Main.Board
                 return;
             }
 
-            cell.AddToClassList(owner == 0 ? "board-cell--owned-p0" : "board-cell--owned-p1");
+            cell.AddToClassList($"board-cell--owned-p{PlayerColors.IndexOf(owner)}");
 
             // 占拠者の旗画像でマスを塗る。占拠後はこのマスは旗画像のまま（territory 画像には戻さない）。
             Sprite flag = _flagIcons != null && owner < _flagIcons.Length ? _flagIcons[owner] : null;
@@ -715,18 +721,61 @@ namespace Main.Board
             return winner == 0 ? "あなたの勝ち！" : "CPUの勝ち！";
         }
 
-        /// <summary>複数コマが同じマスに乗っても重ならないよう、プレイヤーごとに中心をずらす。</summary>
-        private void ApplyPieceOffset(VisualElement piece, int player)
+        /// <summary>
+        /// 全コマの中心オフセットを、いま各マスに乗っているコマの数で決め直す。
+        /// 同じマスに複数乗っているときは円状にずらして全員見えるようにし、単独なら中央に置く。
+        /// コマ移動でマスの占有状況が変わるたびに呼ぶ。
+        /// </summary>
+        private void RefreshPieceOffsets()
         {
-            if (_pieceCount <= 1)
+            if (_pieces == null)
             {
-                piece.style.translate = new Translate(Length.Percent(-50f), Length.Percent(-50f));
                 return;
             }
 
-            float x = player == 0 ? -70f : -30f;
-            float y = player == 0 ? -40f : -60f;
-            piece.style.translate = new Translate(Length.Percent(x), Length.Percent(y));
+            // マス index → そのマスに乗っているプレイヤー（表示順＝プレイヤー index 昇順）。
+            Dictionary<int, List<int>> byCell = new();
+            for (int player = 0; player < _pieces.Length; player++)
+            {
+                if (_pieces[player] == null)
+                {
+                    continue;
+                }
+                int cell = _model.Position(player).CurrentValue;
+                if (!byCell.TryGetValue(cell, out List<int> group))
+                {
+                    group = new List<int>();
+                    byCell[cell] = group;
+                }
+                group.Add(player);
+            }
+
+            foreach (List<int> group in byCell.Values)
+            {
+                for (int order = 0; order < group.Count; order++)
+                {
+                    (float dx, float dy) = OffsetInGroup(order, group.Count);
+                    _pieces[group[order]].style.translate =
+                        new Translate(Length.Percent(-50f + dx), Length.Percent(-50f + dy));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 同じマスに <paramref name="count"/> 個乗っているうちの <paramref name="order"/> 番目のコマの、
+        /// 中心（-50%,-50%）からのずらし量（％・コマ自身のサイズ基準）。単独なら 0。複数なら円状に配る。
+        /// </summary>
+        private static (float Dx, float Dy) OffsetInGroup(int order, int count)
+        {
+            if (count <= 1)
+            {
+                return (0f, 0f);
+            }
+
+            // 2 個は近め、3 個以上は大きめの円に均等配置（上から時計回り）。
+            float radius = count == 2 ? 34f : 46f;
+            double angle = (2.0 * Math.PI * order / count) - (Math.PI / 2.0);
+            return (radius * (float)Math.Cos(angle), radius * (float)Math.Sin(angle));
         }
 
         /// <summary>

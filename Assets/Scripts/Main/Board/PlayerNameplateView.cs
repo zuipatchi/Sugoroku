@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using Common.Character;
 using Cysharp.Threading.Tasks;
@@ -10,13 +11,18 @@ using UnityEngine.UIElements;
 namespace Main.Board
 {
     /// <summary>
-    /// 画面上部に出す自分（人間プレイヤー）のネームプレート。キャラの丸アイコン・選択キャラ名・
+    /// 画面上部に出す全プレイヤーのネームプレート。各プレートはキャラの丸アイコン・キャラ名・
     /// 所持金（<see cref="MoneyModel"/> を購読してリアルタイム更新・マイナスは赤字）・
     /// 占領地の数（<see cref="TerritoryModel"/> を購読して「占拠数 / 総数」で表示・陣地マスが無い盤面では非表示）
-    /// を表示する。相手（CPU 等）は表示しない。購読は呼び出し元の <see cref="CompositeDisposable"/> で管理する。
+    /// を横型で並べる。プレートは横 1 行に置き、1 画面に最大 <see cref="PlatesPerPage"/> 人ぶん表示する。
+    /// 人数が超えるぶんは左右端の三角ボタンでページ送りする（3〜4 人で 2 ページ）。
+    /// 購読は呼び出し元の <see cref="CompositeDisposable"/> で管理する。
     /// </summary>
     public sealed class PlayerNameplateView
     {
+        // 1 画面（1 ページ）に並べるネームプレートの最大数。
+        private const int PlatesPerPage = 2;
+
         private const string AvatarEmptyClass = "board-nameplate__avatar--empty";
         // 所持金・占領地の行頭に置くアイコン画像の Addressable アドレス。未配置なら USS 描画の下地バッジにフォールバックする。
         private const string CoinIconAddress = "Image/Icon/CoinIcon";
@@ -33,6 +39,13 @@ namespace Main.Board
         // 画像ロードを打ち切るためのトークン（シーン破棄）。
         private readonly CancellationToken _ct;
         private readonly CompositeDisposable _disposables;
+
+        // 生成した各プレイヤーのプレート（表示順＝参加者 index 順）。ページ送りで表示/非表示を切り替える。
+        private readonly List<VisualElement> _plates = new();
+        private Button _prevButton;
+        private Button _nextButton;
+        private int _page;
+        private int _pageCount;
 
         public PlayerNameplateView(
             GameParticipants participants,
@@ -52,41 +65,110 @@ namespace Main.Board
             _disposables = disposables;
         }
 
-        /// <summary>ヘッダー <paramref name="playerHeader"/> に人間プレイヤーのネームプレートを構築する。</summary>
+        /// <summary>
+        /// ヘッダー <paramref name="playerHeader"/> に「左三角｜プレート列｜右三角」を構築する。
+        /// プレートは全プレイヤーぶん作り、現在ページの <see cref="PlatesPerPage"/> 人ぶんだけ表示する。
+        /// </summary>
         public void Build(VisualElement playerHeader)
         {
+            // 左のページ送り（三角）。人数が 1 ページに収まるときは非表示。
+            _prevButton = BuildPagerButton("player-pager--prev", "player-pager__triangle--left");
+            _prevButton.clicked += () => ChangePage(-1);
+            playerHeader.Add(_prevButton);
+
+            // 中央：現在ページのプレートを中央寄せで並べるトラック（flex-grow で三角の間を埋めて中央に置く）。
+            VisualElement trackWrap = new() { pickingMode = PickingMode.Ignore };
+            trackWrap.AddToClassList("player-header__track-wrap");
+            VisualElement track = new() { pickingMode = PickingMode.Ignore };
+            track.AddToClassList("player-header__track");
+            trackWrap.Add(track);
+
             for (int player = 0; player < _participants.Count; player++)
             {
-                if (_participants.KindOf(player) != PlayerKind.Human)
-                {
-                    continue; // 相手（CPU 等）は表示しない。自分の情報だけを出す。
-                }
-
-                CharacterId id = _characterPicker.ResolveCharacter(player);
-                string characterName = CharacterCatalog.Find(id).DisplayName;
-
-                // 横型レイアウト：左に丸アイコン、右に情報列（キャラ名／所持金／占領地）。
-                VisualElement plate = new() { pickingMode = PickingMode.Ignore };
-                plate.AddToClassList("board-nameplate");
-
-                plate.Add(BuildAvatar(id));
-
-                VisualElement info = new() { pickingMode = PickingMode.Ignore };
-                info.AddToClassList("board-nameplate__info");
-
-                // 1 段目：キャラ名。
-                Label nameLabel = new(characterName) { pickingMode = PickingMode.Ignore };
-                nameLabel.AddToClassList("board-nameplate__name");
-                info.Add(nameLabel);
-
-                // 2・3 段目：所持金・占領地。
-                info.Add(BuildMoneyRow(player));
-                info.Add(BuildTerritoryRow(player));
-
-                plate.Add(info);
-
-                playerHeader.Add(plate);
+                VisualElement plate = BuildPlate(player);
+                _plates.Add(plate);
+                track.Add(plate);
             }
+            playerHeader.Add(trackWrap);
+
+            // 右のページ送り（三角）。
+            _nextButton = BuildPagerButton("player-pager--next", "player-pager__triangle--right");
+            _nextButton.clicked += () => ChangePage(1);
+            playerHeader.Add(_nextButton);
+
+            _pageCount = Mathf.Max(1, (_participants.Count + PlatesPerPage - 1) / PlatesPerPage);
+            _page = 0;
+            ApplyPage();
+        }
+
+        /// <summary>プレイヤー <paramref name="player"/> 1 人ぶんの横型ネームプレート（左に丸アイコン、右に名前／所持金／占領地）。</summary>
+        private VisualElement BuildPlate(int player)
+        {
+            CharacterId id = _characterPicker.ResolveCharacter(player);
+            string characterName = CharacterCatalog.Find(id).DisplayName;
+
+            VisualElement plate = new() { pickingMode = PickingMode.Ignore };
+            plate.AddToClassList("board-nameplate");
+            // 上辺アクセントをプレイヤー色（コマ・陣地と同じ）にして、盤面の色分けの凡例にする。
+            plate.AddToClassList($"board-nameplate--p{PlayerColors.IndexOf(player)}");
+
+            plate.Add(BuildAvatar(id));
+
+            VisualElement info = new() { pickingMode = PickingMode.Ignore };
+            info.AddToClassList("board-nameplate__info");
+
+            // 1 段目：キャラ名。
+            Label nameLabel = new(characterName) { pickingMode = PickingMode.Ignore };
+            nameLabel.AddToClassList("board-nameplate__name");
+            info.Add(nameLabel);
+
+            // 2・3 段目：所持金・占領地。
+            info.Add(BuildMoneyRow(player));
+            info.Add(BuildTerritoryRow(player));
+
+            plate.Add(info);
+            return plate;
+        }
+
+        /// <summary>ページ送りの三角ボタン。三角形は USS の border トリックで描く子要素で表す。</summary>
+        private static Button BuildPagerButton(string modifierClass, string triangleClass)
+        {
+            Button button = new();
+            button.AddToClassList("player-pager");
+            button.AddToClassList(modifierClass);
+
+            VisualElement triangle = new() { pickingMode = PickingMode.Ignore };
+            triangle.AddToClassList("player-pager__triangle");
+            triangle.AddToClassList(triangleClass);
+            button.Add(triangle);
+            return button;
+        }
+
+        /// <summary>ページを <paramref name="delta"/> ぶん動かして表示を更新する（端でクランプ）。</summary>
+        private void ChangePage(int delta)
+        {
+            _page = Mathf.Clamp(_page + delta, 0, _pageCount - 1);
+            ApplyPage();
+        }
+
+        /// <summary>
+        /// 現在ページのプレートだけ表示し、他は隠す。三角ボタンは 1 ページに収まるなら両方隠し、
+        /// 複数ページなら常に出して端では無効化（薄く）する。
+        /// </summary>
+        private void ApplyPage()
+        {
+            int start = _page * PlatesPerPage;
+            for (int i = 0; i < _plates.Count; i++)
+            {
+                bool visible = i >= start && i < start + PlatesPerPage;
+                _plates[i].style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            bool paged = _pageCount > 1;
+            _prevButton.style.display = paged ? DisplayStyle.Flex : DisplayStyle.None;
+            _nextButton.style.display = paged ? DisplayStyle.Flex : DisplayStyle.None;
+            _prevButton.SetEnabled(_page > 0);
+            _nextButton.SetEnabled(_page < _pageCount - 1);
         }
 
         /// <summary>

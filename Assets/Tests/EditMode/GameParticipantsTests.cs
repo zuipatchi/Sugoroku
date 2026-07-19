@@ -6,23 +6,29 @@ namespace Tests.EditMode
 {
     public class GameParticipantsTests
     {
-        private static GameParticipants SinglePlayer()
+        private static GameParticipants SinglePlayer(int count)
         {
             GameSessionModel session = new();
             session.SetSinglePlayer();
-            return new GameParticipants(session);
+            PlayerCountSessionModel playerCount = new();
+            playerCount.Select(count);
+            return new GameParticipants(session, playerCount);
         }
 
         private static GameParticipants Online()
         {
-            // 既定 Mode は Online。
-            return new GameParticipants(new GameSessionModel());
+            // 既定 Mode は Online。人数モデルは使われない。
+            return new GameParticipants(new GameSessionModel(), new PlayerCountSessionModel());
         }
 
         [Test]
-        public void 一人用モードはHumanとCpuの2人()
+        public void 一人用モードの既定はHumanとCpuの2人()
         {
-            GameParticipants participants = SinglePlayer();
+            // 人数モデルの既定は Min(2)。
+            GameSessionModel session = new();
+            session.SetSinglePlayer();
+            GameParticipants participants = new(session, new PlayerCountSessionModel());
+
             Assert.AreEqual(2, participants.Count);
             Assert.AreEqual(PlayerKind.Human, participants.KindOf(0));
             Assert.AreEqual(PlayerKind.Cpu, participants.KindOf(1));
@@ -30,7 +36,32 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void オンラインはHumanの1人でCpuなし()
+        public void 一人用モードは選んだ人数ぶんの参加者を作り先頭がHuman残りがCpu()
+        {
+            GameParticipants participants = SinglePlayer(4);
+
+            Assert.AreEqual(4, participants.Count);
+            Assert.AreEqual(PlayerKind.Human, participants.KindOf(0));
+            Assert.AreEqual(PlayerKind.Cpu, participants.KindOf(1));
+            Assert.AreEqual(PlayerKind.Cpu, participants.KindOf(2));
+            Assert.AreEqual(PlayerKind.Cpu, participants.KindOf(3));
+        }
+
+        [Test]
+        public void 一人用モードは最大8人まで作れる()
+        {
+            GameParticipants participants = SinglePlayer(8);
+
+            Assert.AreEqual(8, participants.Count);
+            Assert.AreEqual(PlayerKind.Human, participants.KindOf(0));
+            for (int player = 1; player < 8; player++)
+            {
+                Assert.AreEqual(PlayerKind.Cpu, participants.KindOf(player));
+            }
+        }
+
+        [Test]
+        public void オンラインは人数選択に依らずHumanの1人でCpuなし()
         {
             GameParticipants participants = Online();
             Assert.AreEqual(1, participants.Count);

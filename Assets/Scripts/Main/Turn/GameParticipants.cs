@@ -6,16 +6,17 @@ namespace Main.Turn
 {
     /// <summary>
     /// このゲームの参加者リスト。<see cref="GameMode"/> に応じて構成する。
-    /// 一人用モードは [Human, Cpu] の 2 人（CPU と 1 対 1）、
+    /// 一人用モードは [Human, Cpu, ...] の <see cref="PlayerCountSessionModel.Count"/> 人
+    /// （自分 1 人＋残りが CPU。MapSelect で人数を選ぶ）、
     /// オンラインは [Human] の 1 人（従来の単独プレイ挙動）。
     /// </summary>
     public sealed class GameParticipants
     {
         private readonly IReadOnlyList<PlayerKind> _players;
 
-        public GameParticipants(GameSessionModel gameSession)
+        public GameParticipants(GameSessionModel gameSession, PlayerCountSessionModel playerCount)
         {
-            _players = Build(gameSession.Mode);
+            _players = Build(gameSession.Mode, playerCount.Count);
         }
 
         /// <summary>参加者の総数。</summary>
@@ -30,11 +31,18 @@ namespace Main.Turn
             return _players[player];
         }
 
-        private static IReadOnlyList<PlayerKind> Build(GameMode mode)
+        private static IReadOnlyList<PlayerKind> Build(GameMode mode, int playerCount)
         {
             if (mode == GameMode.SinglePlayer)
             {
-                return new[] { PlayerKind.Human, PlayerKind.Cpu };
+                // 自分（先攻＝index 0）＋残りは CPU。人数は PlayerCountSessionModel でクランプ済みだが念のため下限 2。
+                int count = playerCount < 2 ? 2 : playerCount;
+                List<PlayerKind> players = new(count) { PlayerKind.Human };
+                for (int i = 1; i < count; i++)
+                {
+                    players.Add(PlayerKind.Cpu);
+                }
+                return players;
             }
 
             return new[] { PlayerKind.Human };

@@ -12,6 +12,15 @@
             <ui:Label name="MapTitle" class="ms-title" />
         </ui:VisualElement>
         <ui:VisualElement name="Bottom" class="ms-bottom">
+            <!-- プレイヤー人数（自分＋CPU・2〜8）のステッパー。MapSelectPresenter が値を制御する -->
+            <ui:VisualElement name="PlayerCount" class="ms-players">
+                <ui:Label text="プレイヤー人数" class="ms-players__label" />
+                <ui:VisualElement class="ms-stepper">
+                    <ui:Button text="−" name="PlayerCountMinus" class="ms-stepper__btn" />
+                    <ui:Label name="PlayerCountValue" class="ms-stepper__value" />
+                    <ui:Button text="＋" name="PlayerCountPlus" class="ms-stepper__btn" />
+                </ui:VisualElement>
+            </ui:VisualElement>
             <!-- マップのカードはコードで MapGrid に追加する -->
             <ui:VisualElement name="MapGrid" class="ms-grid" />
         </ui:VisualElement>

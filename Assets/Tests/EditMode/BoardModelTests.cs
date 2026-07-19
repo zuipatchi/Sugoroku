@@ -11,7 +11,7 @@ namespace Tests.EditMode
         {
             GameSessionModel session = new();
             session.SetSinglePlayer();
-            return new BoardModel(new GameParticipants(session));
+            return new BoardModel(new GameParticipants(session, new PlayerCountSessionModel()));
         }
 
         [Test]

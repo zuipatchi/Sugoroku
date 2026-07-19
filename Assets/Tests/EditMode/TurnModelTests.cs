@@ -10,12 +10,12 @@ namespace Tests.EditMode
         {
             GameSessionModel session = new();
             session.SetSinglePlayer();
-            return new TurnModel(new GameParticipants(session));
+            return new TurnModel(new GameParticipants(session, new PlayerCountSessionModel()));
         }
 
         private static TurnModel OnlineTurn()
         {
-            return new TurnModel(new GameParticipants(new GameSessionModel()));
+            return new TurnModel(new GameParticipants(new GameSessionModel(), new PlayerCountSessionModel()));
         }
 
         [Test]
