@@ -9,7 +9,7 @@
 4. 問題なければ `/ship` を実行してコミット・ドキュメント更新まで行う
 
 ## テストプレイの仕方
-- 一人用モード: Unity Editor で `Title` シーンから Play し、Home →「一人用モード」→ キャラ選択 → マップ選択（マップ＋人数 2〜8）→ Main で CPU 対戦
+- 一人用モード: Unity Editor で `Title` シーンから Play し、Home →「一人用モード」→ キャラ選択 → マップ選択（マップ＋人数 2〜8）→ Main で CPU 対戦（勝敗が決まると盤面下部の「ホームに戻る」ボタンで Home へ戻れる）
 - オンライン: Multiplayer Play Mode で複数プレイヤーを起動し、Home →「オンラインプレイ」からマッチング（詳細は [docs/matchmaking.md](docs/matchmaking.md)）
 - ミニゲーム単体: `MiniGameTest` シーンをエディタで直接開いて Play（本番フロー外の動作確認用）
 
