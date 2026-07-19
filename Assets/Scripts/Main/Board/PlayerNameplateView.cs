@@ -13,7 +13,7 @@ namespace Main.Board
     /// <summary>
     /// 画面上部に出す全プレイヤーのネームプレート。各プレートはキャラの丸アイコン・キャラ名・
     /// 所持金（<see cref="MoneyModel"/> を購読してリアルタイム更新・マイナスは赤字）・
-    /// 占領地の数（<see cref="TerritoryModel"/> を購読して「占拠数 / 総数」で表示・陣地マスが無い盤面では非表示）
+    /// 占領地の数（<see cref="TerritoryModel"/> を購読して「占拠数 / 勝利に必要な数」で表示・陣地マスが無い盤面では非表示）
     /// を横型で並べる。プレートは横 1 行に置き、1 画面に最大 <see cref="PlatesPerPage"/> 人ぶん表示する。
     /// 人数が超えるぶんは左右端の三角ボタンでページ送りする（3〜4 人で 2 ページ）。
     /// 購読は呼び出し元の <see cref="CompositeDisposable"/> で管理する。
@@ -250,7 +250,7 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// ネームプレート内の占領地表示（旗風バッジ＋「占拠数 / 総数」）。<see cref="TerritoryModel.Changed"/> を
+        /// ネームプレート内の占領地表示（旗風バッジ＋「占拠数 / 勝利に必要な数」）。<see cref="TerritoryModel.Changed"/> を
         /// 購読してリアルタイムに更新する。陣地マスが無い盤面（総数 0）では行を非表示にする。
         /// </summary>
         private VisualElement BuildTerritoryRow(int player)
@@ -269,10 +269,11 @@ namespace Main.Board
 
             // ネームプレート構築が陣地マスの初期化より先でも後でも正しく出るよう、初期値を直接読んで
             // 反映してから変化を購読する（Changed は Initialize / Claim の両方で発火する）。
+            // 分母は陣地マス総数ではなく勝利に必要な数（過半数＝RequiredToWin）を出し、勝利までの進捗を示す。
             void Update()
             {
                 int total = _territory.Total;
-                territoryValue.text = $"{_territory.CountOwnedBy(player)} / {total}";
+                territoryValue.text = $"{_territory.CountOwnedBy(player)} / {_territory.RequiredToWin}";
                 territoryRow.style.display = total > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
