@@ -1158,7 +1158,7 @@ namespace Main.Board
 
         /// <summary>
         /// 陣地マスに着地したプレイヤーがそのマスを占拠する（相手の陣地でも上書き）。
-        /// 過半数を占拠したら勝者を確定する（表示は Winner 購読が行う）。
+        /// 勝利に必要な数を占拠したら勝者を確定する（表示は Winner 購読が行う）。
         /// </summary>
         private void ApplyTerritoryLanding(int player, int position)
         {
@@ -1170,7 +1170,7 @@ namespace Main.Board
             _territory.Claim(player, position); // マスの色替えは Owner 購読が行う
             _soundPlayer.PlaySafe(_soundStore?.Enter3SE);
 
-            if (_territory.HasMajority(player))
+            if (_territory.HasReachedGoal(player))
             {
                 _model.SetWinner(player);
             }

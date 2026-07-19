@@ -1,5 +1,7 @@
 using System;
+using Common.GameSession;
 using Main.Board;
+using Main.Turn;
 using NUnit.Framework;
 using R3;
 
@@ -7,10 +9,21 @@ namespace Tests.EditMode
 {
     public class TerritoryModelTests
     {
+        // 参加者 <paramref name="playerCount"/> 人ぶんの一人用セッションで TerritoryModel を作る
+        // （RequiredToWin の分母＝プレイヤー数を検証するため人数を変えられるようにする）。
+        private static TerritoryModel NewTerritory(int playerCount = 2)
+        {
+            GameSessionModel session = new();
+            session.SetSinglePlayer();
+            PlayerCountSessionModel count = new();
+            count.Select(playerCount);
+            return new TerritoryModel(new GameParticipants(session, count));
+        }
+
         [Test]
         public void Initialize直後は全マス未占拠()
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory();
             territory.Initialize(new[] { 2, 5, 8 });
 
             Assert.AreEqual(3, territory.Total);
@@ -23,7 +36,7 @@ namespace Tests.EditMode
         [Test]
         public void Claimは所有者を上書きして奪える()
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory();
             territory.Initialize(new[] { 2, 5 });
 
             territory.Claim(0, 2);
@@ -40,7 +53,7 @@ namespace Tests.EditMode
         [Test]
         public void ChangedはInitializeと有効なClaimで発火する()
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory();
             int count = 0;
             using IDisposable sub = territory.Changed.Subscribe(_ => count++);
 
@@ -57,7 +70,7 @@ namespace Tests.EditMode
         [Test]
         public void 陣地マス以外へのClaimは無視される()
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory();
             territory.Initialize(new[] { 2 });
 
             territory.Claim(0, 7); // 陣地マスでない
@@ -65,12 +78,15 @@ namespace Tests.EditMode
             Assert.IsNull(territory.Owner(7));
         }
 
-        [TestCase(4, 3)] // 総数4 → 過半数3
-        [TestCase(3, 2)] // 総数3 → 過半数2
-        [TestCase(1, 1)] // 総数1 → 過半数1
-        public void RequiredToWinは過半数(int total, int expected)
+        // RequiredToWin ＝ 総数をプレイヤー数で割った端数切り上げ。
+        [TestCase(2, 8, 4)] // 2人・総数8 → ceil(8/2)=4
+        [TestCase(4, 8, 2)] // 4人・総数8 → ceil(8/4)=2
+        [TestCase(3, 8, 3)] // 3人・総数8 → ceil(8/3)=3
+        [TestCase(4, 7, 2)] // 4人・総数7 → ceil(7/4)=2
+        [TestCase(2, 1, 1)] // 2人・総数1 → ceil(1/2)=1
+        public void RequiredToWinは総数をプレイヤー数で割った切り上げ(int players, int total, int expected)
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory(players);
             int[] cells = new int[total];
             for (int i = 0; i < total; i++)
             {
@@ -82,34 +98,46 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void HasMajorityは過半数占拠で真になる()
+        public void HasReachedGoalは必要数の占拠で真になる()
         {
-            using TerritoryModel territory = new();
-            territory.Initialize(new[] { 0, 1, 2, 3 }); // 過半数 = 3
+            using TerritoryModel territory = NewTerritory(4); // 4人・総数4 → 必要数 ceil(4/4)=1
+            territory.Initialize(new[] { 0, 1, 2, 3 });
+
+            Assert.IsFalse(territory.HasReachedGoal(0), "0個ではまだ到達していない");
+
+            territory.Claim(0, 0);
+            Assert.IsTrue(territory.HasReachedGoal(0), "必要数=1（ceil(4/4)）に到達");
+        }
+
+        [Test]
+        public void HasReachedGoalは2人なら半分の切り上げ()
+        {
+            using TerritoryModel territory = NewTerritory(2); // 2人・総数5 → 必要数 ceil(5/2)=3
+            territory.Initialize(new[] { 0, 1, 2, 3, 4 });
 
             territory.Claim(0, 0);
             territory.Claim(0, 1);
-            Assert.IsFalse(territory.HasMajority(0), "2個ではまだ過半数でない");
+            Assert.IsFalse(territory.HasReachedGoal(0), "2個ではまだ到達していない");
 
             territory.Claim(0, 2);
-            Assert.IsTrue(territory.HasMajority(0), "3個で過半数");
+            Assert.IsTrue(territory.HasReachedGoal(0), "3個（ceil(5/2)）で到達");
         }
 
         [Test]
         public void 陣地マスが無ければ勝利不能()
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory();
             territory.Initialize(new int[0]);
 
             Assert.AreEqual(0, territory.Total);
             Assert.AreEqual(int.MaxValue, territory.RequiredToWin);
-            Assert.IsFalse(territory.HasMajority(0));
+            Assert.IsFalse(territory.HasReachedGoal(0));
         }
 
         [Test]
         public void CellsNotOwnedByは未占拠と相手占拠を返し自分の占拠を除く()
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory();
             territory.Initialize(new[] { 2, 5, 8 });
 
             territory.Claim(0, 2); // 自分（p0）が占拠
@@ -125,7 +153,7 @@ namespace Tests.EditMode
         [Test]
         public void CellsNotOwnedByは全マス自分の占拠なら空()
         {
-            using TerritoryModel territory = new();
+            using TerritoryModel territory = NewTerritory();
             territory.Initialize(new[] { 2, 5 });
 
             territory.Claim(0, 2);
@@ -133,7 +161,7 @@ namespace Tests.EditMode
 
             Assert.IsEmpty(territory.CellsNotOwnedBy(0));
             // 陣地マスが無い盤面でも空。
-            using TerritoryModel empty = new();
+            using TerritoryModel empty = NewTerritory();
             empty.Initialize(new int[0]);
             Assert.IsEmpty(empty.CellsNotOwnedBy(0));
         }

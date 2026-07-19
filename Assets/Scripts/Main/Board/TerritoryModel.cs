@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Main.Turn;
 using R3;
 
 namespace Main.Board
@@ -7,7 +8,8 @@ namespace Main.Board
     /// <summary>
     /// 陣地マス（<see cref="BoardCellEvent.Territory"/>）の占拠状態を保持する Model。
     /// マスに止まったプレイヤーがそのマスを占拠し（相手の陣地でも上書きで奪える）、
-    /// 盤面の陣地マス総数の過半数（<see cref="RequiredToWin"/>）を占拠したプレイヤーが勝つ。
+    /// 陣地マス総数をプレイヤー数で割った数（端数切り上げ＝<see cref="RequiredToWin"/>）を
+    /// 占拠したプレイヤーが勝つ。
     /// 盤面データ（陣地マスの index 一覧）は DI に無いため <see cref="BoardPresenter"/> が
     /// <see cref="Initialize"/> で渡す。占拠の反映（マスの色替え）は Presenter が <see cref="Owner"/> を購読して行う。
     /// </summary>
@@ -20,14 +22,25 @@ namespace Main.Board
         // （個々のマスの色替えは Owner(index) を購読する）。
         private readonly Subject<Unit> _changed = new();
 
+        // 勝利に必要な数の分母に使うプレイヤー数（参加者数）。
+        private readonly int _playerCount;
+
+        public TerritoryModel(GameParticipants participants)
+        {
+            _playerCount = Math.Max(1, participants.Count);
+        }
+
         /// <summary>盤面上の陣地マス総数。</summary>
         public int Total => _owners.Count;
 
         /// <summary>占拠状態が変化した（<see cref="Initialize"/> / <see cref="Claim"/>）ときに通知する。占拠数表示の購読に使う。</summary>
         public Observable<Unit> Changed => _changed;
 
-        /// <summary>勝利に必要な占拠数（陣地マス総数の過半数）。陣地マスが無い盤面では到達不能（int.MaxValue）。</summary>
-        public int RequiredToWin => Total > 0 ? Total / 2 + 1 : int.MaxValue;
+        /// <summary>
+        /// 勝利に必要な占拠数（陣地マス総数をプレイヤー数で割った数の端数切り上げ）。
+        /// 陣地マスが無い盤面では到達不能（int.MaxValue）。
+        /// </summary>
+        public int RequiredToWin => Total > 0 ? (Total + _playerCount - 1) / _playerCount : int.MaxValue;
 
         /// <summary>
         /// 陣地マスの盤面 index 一覧を受け取り、全マスを未占拠（-1）で初期化する。
@@ -109,8 +122,8 @@ namespace Main.Board
             return count;
         }
 
-        /// <summary>プレイヤー <paramref name="player"/> が過半数を占拠している（＝勝利条件を満たす）か。</summary>
-        public bool HasMajority(int player)
+        /// <summary>プレイヤー <paramref name="player"/> が勝利に必要な数（<see cref="RequiredToWin"/>）を占拠している（＝勝利条件を満たす）か。</summary>
+        public bool HasReachedGoal(int player)
         {
             return Total > 0 && CountOwnedBy(player) >= RequiredToWin;
         }
