@@ -29,7 +29,7 @@ namespace Main.Board
         /// <summary>止まると所持金が N 減る。</summary>
         MoneyDown = 6,
 
-        /// <summary>止まるとそのマスを占拠する（相手の陣地でも上書き）。盤面の陣地マスの過半数を占拠すると勝ち。</summary>
+        /// <summary>止まるとそのマスを占拠する（相手の陣地でも上書き）。盤面の陣地マス総数をプレイヤー数で割った数（端数切り上げ）を占拠すると勝ち。</summary>
         Territory = 7,
 
         /// <summary>止まるとランダムなアイテムを 1 つもらえる（<see cref="Item.ItemCatalog"/> から抽選。効果の発動は将来対応）。</summary>

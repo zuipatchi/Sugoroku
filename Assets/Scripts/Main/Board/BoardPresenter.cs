@@ -1123,7 +1123,7 @@ namespace Main.Board
         /// コマが止まったマスのイベントを発動する。お金イベント（増減）と陣地マス（占拠）を扱い、
         /// 進む／戻る／休み／ミニゲームは従来どおり表示のみで未発動。
         /// お金の変化量判定は <see cref="CellEventResolver"/>・加算は <see cref="MoneyModel"/>、
-        /// 陣地の占拠・過半数判定は <see cref="TerritoryModel"/> が担う。
+        /// 陣地の占拠・勝利判定（総数÷プレイヤー数の切り上げ）は <see cref="TerritoryModel"/> が担う。
         /// お金マスで画像ポップアップ（<paramref name="popupShown"/>）を浮遊テキストと同時に消した場合は true を返す。
         /// </summary>
         private async UniTask<bool> ApplyLandingEventAsync(int player, bool popupShown, float floatSeconds, CancellationToken ct)
@@ -1418,7 +1418,7 @@ namespace Main.Board
 
                 _items.Use(_humanPlayer, ItemId.StealTerritory); // 手札からの減算は Used 購読側
 
-                // 着地時と同じ旗演出→占拠確定（上書きで奪う）→過半数なら勝者。
+                // 着地時と同じ旗演出→占拠確定（上書きで奪う）→必要数なら勝者。
                 Sprite flag = _flagIcons != null && _humanPlayer < _flagIcons.Length ? _flagIcons[_humanPlayer] : null;
                 VisualElement targetCell = chosen < _cells.Length ? _cells[chosen] : null;
                 await _landing.PlayTerritoryFlagSequenceAsync(flag, targetCell, () => ApplyTerritoryLanding(_humanPlayer, chosen), ct);

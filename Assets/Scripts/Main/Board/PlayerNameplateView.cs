@@ -269,7 +269,7 @@ namespace Main.Board
 
             // ネームプレート構築が陣地マスの初期化より先でも後でも正しく出るよう、初期値を直接読んで
             // 反映してから変化を購読する（Changed は Initialize / Claim の両方で発火する）。
-            // 分母は陣地マス総数ではなく勝利に必要な数（過半数＝RequiredToWin）を出し、勝利までの進捗を示す。
+            // 分母は陣地マス総数ではなく勝利に必要な数（総数÷プレイヤー数の切り上げ＝RequiredToWin）を出し、勝利までの進捗を示す。
             void Update()
             {
                 int total = _territory.Total;

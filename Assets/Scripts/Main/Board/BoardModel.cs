@@ -33,7 +33,7 @@ namespace Main.Board
         /// <summary>いずれかのコマが移動演出中かどうか（同時に動くコマは 1 つ）。</summary>
         public ReadOnlyReactiveProperty<bool> IsMoving => _isMoving;
 
-        /// <summary>陣地マスの過半数を占拠した勝者プレイヤー index。未決なら -1。</summary>
+        /// <summary>陣地マスの必要数（総数÷プレイヤー数の端数切り上げ）を占拠した勝者プレイヤー index。未決なら -1。</summary>
         public ReadOnlyReactiveProperty<int> Winner => _winner;
 
         /// <summary>勝者が確定しているか（ゲーム終了）。</summary>
@@ -57,7 +57,7 @@ namespace Main.Board
             _isMoving.Value = false;
         }
 
-        /// <summary>勝者を確定する（既に確定していれば上書きしない）。陣地の過半数占拠時に <see cref="Board.TerritoryModel"/> 判定を受けて呼ばれる。</summary>
+        /// <summary>勝者を確定する（既に確定していれば上書きしない）。陣地の必要数（総数÷プレイヤー数の端数切り上げ）占拠時に <see cref="Board.TerritoryModel"/> 判定を受けて呼ばれる。</summary>
         public void SetWinner(int player)
         {
             if (_winner.CurrentValue < 0)
