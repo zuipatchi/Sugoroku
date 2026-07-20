@@ -86,6 +86,12 @@ namespace Main.Board
         // 着地演出のビュー（ポップアップ・お金浮遊テキスト・旗トゥイーン）。BuildCells で UI 要素とともに生成。
         private BoardLandingPresentation _landing;
         private Label _clearLabel;
+        // 手番が移るたびに「〔キャラ名〕の番」を一瞬見せるアナウンス帯とその文言ラベル。
+        private VisualElement _turnBanner;
+        private Label _turnBannerLabel;
+        // 手番アナウンスの購読を 1 度だけ張るためのフラグと、表示→非表示のトゥイーン用トークン。
+        private bool _turnBannerSetup;
+        private CancellationTokenSource _turnBannerCts;
         // 勝敗確定後に出す「ホームに戻る」ボタンとその帯（既定は USS で非表示）。
         private VisualElement _gameOverActions;
         private Button _homeReturnButton;
@@ -239,6 +245,7 @@ namespace Main.Board
             BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
             SetupTerritoriesIfReady();
+            SetupTurnBannerIfReady();
         }
 
         private void Awake()
@@ -256,6 +263,7 @@ namespace Main.Board
             BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
             SetupTerritoriesIfReady();
+            SetupTurnBannerIfReady();
         }
 
         private void OnDestroy()
@@ -263,6 +271,8 @@ namespace Main.Board
             _disposables.Dispose();
             _iconLoader.Dispose();
             _zoomController?.Dispose();
+            _turnBannerCts?.Cancel();
+            _turnBannerCts?.Dispose();
 
             // フォールバックで生成した盤面データ（アセットではない）は明示的に破棄する。
             if (_ownsBoardDef && _boardDef != null)
@@ -338,6 +348,9 @@ namespace Main.Board
             _boardArea = root.Q<VisualElement>("BoardArea");
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _clearLabel = root.Q<Label>("ClearLabel");
+            // 手番アナウンス帯（「〔キャラ名〕の番」）。表示制御は SetupTurnBannerIfReady で購読する。
+            _turnBanner = root.Q<VisualElement>("TurnBanner");
+            _turnBannerLabel = root.Q<Label>("TurnBannerLabel");
             // 勝敗確定後に出す「ホームに戻る」ボタン。既定は USS で非表示。
             _gameOverActions = root.Q<VisualElement>("GameOverActions");
             _homeReturnButton = root.Q<Button>("HomeReturnButton");
@@ -640,6 +653,55 @@ namespace Main.Board
                 VisualElement cell = _cells[index];
                 cell.AddToClassList("board-cell--territory");
                 _disposables.Add(_territory.Owner(index).Subscribe(owner => ApplyTerritoryOwner(cell, cellIndex, owner)));
+            }
+        }
+
+        /// <summary>
+        /// 手番の変化を購読し、手番が移るたびに「〔キャラ名〕の番」のアナウンス帯を出す。
+        /// 購読は 1 度だけ張り、以降は <see cref="TurnModel.CurrentPlayer"/> の変化で自動表示する
+        /// （購読時に現在の手番でも即発火するので、初手番のアナウンスも出る）。
+        /// </summary>
+        private void SetupTurnBannerIfReady()
+        {
+            if (_turnBannerSetup || !_cellsBuilt || _turn == null || _turnBanner == null)
+            {
+                return;
+            }
+            _turnBannerSetup = true;
+            _disposables.Add(_turn.CurrentPlayer.Subscribe(ShowTurnBanner));
+        }
+
+        /// <summary>手番プレイヤーのキャラ名でアナウンス帯を出し、少し見せてから隠す。</summary>
+        private void ShowTurnBanner(int player)
+        {
+            if (_turnBanner == null || _turnBannerLabel == null)
+            {
+                return;
+            }
+
+            CharacterId id = _characterPicker.ResolveCharacter(player);
+            _turnBannerLabel.text = $"{CharacterCatalog.Find(id).DisplayName}の番";
+            _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
+
+            // 手番が続けて変わったときは前回のトゥイーンを打ち切って出し直す。
+            _turnBannerCts?.Cancel();
+            _turnBannerCts?.Dispose();
+            _turnBannerCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyCt);
+            AnimateTurnBannerAsync(_turnBannerCts.Token).Forget();
+        }
+
+        // アナウンス帯を --visible で出し、一定時間見せてから隠す。次の手番で打ち切られたら途中で抜ける。
+        private async UniTaskVoid AnimateTurnBannerAsync(CancellationToken ct)
+        {
+            try
+            {
+                _turnBanner.AddToClassList("turn-banner--visible");
+                await UniTask.Delay(TimeSpan.FromSeconds(1.4), cancellationToken: ct);
+                _turnBanner.RemoveFromClassList("turn-banner--visible");
+            }
+            catch (OperationCanceledException)
+            {
+                // 次の手番アナウンスに差し替えられた（=打ち切り）。--visible はそのまま新しい表示へ引き継ぐ。
             }
         }
 

@@ -1173,6 +1173,51 @@
     color: rgb(235, 200, 90);
 }
 
+/* 手番が移るたびに「〔キャラ名〕の番」を一瞬見せるアナウンス帯。既定は透明＋やや縮小で、
+   --visible が付くとフェード＆拡大して現れる（BoardPresenter が表示→数秒後に外す）。 */
+.turn-banner {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 30%;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    scale: 0.82 0.82;
+    transition-property: opacity, scale;
+    transition-duration: 0.22s, 0.22s;
+}
+
+.turn-banner--visible {
+    opacity: 1;
+    scale: 1 1;
+}
+
+/* アナウンス文言のピル（暗いガラス地＋金の細枠）。勝敗テキストより一回り小さく目立たせる。 */
+.turn-banner__label {
+    padding-top: 10px;
+    padding-right: 24px;
+    padding-bottom: 10px;
+    padding-left: 24px;
+    background-color: rgba(18, 18, 30, 0.92);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255, 225, 120, 0.75);
+    border-right-color: rgba(255, 225, 120, 0.75);
+    border-top-color: rgba(255, 225, 120, 0.75);
+    border-bottom-color: rgba(255, 225, 120, 0.75);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+    font-size: 32px;
+    color: rgb(255, 235, 150);
+    -unity-text-align: middle-center;
+}
+
 /* 勝敗確定後に「ホームに戻る」ボタンを置く帯。既定は非表示で、勝者確定時に --visible を付けて出す。
    コンテナは全幅で中央寄せ、勝敗テキスト（中央）の下に来るよう画面下寄りに置く。 */
 .board-gameover-actions {

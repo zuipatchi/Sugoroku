@@ -10,6 +10,11 @@
         <!-- 自分（YOU）のネームプレートを載せる上部ヘッダー。中身は BoardPresenter が生成する -->
         <ui:VisualElement name="PlayerHeader" class="player-header" picking-mode="Ignore" />
         <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
+        <!-- 手番が移るたびに「〔キャラ名〕の番」を一瞬表示するアナウンス帯。既定は透明で、
+             BoardPresenter が手番の変化を購読して表示→数秒後に隠す。picking-mode=Ignore で盤面操作を通す -->
+        <ui:VisualElement name="TurnBanner" class="turn-banner" picking-mode="Ignore">
+            <ui:Label text="" name="TurnBannerLabel" class="turn-banner__label" picking-mode="Ignore" />
+        </ui:VisualElement>
         <!-- 勝敗確定後に出す「ホームに戻る」ボタン。既定は非表示（USS）で、勝者確定時に BoardPresenter が表示する。
              コンテナは picking-mode=Ignore で盤面タップを通し、ボタンだけ反応する -->
         <ui:VisualElement name="GameOverActions" class="board-gameover-actions" picking-mode="Ignore">
