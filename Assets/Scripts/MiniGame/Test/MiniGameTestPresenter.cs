@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
+using Common.Character;
 using Common.GameSession;
 using Common.MiniGame;
 using Common.SoundManagement;
@@ -141,7 +143,9 @@ namespace MiniGame
             {
                 _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
 
-                MiniGameResult result = await _launcher.PlayAsync(id, _destroyCt, _playerCount);
+                // テストシーンは CharacterSelect を通らないので、各参加者にランダムな重複なしキャラを割り当てる。
+                IReadOnlyList<CharacterId> characters = RandomCharacters(_playerCount);
+                MiniGameResult result = await _launcher.PlayAsync(id, _destroyCt, _playerCount, characters);
 
                 if (_resultLabel != null)
                 {
@@ -157,5 +161,27 @@ namespace MiniGame
             }
         }
 
+        // カタログをシャッフルして先頭から count 体を重複なしで採る（count がカタログ数を超えたら循環）。
+        private static IReadOnlyList<CharacterId> RandomCharacters(int count)
+        {
+            List<CharacterId> pool = new(CharacterCatalog.All.Count);
+            foreach (CharacterDefinition definition in CharacterCatalog.All)
+            {
+                pool.Add(definition.Id);
+            }
+
+            for (int i = pool.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                (pool[i], pool[j]) = (pool[j], pool[i]);
+            }
+
+            List<CharacterId> result = new(count);
+            for (int i = 0; i < count && pool.Count > 0; i++)
+            {
+                result.Add(pool[i % pool.Count]);
+            }
+            return result;
+        }
     }
 }

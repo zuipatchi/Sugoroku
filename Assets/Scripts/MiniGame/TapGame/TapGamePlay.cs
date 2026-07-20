@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Common.Character;
+using Common.MiniGame;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
@@ -23,6 +24,7 @@ namespace MiniGame.TapGame
         private const int RevealLeadInMs = 500;
 
         private readonly TapGameModel _model;
+        private readonly MiniGameSessionModel _session;
         private readonly SoundStore _soundStore;
         private readonly SoundPlayer _soundPlayer;
         private readonly CharacterSessionModel _characterSession;
@@ -45,11 +47,13 @@ namespace MiniGame.TapGame
 
         public TapGamePlay(
             TapGameModel model,
+            MiniGameSessionModel session,
             SoundStore soundStore,
             SoundPlayer soundPlayer,
             CharacterSessionModel characterSession)
         {
             _model = model;
+            _session = session;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _characterSession = characterSession;
@@ -182,7 +186,10 @@ namespace MiniGame.TapGame
                 return;
             }
 
-            CharacterId id = _characterSession.Selected;
+            // プレイヤー（index 0）のキャラはセッション指定を優先し、無ければ選択キャラへフォールバック。
+            CharacterId id = _session != null && _session.Characters.Count > 0
+                ? _session.Characters[0]
+                : _characterSession.Selected;
             CharacterDefinition definition = CharacterCatalog.Find(id);
 
             Sprite card = await _spriteLoader.TryLoadAsync(definition.CardAddress, "キャラカード", ct);

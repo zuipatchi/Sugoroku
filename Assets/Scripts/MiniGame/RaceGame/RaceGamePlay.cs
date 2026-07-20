@@ -128,12 +128,17 @@ namespace MiniGame.RaceGame
             _track.Query<VisualElement>(className: "race-lane").ForEach(lane => lane.RemoveFromHierarchy());
             _runners.Clear();
 
-            CharacterId playerId = _characterSession.Selected;
-            IReadOnlyList<CharacterId> cpuIds = RaceOpponentPicker.PickMany(
-                playerId,
-                CharacterCatalog.All,
-                Mathf.Max(0, runnerCount - 1),
-                count => UnityEngine.Random.Range(0, count));
+            // 参加者キャラはセッション（起動側が指定）から取る。全走者ぶん揃っていればそれを使い、
+            // 揃っていなければ従来解決＝プレイヤーは選択キャラ・CPU は被らないランダム配布にフォールバックする。
+            IReadOnlyList<CharacterId> assigned = _session?.Characters;
+            bool useAssigned = assigned != null && assigned.Count >= runnerCount;
+            IReadOnlyList<CharacterId> cpuFallback = useAssigned
+                ? null
+                : RaceOpponentPicker.PickMany(
+                    _characterSession.Selected,
+                    CharacterCatalog.All,
+                    Mathf.Max(0, runnerCount - 1),
+                    count => UnityEngine.Random.Range(0, count));
 
             // 走者が増えるほど 1 レーンが狭くなるので、走者サイズをレーン数で縮める。
             float runnerSize = Mathf.Clamp(320f / runnerCount, 30f, 76f);
@@ -143,14 +148,17 @@ namespace MiniGame.RaceGame
             for (int runner = 0; runner < runnerCount; runner++)
             {
                 bool isPlayer = runner == 0;
-                CharacterId id = isPlayer ? playerId : cpuIds[runner - 1];
+                CharacterId id = useAssigned
+                    ? assigned[runner]
+                    : (isPlayer ? _characterSession.Selected : cpuFallback[runner - 1]);
 
                 VisualElement lane = new();
                 lane.AddToClassList("race-lane");
                 lane.style.height = Length.Percent(laneHeightPercent);
                 lane.pickingMode = PickingMode.Ignore;
 
-                Label tag = new(RunnerTag(isPlayer, runner, runnerCount)) { pickingMode = PickingMode.Ignore };
+                // ラベルはキャラ名（YOU/CPU の代わり）。色分けクラスでプレイヤー／CPU は残す。
+                Label tag = new(CharacterCatalog.Find(id).DisplayName) { pickingMode = PickingMode.Ignore };
                 tag.AddToClassList("race-lane__tag");
                 tag.AddToClassList(isPlayer ? "race-lane__tag--player" : "race-lane__tag--cpu");
                 lane.Add(tag);
@@ -167,16 +175,6 @@ namespace MiniGame.RaceGame
             }
 
             await UniTask.WhenAll(loads);
-        }
-
-        // レーンのタグ文言。プレイヤーは YOU、CPU は 2 人レースなら CPU、それ以上なら CPU1・CPU2… と番号を振る。
-        private static string RunnerTag(bool isPlayer, int runner, int runnerCount)
-        {
-            if (isPlayer)
-            {
-                return "YOU";
-            }
-            return runnerCount > 2 ? $"CPU{runner}" : "CPU";
         }
 
         private void PlaceAllRunners()

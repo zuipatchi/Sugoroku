@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Common.Character;
 using Common.MiniGame;
 using Common.SoundManagement;
 using Common.Store;
@@ -191,24 +192,12 @@ namespace MiniGame.OverlapGame
             nameLabel.AddToClassList("overlap-card__name");
             button.Add(nameLabel);
 
+            // 選んだ参加者ぶんの名前バッジを開示時に積む入れ物（中身は RevealChoices で生成）。
             VisualElement badges = new() { pickingMode = PickingMode.Ignore };
             badges.AddToClassList("overlap-card__badges");
             button.Add(badges);
 
-            Label youBadge = new("YOU");
-            youBadge.AddToClassList("overlap-card__badge");
-            youBadge.AddToClassList("overlap-card__badge--you");
-            badges.Add(youBadge);
-
-            Label cpuBadge = new("CPU");
-            cpuBadge.AddToClassList("overlap-card__badge");
-            cpuBadge.AddToClassList("overlap-card__badge--cpu");
-            badges.Add(cpuBadge);
-
-            SetDisplay(youBadge, false);
-            SetDisplay(cpuBadge, false);
-
-            return new CardView(button, image, youBadge, cpuBadge);
+            return new CardView(button, image, badges);
         }
 
         private async UniTask ApplyItemImageAsync(CardView card, ItemId id, CancellationToken ct)
@@ -240,20 +229,53 @@ namespace MiniGame.OverlapGame
             _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
         }
 
-        // 全員の選択をカードのバッジで開示する。プレイヤーのカードに YOU、CPU の選んだカードに CPU を出す。
+        // 全員の選択をカードのバッジで開示する。カードを選んだ参加者ぶんのキャラ名バッジを積む
+        // （プレイヤー＝青・CPU＝赤）。プレイヤーのカードが他の誰かと被れば overlapped、被らなければ safe。
         private void RevealChoices()
         {
+            IReadOnlyList<int> cpuChoices = _model.CpuChoiceIndices;
             for (int i = 0; i < _cards.Count; i++)
             {
                 CardView card = _cards[i];
+                card.Badges.Clear();
+
                 bool isPlayer = i == _model.PlayerChoiceIndex;
                 bool isCpu = _model.IsChosenByCpu(i);
-                SetDisplay(card.YouBadge, isPlayer);
-                SetDisplay(card.CpuBadge, isCpu);
+
+                if (isPlayer)
+                {
+                    card.Badges.Add(CreateChooserBadge(0));
+                }
+                for (int j = 0; j < cpuChoices.Count; j++)
+                {
+                    if (cpuChoices[j] == i)
+                    {
+                        card.Badges.Add(CreateChooserBadge(j + 1));
+                    }
+                }
 
                 card.Button.EnableInClassList("overlap-card--overlapped", isPlayer && isCpu);
                 card.Button.EnableInClassList("overlap-card--safe", isPlayer && !isCpu);
             }
+        }
+
+        // 参加者（index 0＝プレイヤー）の名前バッジ。セッションにキャラがあればキャラ名、無ければ YOU/CPU。
+        private Label CreateChooserBadge(int participant)
+        {
+            Label badge = new(LabelForParticipant(participant)) { pickingMode = PickingMode.Ignore };
+            badge.AddToClassList("overlap-card__badge");
+            badge.AddToClassList(participant == 0 ? "overlap-card__badge--you" : "overlap-card__badge--cpu");
+            return badge;
+        }
+
+        private string LabelForParticipant(int participant)
+        {
+            IReadOnlyList<CharacterId> characters = _session?.Characters;
+            if (characters != null && characters.Count > participant)
+            {
+                return CharacterCatalog.Find(characters[participant]).DisplayName;
+            }
+            return participant == 0 ? "YOU" : "CPU";
         }
 
         private void RevealResult()
@@ -295,21 +317,19 @@ namespace MiniGame.OverlapGame
             return UnityEngine.Random.Range(int.MinValue, int.MaxValue);
         }
 
-        // 1 枚の選択カードと、開示時に切り替えるバッジ要素をまとめて持つ。
+        // 1 枚の選択カードと、開示時にキャラ名バッジを積むコンテナをまとめて持つ。
         private readonly struct CardView
         {
-            public CardView(Button button, VisualElement image, Label youBadge, Label cpuBadge)
+            public CardView(Button button, VisualElement image, VisualElement badges)
             {
                 Button = button;
                 Image = image;
-                YouBadge = youBadge;
-                CpuBadge = cpuBadge;
+                Badges = badges;
             }
 
             public Button Button { get; }
             public VisualElement Image { get; }
-            public Label YouBadge { get; }
-            public Label CpuBadge { get; }
+            public VisualElement Badges { get; }
         }
     }
 }

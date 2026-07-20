@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Threading;
+using Common.Character;
 using Common.SceneManagement;
 using Common.Transition;
 using Cysharp.Threading.Tasks;
@@ -29,8 +31,14 @@ namespace Common.MiniGame
         /// <summary>
         /// <paramref name="game"/> を <paramref name="playerCount"/> 人でプレイして結果を返す。多重起動はガードし、
         /// 実行中の呼び出しは <c>default</c> を返す。人数を省略した場合は本番の既定（<see cref="DefaultPlayerCount"/>）で回す。
+        /// <paramref name="characters"/> に参加者（index 0＝プレイヤー）のキャラを渡すと、走者・カードの表示や
+        /// 名前ラベルにそのキャラを使う（省略時は各ゲームが従来の解決＝選択キャラ／YOU・CPU にフォールバック）。
         /// </summary>
-        public async UniTask<MiniGameResult> PlayAsync(MiniGameId game, CancellationToken ct, int playerCount = DefaultPlayerCount)
+        public async UniTask<MiniGameResult> PlayAsync(
+            MiniGameId game,
+            CancellationToken ct,
+            int playerCount = DefaultPlayerCount,
+            IReadOnlyList<CharacterId> characters = null)
         {
             if (_running)
             {
@@ -39,7 +47,7 @@ namespace Common.MiniGame
             _running = true;
             try
             {
-                _session.Begin(game, playerCount);
+                _session.Begin(game, playerCount, characters);
 
                 await _transition.CoverAsync();
 

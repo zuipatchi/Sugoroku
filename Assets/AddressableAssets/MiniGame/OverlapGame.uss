@@ -102,19 +102,21 @@
     left: 0;
     width: 100%;
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: center;
 }
 
 .overlap-card__badge {
-    margin-left: 4px;
-    margin-right: 4px;
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-top: 3px;
-    padding-bottom: 3px;
-    font-size: 18px;
+    margin-left: 3px;
+    margin-right: 3px;
+    margin-bottom: 3px;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    font-size: 15px;
     color: rgb(255, 255, 255);
-    border-radius: 10px;
+    border-radius: 9px;
 }
 
 .overlap-card__badge--you {

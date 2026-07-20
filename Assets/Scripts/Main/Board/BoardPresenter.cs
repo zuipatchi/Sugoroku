@@ -1331,7 +1331,15 @@ namespace Main.Board
 
                 _items.Use(_humanPlayer, ItemId.MiniGame); // 手札からの減算は Used 購読側
 
-                MiniGameResult result = await _launcher.PlayAsync(chosen.Value, ct);
+                // ミニゲームの参加者（既定 2 人）にプレイヤー（=人間の選択キャラ）と CPU の盤面キャラを渡す。
+                // これでミニゲーム側は YOU/CPU でなく実際のキャラで走者・カードを表示する。相手は次の参加者（最初の CPU）。
+                int opponent = _pieceCount > 1 ? (_humanPlayer + 1) % _pieceCount : _humanPlayer;
+                CharacterId[] miniGameCharacters =
+                {
+                    _characterPicker.ResolveCharacter(_humanPlayer),
+                    _characterPicker.ResolveCharacter(opponent),
+                };
+                MiniGameResult result = await _launcher.PlayAsync(chosen.Value, ct, characters: miniGameCharacters);
                 if (this == null)
                 {
                     return;
