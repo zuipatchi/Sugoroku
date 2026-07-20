@@ -20,21 +20,63 @@
     color: rgb(180, 180, 210);
     font-size: 40px;
     -unity-text-align: middle-center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+}
+
+/* 全参加者の連打数を並べるスコアボード（横一列・多人数なら折り返す）。 */
+.tap-scoreboard {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 92%;
+    margin-bottom: 16px;
+}
+
+.tap-score-chip {
+    align-items: center;
+    margin-left: 8px;
+    margin-right: 8px;
+    margin-bottom: 6px;
+}
+
+.tap-score-chip__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 24px;
+    background-color: rgb(60, 66, 92);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.2);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* プレイヤー自身のチップは金枠で強調して、どれが自分か分かるようにする。 */
+.tap-score-chip--you .tap-score-chip__icon {
+    border-color: rgb(255, 210, 90);
+}
+
+.tap-score-chip__count {
+    margin-top: 3px;
+    color: rgb(240, 240, 255);
+    font-size: 24px;
+    -unity-text-align: middle-center;
+}
+
+.tap-score-chip--you .tap-score-chip__count {
+    color: rgb(255, 226, 140);
 }
 
 .tap-character-area {
     width: 80%;
     max-width: 640px;
-    height: 320px;
+    height: 260px;
     align-items: center;
     justify-content: flex-end;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
 .tap-character-card {
-    width: 220px;
-    height: 300px;
+    width: 190px;
+    height: 250px;
     background-color: rgba(0, 0, 0, 0);
     -unity-background-scale-mode: scale-to-fit;
     transform-origin: center;

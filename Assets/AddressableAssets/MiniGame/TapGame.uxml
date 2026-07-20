@@ -2,6 +2,9 @@
     <Style src="TapGame.uss" />
     <ui:VisualElement name="TapRoot" class="tap-root">
         <ui:Label text="残り時間：5.0" name="TimerLabel" class="tap-timer" />
+        <!-- 全参加者の連打数を横一列で逐次表示するスコアボード。チップ（アイコン＋連打数）は
+             参加者数に応じて TapGamePlay が動的生成し、毎フレーム数を更新する -->
+        <ui:VisualElement name="Scoreboard" class="tap-scoreboard" picking-mode="Ignore" />
         <ui:VisualElement name="CharacterArea" class="tap-character-area">
             <ui:VisualElement name="CharacterCard" class="tap-character-card" picking-mode="Ignore" />
         </ui:VisualElement>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Common.Character;
 using Common.MiniGame;
@@ -35,9 +36,13 @@ namespace MiniGame.TapGame
         private Label _centerLabel;
         private Button _tapButton;
         private VisualElement _characterCard;
+        private VisualElement _scoreboard;
         private VisualElement _resultPanel;
         private Label _resultLabel;
         private Button _closeButton;
+
+        // スコアボードの各参加者チップの連打数ラベル（index＝参加者）。毎フレーム更新する。
+        private readonly List<Label> _scoreCountLabels = new();
 
         private readonly AddressableSpriteLoader _spriteLoader = new();
         private Tween _shakeTween;
@@ -70,15 +75,20 @@ namespace MiniGame.TapGame
             _centerLabel = root.Q<Label>("CenterLabel");
             _tapButton = root.Q<Button>("TapButton");
             _characterCard = root.Q<VisualElement>("CharacterCard");
+            _scoreboard = root.Q<VisualElement>("Scoreboard");
             _resultPanel = root.Q<VisualElement>("ResultPanel");
             _resultLabel = root.Q<Label>("ResultLabel");
             _closeButton = root.Q<Button>("CloseButton");
-            if (_timerLabel == null || _countLabel == null || _centerLabel == null
-                || _tapButton == null || _resultPanel == null || _resultLabel == null || _closeButton == null)
+            if (_timerLabel == null || _countLabel == null || _centerLabel == null || _tapButton == null
+                || _scoreboard == null || _resultPanel == null || _resultLabel == null || _closeButton == null)
             {
                 Debug.LogError("TapGame の UI 要素が見つかりませんでした。");
                 return;
             }
+
+            // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけソロ（1 人）へ。
+            int playerCount = _session != null && _session.PlayerCount > 0 ? _session.PlayerCount : 1;
+            _model.Setup(playerCount, NextSeed());
 
             _tapButton.clicked += OnTapClicked;
             _closeButton.clicked += OnCloseClicked;
@@ -103,10 +113,77 @@ namespace MiniGame.TapGame
             _closeSource = new UniTaskCompletionSource();
 
             await ApplyCharacterCardAsync(ct);
+            await BuildScoreboardAsync(ct);
+        }
+
+        // 参加者数ぶんのスコアボードチップ（キャラアイコン＋連打数）を生成し、アイコンを並列ロードして貼る。
+        // 連打数ラベルは _scoreCountLabels に控え、進行中は毎フレーム更新する。
+        private async UniTask BuildScoreboardAsync(CancellationToken ct)
+        {
+            _scoreboard.Clear();
+            _scoreCountLabels.Clear();
+
+            int count = _model.ParticipantCount;
+            IReadOnlyList<CharacterId> characters = _session?.Characters;
+
+            List<UniTask> loads = new(count);
+            for (int p = 0; p < count; p++)
+            {
+                bool isPlayer = p == 0;
+                CharacterId id = characters != null && characters.Count > p
+                    ? characters[p]
+                    : (isPlayer ? _characterSession.Selected : CharacterCatalog.All[p % CharacterCatalog.All.Count].Id);
+
+                VisualElement chip = new() { pickingMode = PickingMode.Ignore };
+                chip.AddToClassList("tap-score-chip");
+                if (isPlayer)
+                {
+                    chip.AddToClassList("tap-score-chip--you");
+                }
+
+                VisualElement icon = new() { pickingMode = PickingMode.Ignore };
+                icon.AddToClassList("tap-score-chip__icon");
+                chip.Add(icon);
+
+                Label countLabel = new("0") { pickingMode = PickingMode.Ignore };
+                countLabel.AddToClassList("tap-score-chip__count");
+                chip.Add(countLabel);
+
+                _scoreboard.Add(chip);
+                _scoreCountLabels.Add(countLabel);
+                loads.Add(ApplyChipIconAsync(icon, id, ct));
+            }
+
+            await UniTask.WhenAll(loads);
+        }
+
+        private async UniTask ApplyChipIconAsync(VisualElement icon, CharacterId id, CancellationToken ct)
+        {
+            CharacterDefinition definition = CharacterCatalog.Find(id);
+            Sprite sprite = await _spriteLoader.TryLoadAsync(definition.PieceIconAddress, "コマアイコン", ct);
+            if (sprite != null)
+            {
+                icon.style.backgroundImage = new StyleBackground(sprite);
+            }
+            else
+            {
+                icon.style.backgroundImage = StyleKeyword.None;
+                icon.style.backgroundColor = CharacterPalette.PlaceholderColorFor(id);
+            }
+        }
+
+        // スコアボードの各連打数ラベルを現在値へ更新する（進行中に毎フレーム呼ぶ）。
+        private void UpdateScoreboard()
+        {
+            for (int p = 0; p < _scoreCountLabels.Count; p++)
+            {
+                _scoreCountLabels[p].text = _model.TapCountOf(p).ToString();
+            }
         }
 
         /// <summary>
-        /// カウントダウン → 計測 → 結果表示を駆動し、「結果を反映」クリックでタップ数をスコアとして返す。
+        /// カウントダウン → 計測 → 結果表示を駆動し、「結果を反映」クリックでスコア（1 位=1／それ以外=0）を返す。
+        /// 計測中は各 CPU を <see cref="TapGameModel.Tick"/> で自動連打させ、スコアボードを毎フレーム更新する。
         /// フェードイン後に呼ばれる想定で、Forget して走らせる。
         /// </summary>
         public async UniTask<int> RunAsync(CancellationToken ct)
@@ -124,23 +201,51 @@ namespace MiniGame.TapGame
             await MiniGameCountdown.RunAsync(_centerLabel, _soundStore, _soundPlayer, ct);
 
             _model.StartPlaying(PlayDurationSeconds);
+            UpdateScoreboard();
 
             float elapsed = 0f;
             while (elapsed < PlayDurationSeconds)
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, ct);
-                elapsed += Time.deltaTime;
+                float dt = Time.deltaTime;
+                elapsed += dt;
+                _model.Tick(dt);
                 _model.UpdateRemaining(PlayDurationSeconds - elapsed);
+                UpdateScoreboard();
             }
 
             _model.Finish();
+            UpdateScoreboard();
             _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
 
-            int score = _model.TapCount.CurrentValue;
-            _resultLabel.text = $"タップ数 {score} 回！";
+            int playerTaps = _model.TapCount.CurrentValue;
+            bool win = _model.IsPlayerWin;
+            _resultLabel.text = win
+                ? $"1位！　タップ数 {playerTaps} 回"
+                : $"{PlayerRank()}位　タップ数 {playerTaps} 回";
 
             await _closeSource.Task.AttachExternalCancellation(ct);
-            return _model.TapCount.CurrentValue;
+            return win ? 1 : 0;
+        }
+
+        // プレイヤーの順位（1 位＝自分より多い参加者が 0 人）。同数は同順で自分を上に見なす。
+        private int PlayerRank()
+        {
+            int playerTaps = _model.TapCountOf(0);
+            int rank = 1;
+            for (int p = 1; p < _model.ParticipantCount; p++)
+            {
+                if (_model.TapCountOf(p) > playerTaps)
+                {
+                    rank++;
+                }
+            }
+            return rank;
+        }
+
+        private static int NextSeed()
+        {
+            return UnityEngine.Random.Range(int.MinValue, int.MaxValue);
         }
 
         public void Dispose()

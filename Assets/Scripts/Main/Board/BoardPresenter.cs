@@ -1293,10 +1293,6 @@ namespace Main.Board
         /// ミニゲームアイテムで勝ったときに得る所持金報酬。
         /// </summary>
         private const int MiniGameRewardMoney = 500;
-        // タップ連打の勝敗に使う CPU の想定タップ数レンジ（5 秒間・両端含む）。
-        // 人間のタップ数がこの抽選値以上なら 1 位＝勝ちとする。
-        private const int MiniGameCpuTapMin = 25;
-        private const int MiniGameCpuTapMax = 40;
 
         /// <summary>
         /// ミニゲームアイテムの効果。遊ぶミニゲームを選ばせ（キャンセルなら消費せず終了）、
@@ -1372,20 +1368,12 @@ namespace Main.Board
 
         /// <summary>
         /// ミニゲームの結果 <paramref name="result"/> から人間プレイヤーの勝ち（1 位）かを判定する。
-        /// 2D レースは先着（スコア 1=勝ち）、タップ連打はスコア＝タップ数を CPU の想定タップ数と比べて
-        /// 同数以上なら勝ち（順位づけの CPU 側は <see cref="_itemRng"/> で抽選する）。
+        /// いずれのゲームもスコア 1=勝ち／0=負けで報告する（2D レースは先着、タップ連打は連打数 1 位、
+        /// 被っちゃやーよは獲得。CPU の連打はゲーム側でシミュレートするのでここでの想定値比較は不要）。
         /// </summary>
         private bool DetermineMiniGameWin(MiniGameResult result)
         {
-            switch (result.Game)
-            {
-                case MiniGameId.Race:
-                    return result.Score == 1;
-                case MiniGameId.Tap:
-                default:
-                    int cpuTaps = _itemRng.Next(MiniGameCpuTapMin, MiniGameCpuTapMax + 1);
-                    return result.Score >= cpuTaps;
-            }
+            return result.Score == 1;
         }
 
         /// <summary>
