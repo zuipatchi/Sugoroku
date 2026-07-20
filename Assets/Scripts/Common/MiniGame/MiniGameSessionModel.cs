@@ -15,10 +15,18 @@ namespace Common.MiniGame
         /// <summary>現在プレイ中のミニゲーム。ホストはこれを見て中身を切り替える。</summary>
         public MiniGameId CurrentGame { get; private set; }
 
-        /// <summary>起動側が呼ぶ。遊ぶゲームを設定し、結果待ちを初期化する。</summary>
-        public void Begin(MiniGameId game)
+        /// <summary>
+        /// 現在のミニゲームの参加者数（人間＋CPU）。人数を使うゲーム（被っちゃやーよ）が参照する。
+        /// MiniGame シーンは別スコープで <c>GameParticipants</c> を直接注入できないため、起動側が
+        /// <see cref="Begin"/> でここへ渡す。
+        /// </summary>
+        public int PlayerCount { get; private set; }
+
+        /// <summary>起動側が呼ぶ。遊ぶゲームと参加者数を設定し、結果待ちを初期化する。</summary>
+        public void Begin(MiniGameId game, int playerCount)
         {
             CurrentGame = game;
+            PlayerCount = playerCount;
             _resultSource = new UniTaskCompletionSource<MiniGameResult>();
         }
 

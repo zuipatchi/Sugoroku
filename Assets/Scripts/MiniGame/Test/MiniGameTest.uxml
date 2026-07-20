@@ -3,6 +3,14 @@
     <ui:VisualElement name="TestRoot" class="test-root">
         <ui:Label text="ミニゲーム テスト" name="TitleLabel" class="test-title" />
         <ui:Label text="遊ぶミニゲームを選んでください" name="ResultLabel" class="test-result" />
+        <!-- ミニゲームの参加者数（人間＋CPU）を選ぶステッパー。−／＋ で 2〜8 を増減し、選んだ人数で起動する。
+             人数を使うのは被っちゃやーよ（提示アイテム数＝人数・CPU も人数ぶん選ぶ）。タップ連打・2Dレースは人数非依存 -->
+        <ui:VisualElement name="PlayerCountRow" class="test-count-row">
+            <ui:Label text="人数" class="test-count-caption" />
+            <ui:Button text="−" name="PlayerCountMinus" class="test-count-button" />
+            <ui:Label text="2" name="PlayerCountValue" class="test-count-value" />
+            <ui:Button text="＋" name="PlayerCountPlus" class="test-count-button" />
+        </ui:VisualElement>
         <ui:VisualElement name="GameList" class="test-list" />
     </ui:VisualElement>
 </ui:UXML>

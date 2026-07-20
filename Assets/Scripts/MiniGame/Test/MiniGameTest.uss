@@ -23,6 +23,50 @@
     margin-bottom: 40px;
 }
 
+.test-count-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 32px;
+}
+
+.test-count-caption {
+    color: rgb(180, 180, 210);
+    font-size: 28px;
+    margin-right: 20px;
+}
+
+.test-count-button {
+    width: 60px;
+    height: 60px;
+    background-color: rgb(70, 90, 180);
+    color: rgb(255, 255, 255);
+    font-size: 34px;
+    border-radius: 12px;
+    border-width: 0;
+}
+
+.test-count-button:hover {
+    background-color: rgb(85, 105, 198);
+}
+
+.test-count-button:active {
+    background-color: rgb(50, 65, 145);
+    scale: 0.98 0.98;
+}
+
+.test-count-button:disabled {
+    background-color: rgb(45, 50, 70);
+    color: rgb(110, 115, 135);
+}
+
+.test-count-value {
+    min-width: 72px;
+    color: rgb(240, 240, 255);
+    font-size: 40px;
+    -unity-text-align: middle-center;
+}
+
 .test-list {
     width: 72%;
     max-width: 560px;

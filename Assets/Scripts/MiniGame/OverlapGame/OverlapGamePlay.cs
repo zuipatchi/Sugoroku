@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Common.MiniGame;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
@@ -21,6 +22,7 @@ namespace MiniGame.OverlapGame
         private const int RevealPauseMs = 900;  // オープン演出（バッジ表示）を見せてから結果を出すまでの間
 
         private readonly OverlapGameModel _model;
+        private readonly MiniGameSessionModel _session;
         private readonly SoundStore _soundStore;
         private readonly SoundPlayer _soundPlayer;
 
@@ -40,10 +42,12 @@ namespace MiniGame.OverlapGame
 
         public OverlapGamePlay(
             OverlapGameModel model,
+            MiniGameSessionModel session,
             SoundStore soundStore,
             SoundPlayer soundPlayer)
         {
             _model = model;
+            _session = session;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
         }
@@ -69,7 +73,9 @@ namespace MiniGame.OverlapGame
                 return;
             }
 
-            _model.Setup(OverlapGameConfig.DefaultPlayerCount, NextSeed());
+            // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけ既定へフォールバック。
+            int playerCount = _session.PlayerCount > 0 ? _session.PlayerCount : OverlapGameConfig.DefaultPlayerCount;
+            _model.Setup(playerCount, NextSeed());
 
             _closeSource = new UniTaskCompletionSource();
             _closeButton.clicked += OnCloseClicked;

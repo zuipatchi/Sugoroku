@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Common.GameSession;
 using Common.MiniGame;
 using Common.SoundManagement;
 using Common.Store;
@@ -26,6 +27,11 @@ namespace MiniGame
         private UIDocument _uiDocument;
         private VisualElement _list;
         private Label _resultLabel;
+        private Button _playerCountMinus;
+        private Button _playerCountPlus;
+        private Label _playerCountValue;
+        // 起動するミニゲームの参加者数（人間＋CPU）。−／＋ で 2〜8 を増減する。
+        private int _playerCount = PlayerCountSessionModel.Min;
         private CancellationToken _destroyCt;
         private bool _busy;
 
@@ -59,13 +65,55 @@ namespace MiniGame
 
             _list = root.Q<VisualElement>("GameList");
             _resultLabel = root.Q<Label>("ResultLabel");
-            if (_list == null || _resultLabel == null)
+            _playerCountMinus = root.Q<Button>("PlayerCountMinus");
+            _playerCountPlus = root.Q<Button>("PlayerCountPlus");
+            _playerCountValue = root.Q<Label>("PlayerCountValue");
+            if (_list == null || _resultLabel == null
+                || _playerCountMinus == null || _playerCountPlus == null || _playerCountValue == null)
             {
                 Debug.LogError("MiniGameTest の UI 要素が見つかりませんでした。");
                 return;
             }
 
+            // OnEnable が複数回走っても二重購読しないよう、都度外してから張り直す。
+            _playerCountMinus.clicked -= OnPlayerCountMinusClicked;
+            _playerCountMinus.clicked += OnPlayerCountMinusClicked;
+            _playerCountPlus.clicked -= OnPlayerCountPlusClicked;
+            _playerCountPlus.clicked += OnPlayerCountPlusClicked;
+            UpdatePlayerCount();
+
             BuildButtons();
+        }
+
+        private void OnPlayerCountMinusClicked()
+        {
+            ChangePlayerCount(-1);
+        }
+
+        private void OnPlayerCountPlusClicked()
+        {
+            ChangePlayerCount(1);
+        }
+
+        // 人数を増減して表示・ボタンの有効状態を更新する（SE つき）。範囲端では何もしない。
+        private void ChangePlayerCount(int delta)
+        {
+            int next = Mathf.Clamp(_playerCount + delta, PlayerCountSessionModel.Min, PlayerCountSessionModel.Max);
+            if (next == _playerCount)
+            {
+                return;
+            }
+            _playerCount = next;
+            _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
+            UpdatePlayerCount();
+        }
+
+        // 現在の人数を数値ラベルに反映し、下限/上限で −／＋ を無効化する。
+        private void UpdatePlayerCount()
+        {
+            _playerCountValue.text = _playerCount.ToString();
+            _playerCountMinus.SetEnabled(_playerCount > PlayerCountSessionModel.Min);
+            _playerCountPlus.SetEnabled(_playerCount < PlayerCountSessionModel.Max);
         }
 
         // カタログの各ミニゲームを 1 ボタンずつ生成する。増えたら自動で並ぶ。
@@ -93,7 +141,7 @@ namespace MiniGame
             {
                 _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
 
-                MiniGameResult result = await _launcher.PlayAsync(id, _destroyCt);
+                MiniGameResult result = await _launcher.PlayAsync(id, _destroyCt, _playerCount);
 
                 if (_resultLabel != null)
                 {

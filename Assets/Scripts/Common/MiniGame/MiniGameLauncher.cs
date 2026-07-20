@@ -13,6 +13,9 @@ namespace Common.MiniGame
     /// </summary>
     public sealed class MiniGameLauncher
     {
+        // 参加者数を指定しない呼び出し（本番の盤面ミニゲーム）の既定人数＝一人用の [Human, Cpu]。
+        private const int DefaultPlayerCount = 2;
+
         private readonly TransitionPresenter _transition;
         private readonly MiniGameSessionModel _session;
         private bool _running;
@@ -24,10 +27,10 @@ namespace Common.MiniGame
         }
 
         /// <summary>
-        /// <paramref name="game"/> をプレイして結果を返す。多重起動はガードし、実行中の呼び出しは
-        /// <c>default</c> を返す。
+        /// <paramref name="game"/> を <paramref name="playerCount"/> 人でプレイして結果を返す。多重起動はガードし、
+        /// 実行中の呼び出しは <c>default</c> を返す。人数を省略した場合は本番の既定（<see cref="DefaultPlayerCount"/>）で回す。
         /// </summary>
-        public async UniTask<MiniGameResult> PlayAsync(MiniGameId game, CancellationToken ct)
+        public async UniTask<MiniGameResult> PlayAsync(MiniGameId game, CancellationToken ct, int playerCount = DefaultPlayerCount)
         {
             if (_running)
             {
@@ -36,7 +39,7 @@ namespace Common.MiniGame
             _running = true;
             try
             {
-                _session.Begin(game);
+                _session.Begin(game, playerCount);
 
                 await _transition.CoverAsync();
 
