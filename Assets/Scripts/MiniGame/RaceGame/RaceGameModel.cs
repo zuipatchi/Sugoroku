@@ -5,52 +5,79 @@ using UnityEngine;
 namespace MiniGame.RaceGame
 {
     /// <summary>
-    /// タイミングメーター式 2D レースの状態。プレイヤーと CPU が進捗 0（右端スタート）→ 1（左端ゴール）を
-    /// 競う。全走者はベース速度でゆっくり進み、プレイヤーはメーターを止めた判定（Great/Good）で前進を上乗せする。
-    /// CPU はプレイヤーと同じベース速度で進み、ランダムな間隔で Great/Good/Miss を抽選して前進する。
-    /// 時間の進行は Presenter が <see cref="Tick"/>／<see cref="ApplyTap"/> で駆動し、ここはフェーズ・進捗・
-    /// 勝敗だけを持つ純粋ロジック。CPU の抽選は <see cref="System.Random"/> で決定的。
+    /// タイミングメーター式 2D レースの状態。走者はプレイヤー（走者 index 0）＋ CPU（1〜N-1）で、全員が
+    /// 進捗 0（右端スタート）→ 1（左端ゴール）を競う。全走者はベース速度でゆっくり進み、プレイヤーはメーターを
+    /// 止めた判定（Great/Good）で前進を上乗せする。各 CPU は独立したタイマーでランダムに Great/Good/Miss を
+    /// 抽選して前進する。時間の進行は Presenter が <see cref="Tick"/>／<see cref="ApplyTap"/> で駆動し、ここは
+    /// フェーズ・進捗・勝敗だけを持つ純粋ロジック。CPU の抽選は <see cref="System.Random"/> で決定的。
     /// </summary>
     public sealed class RaceGameModel : IDisposable
     {
+        // レースは最低 2 走者（プレイヤー＋CPU1体）で成立させる。
+        private const int MinRunnerCount = 2;
+
         private readonly ReactiveProperty<RaceGamePhase> _phase = new(RaceGamePhase.Ready);
 
         private RaceGameConfig _config = RaceGameConfig.Default;
         private System.Random _random;
-        private float _playerProgress;
-        private float _cpuProgress;
-        private float _cpuTapTimer;
+        // 走者ごとの進捗（index 0 = プレイヤー、1〜 = CPU）。
+        private float[] _progress = new float[MinRunnerCount];
+        // 走者ごとの次抽選までの残り秒（プレイヤー枠 index 0 は未使用）。
+        private float[] _cpuTapTimer = new float[MinRunnerCount];
+        private int _runnerCount = MinRunnerCount;
 
         /// <summary>現在のフェーズ。</summary>
         public ReadOnlyReactiveProperty<RaceGamePhase> Phase => _phase;
 
-        /// <summary>プレイヤーの進捗（0=スタート／1=ゴール）。</summary>
-        public float PlayerProgress => _playerProgress;
+        /// <summary>走者の総数（プレイヤー＋CPU）。</summary>
+        public int RunnerCount => _runnerCount;
 
-        /// <summary>CPU の進捗（0=スタート／1=ゴール）。</summary>
-        public float CpuProgress => _cpuProgress;
+        /// <summary>走者 <paramref name="runner"/>（0=プレイヤー）の進捗（0=スタート／1=ゴール）。範囲外は 0。</summary>
+        public float Progress(int runner)
+        {
+            return runner >= 0 && runner < _runnerCount ? _progress[runner] : 0f;
+        }
 
-        /// <summary>勝者。まだ決着していなければ null。</summary>
-        public RaceRunner? Winner { get; private set; }
+        /// <summary>プレイヤー（走者 index 0）の進捗。</summary>
+        public float PlayerProgress => Progress(0);
 
-        /// <summary>プレイヤーが勝ったか。決着前は false。</summary>
-        public bool IsPlayerWin => Winner == RaceRunner.Player;
+        /// <summary>先頭 CPU（走者 index 1）の進捗。2 人レースの相手にあたる。</summary>
+        public float CpuProgress => Progress(1);
 
-        /// <summary>レースを準備する。進捗を 0 に戻しフェーズを <see cref="RaceGamePhase.Ready"/> にする。</summary>
+        /// <summary>勝者の走者 index（0=プレイヤー）。まだ決着していなければ null。</summary>
+        public int? WinnerIndex { get; private set; }
+
+        /// <summary>プレイヤー（走者 index 0）が勝ったか。決着前は false。</summary>
+        public bool IsPlayerWin => WinnerIndex == 0;
+
+        /// <summary>レースを準備する（2 走者＝既定コンフィグ）。進捗を 0 に戻しフェーズを <see cref="RaceGamePhase.Ready"/> に。</summary>
         public void Setup(int seed)
         {
             Setup(RaceGameConfig.Default, seed);
         }
 
-        /// <summary><see cref="Setup(int)"/> のパラメータ指定版。</summary>
+        /// <summary><see cref="Setup(int)"/> のコンフィグ指定版（2 走者）。</summary>
         public void Setup(RaceGameConfig config, int seed)
+        {
+            Setup(config, MinRunnerCount, seed);
+        }
+
+        /// <summary>
+        /// <paramref name="playerCount"/> 人（プレイヤー 1 ＋ CPU <c>playerCount-1</c> 体）でレースを準備する。
+        /// 進捗を 0 に戻し、各 CPU の抽選タイマーを初期化してフェーズを <see cref="RaceGamePhase.Ready"/> にする。
+        /// </summary>
+        public void Setup(RaceGameConfig config, int playerCount, int seed)
         {
             _config = config;
             _random = new System.Random(seed);
-            _playerProgress = 0f;
-            _cpuProgress = 0f;
-            _cpuTapTimer = NextCpuInterval();
-            Winner = null;
+            _runnerCount = Mathf.Max(MinRunnerCount, playerCount);
+            _progress = new float[_runnerCount];
+            _cpuTapTimer = new float[_runnerCount];
+            for (int runner = 1; runner < _runnerCount; runner++)
+            {
+                _cpuTapTimer[runner] = NextCpuInterval();
+            }
+            WinnerIndex = null;
             _phase.Value = RaceGamePhase.Ready;
         }
 
@@ -88,7 +115,7 @@ namespace MiniGame.RaceGame
         }
 
         /// <summary>
-        /// メーターを止める。判定に応じてプレイヤーを前進させ、ゴールしたら決着させる。判定を返す。
+        /// メーターを止める。判定に応じてプレイヤー（走者 index 0）を前進させ、ゴールしたら決着させる。判定を返す。
         /// レース中以外は何もせず <see cref="MeterJudgement.Miss"/> を返す。
         /// </summary>
         public MeterJudgement ApplyTap(float meterValue)
@@ -99,14 +126,14 @@ namespace MiniGame.RaceGame
             }
 
             MeterJudgement judgement = Judge(meterValue);
-            _playerProgress += BoostFor(judgement);
+            _progress[0] += BoostFor(judgement);
             ResolveFinish();
             return judgement;
         }
 
         /// <summary>
-        /// 時間を <paramref name="deltaSeconds"/> 進める。プレイヤーと CPU を同じベース速度で前進させ、CPU は
-        /// ランダムな間隔で Great/Good/Miss を抽選して（プレイヤーのタップと同じ量で）前進する。
+        /// 時間を <paramref name="deltaSeconds"/> 進める。全走者を同じベース速度で前進させ、各 CPU は独立した
+        /// タイマーでランダムに Great/Good/Miss を抽選して（プレイヤーのタップと同じ量で）前進する。
         /// ゴールしたら決着させる。レース中以外は何もしない。
         /// </summary>
         public void Tick(float deltaSeconds)
@@ -116,14 +143,19 @@ namespace MiniGame.RaceGame
                 return;
             }
 
-            _playerProgress += _config.BaseSpeed * deltaSeconds;
-            _cpuProgress += _config.BaseSpeed * deltaSeconds;
-
-            _cpuTapTimer -= deltaSeconds;
-            while (_cpuTapTimer <= 0f)
+            for (int runner = 0; runner < _runnerCount; runner++)
             {
-                _cpuProgress += BoostFor(NextCpuJudgement());
-                _cpuTapTimer += NextCpuInterval();
+                _progress[runner] += _config.BaseSpeed * deltaSeconds;
+            }
+
+            for (int runner = 1; runner < _runnerCount; runner++)
+            {
+                _cpuTapTimer[runner] -= deltaSeconds;
+                while (_cpuTapTimer[runner] <= 0f)
+                {
+                    _progress[runner] += BoostFor(NextCpuJudgement());
+                    _cpuTapTimer[runner] += NextCpuInterval();
+                }
             }
 
             ResolveFinish();
@@ -169,35 +201,41 @@ namespace MiniGame.RaceGame
             _phase.Dispose();
         }
 
-        // どちらかがゴール（進捗 >= 1）したら進捗をクランプし勝者を確定する。
-        // 同時到達はより先行している側（同値ならプレイヤー）を勝ちとする。
+        // いずれかの走者がゴール（進捗 >= 1）したら進捗をクランプし勝者を確定する。
+        // 複数が同時到達したらより先行している走者を勝ちとし、同値なら若い index（プレイヤー優先）を勝ちにする。
         private void ResolveFinish()
         {
-            if (Winner.HasValue)
+            if (WinnerIndex.HasValue)
             {
                 return;
             }
 
-            bool playerDone = _playerProgress >= 1f;
-            bool cpuDone = _cpuProgress >= 1f;
-            if (!playerDone && !cpuDone)
+            int winner = -1;
+            float winnerProgress = 0f;
+            for (int runner = 0; runner < _runnerCount; runner++)
+            {
+                if (_progress[runner] < 1f)
+                {
+                    continue;
+                }
+                // 同値なら先に見つかった若い index を勝ちに残す（> で厳密比較）。
+                if (winner < 0 || _progress[runner] > winnerProgress)
+                {
+                    winner = runner;
+                    winnerProgress = _progress[runner];
+                }
+            }
+
+            if (winner < 0)
             {
                 return;
             }
 
-            RaceRunner winner;
-            if (playerDone && cpuDone)
+            for (int runner = 0; runner < _runnerCount; runner++)
             {
-                winner = _playerProgress >= _cpuProgress ? RaceRunner.Player : RaceRunner.Cpu;
+                _progress[runner] = Mathf.Clamp01(_progress[runner]);
             }
-            else
-            {
-                winner = playerDone ? RaceRunner.Player : RaceRunner.Cpu;
-            }
-
-            _playerProgress = Mathf.Clamp01(_playerProgress);
-            _cpuProgress = Mathf.Clamp01(_cpuProgress);
-            Winner = winner;
+            WinnerIndex = winner;
             _phase.Value = RaceGamePhase.Finished;
         }
     }

@@ -58,7 +58,7 @@ namespace Tests.EditMode
             Assert.AreEqual(RaceGamePhase.Ready, _model.Phase.CurrentValue);
             Assert.AreEqual(0f, _model.PlayerProgress, Delta);
             Assert.AreEqual(0f, _model.CpuProgress, Delta);
-            Assert.IsFalse(_model.Winner.HasValue);
+            Assert.IsFalse(_model.WinnerIndex.HasValue);
             Assert.IsFalse(_model.IsPlayerWin);
         }
 
@@ -151,7 +151,7 @@ namespace Tests.EditMode
             _model.ApplyTap(0.5f); // Great で 1.5 → クランプして 1
 
             Assert.AreEqual(RaceGamePhase.Finished, _model.Phase.CurrentValue);
-            Assert.AreEqual(RaceRunner.Player, _model.Winner);
+            Assert.AreEqual(0, _model.WinnerIndex);
             Assert.IsTrue(_model.IsPlayerWin);
             Assert.AreEqual(1f, _model.PlayerProgress, Delta); // [0,1] にクランプ
 
@@ -184,7 +184,7 @@ namespace Tests.EditMode
             }
 
             Assert.AreEqual(RaceGamePhase.Finished, _model.Phase.CurrentValue);
-            Assert.AreEqual(RaceRunner.Cpu, _model.Winner);
+            Assert.AreEqual(1, _model.WinnerIndex);
             Assert.IsFalse(_model.IsPlayerWin);
             Assert.AreEqual(1f, _model.CpuProgress, Delta);
             Assert.Less(_model.PlayerProgress, 1f);
@@ -223,7 +223,96 @@ namespace Tests.EditMode
 
                 Assert.AreEqual(a.PlayerProgress, b.PlayerProgress, Delta);
                 Assert.AreEqual(a.CpuProgress, b.CpuProgress, Delta);
-                Assert.AreEqual(a.Winner, b.Winner);
+                Assert.AreEqual(a.WinnerIndex, b.WinnerIndex);
+            }
+            finally
+            {
+                a.Dispose();
+                b.Dispose();
+            }
+        }
+
+        [Test]
+        public void 人数指定Setupで走者数ぶんが進捗0のReadyになる()
+        {
+            _model.Setup(FixedConfig(), playerCount: 4, seed: 1);
+
+            Assert.AreEqual(4, _model.RunnerCount);
+            Assert.AreEqual(RaceGamePhase.Ready, _model.Phase.CurrentValue);
+            for (int runner = 0; runner < _model.RunnerCount; runner++)
+            {
+                Assert.AreEqual(0f, _model.Progress(runner), Delta);
+            }
+            Assert.IsFalse(_model.WinnerIndex.HasValue);
+        }
+
+        [Test]
+        public void 人数は最低2走者にクランプされる()
+        {
+            _model.Setup(FixedConfig(), playerCount: 1, seed: 1);
+
+            Assert.AreEqual(2, _model.RunnerCount);
+        }
+
+        [Test]
+        public void 複数CPUのときプレイヤーが遅いとCPUの誰かが勝ちプレイヤーは負ける()
+        {
+            // CPU は毎回 Great を高頻度で引く。プレイヤーはベースのみで置いていかれる。
+            _model.Setup(
+                FixedConfig(
+                    baseSpeed: 0.001f,
+                    greatBoost: 0.5f,
+                    cpuTapIntervalMin: 0.1f,
+                    cpuTapIntervalMax: 0.1f,
+                    cpuGreatChance: 1f,
+                    cpuGoodChance: 0f),
+                playerCount: 5,
+                seed: 7);
+            StartRace(_model);
+
+            for (int i = 0; i < 50 && _model.Phase.CurrentValue == RaceGamePhase.Racing; i++)
+            {
+                _model.Tick(0.1f);
+            }
+
+            Assert.AreEqual(RaceGamePhase.Finished, _model.Phase.CurrentValue);
+            Assert.IsTrue(_model.WinnerIndex.HasValue);
+            Assert.GreaterOrEqual(_model.WinnerIndex.Value, 1); // 勝者はいずれかの CPU
+            Assert.Less(_model.WinnerIndex.Value, _model.RunnerCount);
+            Assert.IsFalse(_model.IsPlayerWin);
+        }
+
+        [Test]
+        public void 人数指定でも同一シードなら結果が再現する()
+        {
+            RaceGameModel a = new();
+            RaceGameModel b = new();
+            try
+            {
+                RaceGameConfig config = FixedConfig(
+                    baseSpeed: 0.01f,
+                    cpuTapIntervalMin: 0.2f,
+                    cpuTapIntervalMax: 0.4f,
+                    cpuGreatChance: 0.2f,
+                    cpuGoodChance: 0.5f);
+
+                a.Setup(config, playerCount: 6, seed: 99);
+                b.Setup(config, playerCount: 6, seed: 99);
+                StartRace(a);
+                StartRace(b);
+
+                for (int i = 0; i < 20; i++)
+                {
+                    a.Tick(0.1f);
+                    b.Tick(0.1f);
+                }
+
+                Assert.AreEqual(a.RunnerCount, b.RunnerCount);
+                for (int runner = 0; runner < a.RunnerCount; runner++)
+                {
+                    Assert.AreEqual(a.Progress(runner), b.Progress(runner), Delta);
+                }
+                Assert.AreEqual(a.WinnerIndex, b.WinnerIndex);
             }
             finally
             {

@@ -3,16 +3,9 @@
     <ui:VisualElement name="RaceRoot" class="race-root">
         <ui:Label text="2Dレース" name="TitleLabel" class="race-title" />
 
+        <!-- レーン（走者）は参加者数に応じて RaceGamePlay が動的生成する。FinishLine はその背面に残す -->
         <ui:VisualElement name="Track" class="race-track">
             <ui:VisualElement name="FinishLine" class="race-finish" picking-mode="Ignore" />
-            <ui:VisualElement name="PlayerLane" class="race-lane">
-                <ui:Label text="YOU" class="race-lane__tag race-lane__tag--player" />
-                <ui:VisualElement name="PlayerRunner" class="race-runner" picking-mode="Ignore" />
-            </ui:VisualElement>
-            <ui:VisualElement name="CpuLane" class="race-lane">
-                <ui:Label text="CPU" class="race-lane__tag race-lane__tag--cpu" />
-                <ui:VisualElement name="CpuRunner" class="race-runner" picking-mode="Ignore" />
-            </ui:VisualElement>
         </ui:VisualElement>
 
         <ui:Label text="3" name="CountdownLabel" class="race-countdown" />

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Common.Character;
+using Common.MiniGame;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
@@ -23,16 +25,18 @@ namespace MiniGame.RaceGame
         private const float GoalPercent = 2f;         // 進捗 1（ゴール）のときの走者の left%
 
         private readonly RaceGameModel _model;
+        private readonly MiniGameSessionModel _session;
         private readonly SoundStore _soundStore;
         private readonly SoundPlayer _soundPlayer;
         private readonly CharacterSessionModel _characterSession;
 
         private readonly AddressableSpriteLoader _spriteLoader = new();
         private readonly RaceMeter _meter = new(MeterSweepSpeed);
+        // 走者要素（index 0 = プレイヤー、1〜 = CPU）。RunnerCount ぶんレーンとともに動的生成する。
+        private readonly List<VisualElement> _runners = new();
 
         private Label _titleLabel;
-        private VisualElement _playerRunner;
-        private VisualElement _cpuRunner;
+        private VisualElement _track;
         private Label _countdownLabel;
         private Label _judgeLabel;
         private VisualElement _meterPanel;
@@ -50,11 +54,13 @@ namespace MiniGame.RaceGame
 
         public RaceGamePlay(
             RaceGameModel model,
+            MiniGameSessionModel session,
             SoundStore soundStore,
             SoundPlayer soundPlayer,
             CharacterSessionModel characterSession)
         {
             _model = model;
+            _session = session;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _characterSession = characterSession;
@@ -67,8 +73,7 @@ namespace MiniGame.RaceGame
         public async UniTask BuildAsync(VisualElement root, CancellationToken ct)
         {
             _titleLabel = root.Q<Label>("TitleLabel");
-            _playerRunner = root.Q<VisualElement>("PlayerRunner");
-            _cpuRunner = root.Q<VisualElement>("CpuRunner");
+            _track = root.Q<VisualElement>("Track");
             _countdownLabel = root.Q<Label>("CountdownLabel");
             _judgeLabel = root.Q<Label>("JudgeLabel");
             _meterPanel = root.Q<VisualElement>("MeterPanel");
@@ -79,7 +84,7 @@ namespace MiniGame.RaceGame
             _resultPanel = root.Q<VisualElement>("ResultPanel");
             _resultLabel = root.Q<Label>("ResultLabel");
             _closeButton = root.Q<Button>("CloseButton");
-            if (_titleLabel == null || _playerRunner == null || _cpuRunner == null || _countdownLabel == null
+            if (_titleLabel == null || _track == null || _countdownLabel == null
                 || _judgeLabel == null || _meterPanel == null || _meterMarker == null || _meterGood == null
                 || _meterGreat == null || _tapButton == null || _resultPanel == null || _resultLabel == null
                 || _closeButton == null)
@@ -89,16 +94,11 @@ namespace MiniGame.RaceGame
             }
 
             RaceGameConfig config = RaceGameConfig.Default;
-            _model.Setup(config, NextSeed());
+            // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけ 2 人へフォールバック。
+            int playerCount = _session != null && _session.PlayerCount > 0 ? _session.PlayerCount : 2;
+            _model.Setup(config, playerCount, NextSeed());
 
-            CharacterId playerId = _characterSession.Selected;
-            CharacterId cpuId = RaceOpponentPicker.Pick(
-                playerId,
-                CharacterCatalog.All,
-                count => UnityEngine.Random.Range(0, count));
-
-            await ApplyRunnerSpriteAsync(_playerRunner, playerId, ct);
-            await ApplyRunnerSpriteAsync(_cpuRunner, cpuId, ct);
+            await BuildRunnersAsync(_model.RunnerCount, ct);
 
             LayoutMeterZones(config);
             _closeSource = new UniTaskCompletionSource();
@@ -109,8 +109,7 @@ namespace MiniGame.RaceGame
             _meter.Reset();
             _pauseRemaining = 0f;
 
-            PlaceRunner(_playerRunner, 0f);
-            PlaceRunner(_cpuRunner, 0f);
+            PlaceAllRunners();
             UpdateMeterMarker();
 
             _titleLabel.text = "2Dレース";
@@ -119,6 +118,73 @@ namespace MiniGame.RaceGame
             SetDisplay(_countdownLabel, false);
             SetDisplay(_judgeLabel, false);
             SetDisplay(_resultPanel, false);
+        }
+
+        // 走者数ぶんのレーン（タグ＋走者要素）を Track へ動的生成し、各走者のキャラ絵を並列ロードして貼る。
+        // 走者 index 0＝プレイヤー（選択キャラ）、1〜＝CPU（プレイヤーとも互いとも被らないキャラ）。
+        private async UniTask BuildRunnersAsync(int runnerCount, CancellationToken ct)
+        {
+            // Track から既存のレーンだけ除き、FinishLine（背面ガイド）は残す。
+            _track.Query<VisualElement>(className: "race-lane").ForEach(lane => lane.RemoveFromHierarchy());
+            _runners.Clear();
+
+            CharacterId playerId = _characterSession.Selected;
+            IReadOnlyList<CharacterId> cpuIds = RaceOpponentPicker.PickMany(
+                playerId,
+                CharacterCatalog.All,
+                Mathf.Max(0, runnerCount - 1),
+                count => UnityEngine.Random.Range(0, count));
+
+            // 走者が増えるほど 1 レーンが狭くなるので、走者サイズをレーン数で縮める。
+            float runnerSize = Mathf.Clamp(320f / runnerCount, 30f, 76f);
+            float laneHeightPercent = 100f / runnerCount;
+
+            List<UniTask> loads = new(runnerCount);
+            for (int runner = 0; runner < runnerCount; runner++)
+            {
+                bool isPlayer = runner == 0;
+                CharacterId id = isPlayer ? playerId : cpuIds[runner - 1];
+
+                VisualElement lane = new();
+                lane.AddToClassList("race-lane");
+                lane.style.height = Length.Percent(laneHeightPercent);
+                lane.pickingMode = PickingMode.Ignore;
+
+                Label tag = new(RunnerTag(isPlayer, runner, runnerCount)) { pickingMode = PickingMode.Ignore };
+                tag.AddToClassList("race-lane__tag");
+                tag.AddToClassList(isPlayer ? "race-lane__tag--player" : "race-lane__tag--cpu");
+                lane.Add(tag);
+
+                VisualElement runnerElement = new() { pickingMode = PickingMode.Ignore };
+                runnerElement.AddToClassList("race-runner");
+                runnerElement.style.width = runnerSize;
+                runnerElement.style.height = runnerSize;
+                lane.Add(runnerElement);
+
+                _track.Add(lane);
+                _runners.Add(runnerElement);
+                loads.Add(ApplyRunnerSpriteAsync(runnerElement, id, ct));
+            }
+
+            await UniTask.WhenAll(loads);
+        }
+
+        // レーンのタグ文言。プレイヤーは YOU、CPU は 2 人レースなら CPU、それ以上なら CPU1・CPU2… と番号を振る。
+        private static string RunnerTag(bool isPlayer, int runner, int runnerCount)
+        {
+            if (isPlayer)
+            {
+                return "YOU";
+            }
+            return runnerCount > 2 ? $"CPU{runner}" : "CPU";
+        }
+
+        private void PlaceAllRunners()
+        {
+            for (int runner = 0; runner < _runners.Count; runner++)
+            {
+                PlaceRunner(_runners[runner], _model.Progress(runner));
+            }
         }
 
         /// <summary>
@@ -162,8 +228,7 @@ namespace MiniGame.RaceGame
                 _model.Tick(dt);
 
                 UpdateMeterMarker();
-                PlaceRunner(_playerRunner, _model.PlayerProgress);
-                PlaceRunner(_cpuRunner, _model.CpuProgress);
+                PlaceAllRunners();
             }
 
             _tapButton.SetEnabled(false);
