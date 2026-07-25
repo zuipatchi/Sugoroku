@@ -252,14 +252,14 @@ button.RegisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
 
 「ルーレットが止まったらコマを進める → 移動が終わったらボタンを戻す → 次の手番へ」のような**順序のある進行**を、各 Presenter の R3 購読（`State.Subscribe(...)` で次を呼ぶ）に散らすと、手番・CPU・勝敗判定が絡んだ瞬間に「誰のコマを動かすか」「今は押していい番か」が追えなくなる。こうした流れは、`RegisterEntryPoint` で登録した純粋 C# サービス（`IAsyncStartable`）の **1 本の async ループ**に集約すると読みやすい（例: [GameFlowController.cs](../Assets/Scripts/Main/Turn/GameFlowController.cs)）。
 
-- **状態変化の待受は R3 の `FirstAsync` を `await` する**。`ReactiveProperty` は購読時に現在値を流すため、`Where` で目的の状態だけ通し、`FirstAsync(ct)` でその瞬間まで待つ。ボタン長押しのような「ユーザー操作の完了」も、Presenter に `UniTask<int> WaitForManualSpinAsync(ct)` を生やして中で `await` すればループ側は分岐なく書ける。
+- **状態変化の待受は R3 の `FirstAsync` を `await` する**。`ReactiveProperty` は購読時に現在値を流すため、`Where` で目的の状態だけ通し、`FirstAsync(ct)` でその瞬間まで待つ。ボタン長押しのような「ユーザー操作の完了」も、Presenter に `UniTask<RouletteOutcome> WaitForManualSpinAsync(ct)` を生やして中で `await` すればループ側は分岐なく書ける。**待受の結果が複数値（誰が・何マス）なら小さな struct（`RouletteOutcome`）でまとめて返す**とループ側が組み立てずに済む。
 
 ```csharp
-// Stopped になるまで待って、その時の出目を返す（Presenter 側）
-public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
+// Stopped になるまで待って、結果（進む人＋マス数）を返す（Presenter 側）
+public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken ct)
 {
     await _model.State.Where(s => s == RouletteState.Stopped).FirstAsync(ct);
-    return _model.Result.CurrentValue;
+    return new RouletteOutcome(_model.AdvancingPlayer.CurrentValue, _model.Result.CurrentValue);
 }
 ```
 
