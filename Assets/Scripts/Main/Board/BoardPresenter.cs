@@ -1312,6 +1312,15 @@ namespace Main.Board
                 return;
             }
 
+            if (item == ItemId.InstantWin)
+            {
+                // 消費して即座に自分の勝ちを確定する。Winner 購読が勝者表示・「ホームに戻る」・
+                // 花火エフェクト（人間の勝利）まで自動で走らせる。SetWinner は確定済みなら上書きしない。
+                _items.Use(_humanPlayer, item); // 手札からの減算は Used 購読側
+                _model.SetWinner(_humanPlayer);
+                return;
+            }
+
             // ここに来るのは効果ハンドラを持たないアイテム（現状なし）。将来の未実装アイテムは消費のみ。
             _items.Use(_humanPlayer, item);
         }

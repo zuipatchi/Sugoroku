@@ -14,6 +14,9 @@ namespace Main.Item
         StealMoney = 1,
 
         /// <summary>好きなミニゲームを選んで遊び、勝てば所持金報酬をもらえるアイテム。</summary>
-        MiniGame = 2
+        MiniGame = 2,
+
+        /// <summary>使った瞬間にゲームに勝利するアイテム（一発逆転）。</summary>
+        InstantWin = 3
     }
 }

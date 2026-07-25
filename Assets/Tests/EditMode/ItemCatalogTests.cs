@@ -32,6 +32,17 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void 勝利アイテムがカタログに含まれメタデータを持つ()
+        {
+            ItemDefinition def = ItemCatalog.Find(ItemId.InstantWin);
+            Assert.IsNotNull(def, "InstantWin がカタログに見つかりません");
+            Assert.AreEqual(ItemId.InstantWin, def.Id);
+            Assert.IsFalse(string.IsNullOrEmpty(def.DisplayName));
+            Assert.IsFalse(string.IsNullOrEmpty(def.Description));
+            Assert.IsFalse(string.IsNullOrEmpty(def.ImageAddress));
+        }
+
+        [Test]
         public void RandomItemはカタログ内のアイテムを返す()
         {
             Random rng = new(12345);

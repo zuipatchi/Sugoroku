@@ -176,8 +176,10 @@ MonoBehaviour:
   _victoryEffectPrefab: {fileID: 1978689737715041617, guid: afa54037ffe627545886e2741abb365d, type: 3}
   _victoryEffectShader: {fileID: 4800000, guid: 3f9c1e7a5b2d4c8e9a0f1b2c3d4e5f60, type: 3}
   _victoryEffectDistance: 8
-  _victoryEffectVerticalOffset: -1.5
-  _victoryEffectScale: 1
+  _victoryEffectVerticalOffset: -6
+  _victoryEffectScale: 0.8
+  _victoryEffectCount: 5
+  _victoryEffectStagger: 0.35
 --- !u!114 &207750515
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -354,8 +356,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 36131371eee3846449a1663e88e667c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Main::Main.MiniGameTriggerPresenter
-  _winThreshold: 25
-  _bonusSteps: 3
 --- !u!114 &1384105615
 MonoBehaviour:
   m_ObjectHideFlags: 0
