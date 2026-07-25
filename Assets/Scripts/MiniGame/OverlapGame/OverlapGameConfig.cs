@@ -9,7 +9,7 @@ namespace MiniGame.OverlapGame
         /// <summary>
         /// 参加者数のフォールバック値（一人用モードの [Human, Cpu] ＝ 2 人）。
         /// 実際の人数は起動側が <c>MiniGameSessionModel.PlayerCount</c> へ渡し（本番の盤面ミニゲームは 2 固定、
-        /// MiniGameTest シーンはステッパーで 2〜8 を選ぶ）、<see cref="OverlapGamePlay"/> がそれを使う。
+        /// MiniGameTest シーンはステッパーで 2〜4 を選ぶ）、<see cref="OverlapGamePlay"/> がそれを使う。
         /// セッションに人数が入っていない（0 以下の）ときだけこの値へ戻す。
         /// </summary>
         public const int DefaultPlayerCount = 2;

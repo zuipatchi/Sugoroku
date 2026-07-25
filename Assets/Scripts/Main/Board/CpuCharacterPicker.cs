@@ -39,7 +39,7 @@ namespace Main.Board
         /// <summary>
         /// 全 CPU プレイヤーに、人間とも他の CPU とも被らないキャラを配る（1 度だけ実行して固定）。
         /// 人間を除いたキャラ index をシャッフルし、参加者順に CPU へ割り当てる。
-        /// CPU 数はキャラ総数 -1 以内（最大 8 人＝CPU 7 人）なので必ず全員別キャラになる。
+        /// CPU 数はキャラ総数 -1 以内（プレイ人数上限 4 人＝CPU 3 人）なので必ず全員別キャラになる。
         /// </summary>
         private void EnsureCpuCharacters()
         {

@@ -12,7 +12,7 @@
             <ui:Label name="MapTitle" class="ms-title" />
         </ui:VisualElement>
         <ui:VisualElement name="Bottom" class="ms-bottom">
-            <!-- プレイヤー人数（自分＋CPU・2〜8）のステッパー。MapSelectPresenter が値を制御する -->
+            <!-- プレイヤー人数（自分＋CPU・2〜4）のステッパー。MapSelectPresenter が値を制御する -->
             <ui:VisualElement name="PlayerCount" class="ms-players">
                 <ui:Label text="プレイヤー人数" class="ms-players__label" />
                 <ui:VisualElement class="ms-stepper">

@@ -226,7 +226,7 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 
 > ローカル完結のため、盤面反映やゲーム内トリガー（特殊マス・手番連携）はまだ Main に組み込んでいない。全員同時プレイのスコア同期も今後の課題（[networking.md](networking.md) の永続ハンドラ方式に乗せる）。
 
-**Main のカタログ（`ItemCatalog` 等）を再利用するとき**は `MiniGame` asmdef に `Main` 参照を足す（被っちゃやーよがアイテム絵の再利用で追加済み）。`Main` は `MiniGame` を参照しないので循環しない。**参加者数に依存するミニゲーム**（被っちゃやーよは提示枚数＝参加者数、2Dレースはレーン数＝参加者数）は、人数を `MiniGameSessionModel.PlayerCount` から取る。MiniGame シーンは別スコープで `GameParticipants` を直接注入できないため、起動側が `MiniGameLauncher.PlayAsync(id, ct, playerCount)` で渡した値を Common シングルトンの `MiniGameSessionModel` に載せ、各 GamePlay がそれを参照する（本番の盤面ミニゲームは既定 2、`MiniGameTest` シーンは人数ステッパーで 2〜8）。セッション未設定時のフォールバックだけ Config の定数（`OverlapGameConfig.DefaultPlayerCount`）に残す。**参加者ごとのキャラ**も同じ経路で運ぶ：`PlayAsync(id, ct, playerCount, characters)` の `characters`（index 0＝プレイヤー）が `MiniGameSessionModel.Characters` に載り、各 GamePlay が走者・カード・ラベルに YOU/CPU でなくそのキャラを使う（本番＝`BoardPresenter` が実参加者のキャラ、`MiniGameTest`＝ランダムな重複なしキャラ。未指定時は選択キャラ／YOU・CPU へフォールバック）。
+**Main のカタログ（`ItemCatalog` 等）を再利用するとき**は `MiniGame` asmdef に `Main` 参照を足す（被っちゃやーよがアイテム絵の再利用で追加済み）。`Main` は `MiniGame` を参照しないので循環しない。**参加者数に依存するミニゲーム**（被っちゃやーよは提示枚数＝参加者数、2Dレースはレーン数＝参加者数）は、人数を `MiniGameSessionModel.PlayerCount` から取る。MiniGame シーンは別スコープで `GameParticipants` を直接注入できないため、起動側が `MiniGameLauncher.PlayAsync(id, ct, playerCount)` で渡した値を Common シングルトンの `MiniGameSessionModel` に載せ、各 GamePlay がそれを参照する（本番の盤面ミニゲームは既定 2、`MiniGameTest` シーンは人数ステッパーで 2〜4）。セッション未設定時のフォールバックだけ Config の定数（`OverlapGameConfig.DefaultPlayerCount`）に残す。**参加者ごとのキャラ**も同じ経路で運ぶ：`PlayAsync(id, ct, playerCount, characters)` の `characters`（index 0＝プレイヤー）が `MiniGameSessionModel.Characters` に載り、各 GamePlay が走者・カード・ラベルに YOU/CPU でなくそのキャラを使う（本番＝`BoardPresenter` が実参加者のキャラ、`MiniGameTest`＝ランダムな重複なしキャラ。未指定時は選択キャラ／YOU・CPU へフォールバック）。
 
 ---
 

@@ -11,8 +11,8 @@ namespace Common.GameSession
         /// <summary>選べる最小人数（自分＋CPU 1 人）。</summary>
         public const int Min = 2;
 
-        /// <summary>選べる最大人数。キャラ総数（8）に収まる範囲。</summary>
-        public const int Max = 8;
+        /// <summary>選べる最大人数（自分＋CPU 3 人）。キャラ総数（8）内の設計上の上限。</summary>
+        public const int Max = 4;
 
         /// <summary>選択中の人数（自分＋CPU の合計）。既定は <see cref="Min"/>。</summary>
         public int Count { get; private set; } = Min;

@@ -32,7 +32,7 @@ namespace MiniGame
         private Button _playerCountMinus;
         private Button _playerCountPlus;
         private Label _playerCountValue;
-        // 起動するミニゲームの参加者数（人間＋CPU）。−／＋ で 2〜8 を増減する。
+        // 起動するミニゲームの参加者数（人間＋CPU）。−／＋ で 2〜4（PlayerCountSessionModel.Min〜Max）を増減する。
         private int _playerCount = PlayerCountSessionModel.Min;
         private CancellationToken _destroyCt;
         private bool _busy;

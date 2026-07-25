@@ -48,13 +48,15 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void 一人用モードは最大8人まで作れる()
+        public void 一人用モードは最大人数ぶん作れて先頭以外は全員Cpu()
         {
-            GameParticipants participants = SinglePlayer(8);
+            // 上限は PlayerCountSessionModel.Max（現状 4）。定数参照でクランプ後の人数を検証する。
+            int max = PlayerCountSessionModel.Max;
+            GameParticipants participants = SinglePlayer(max);
 
-            Assert.AreEqual(8, participants.Count);
+            Assert.AreEqual(max, participants.Count);
             Assert.AreEqual(PlayerKind.Human, participants.KindOf(0));
-            for (int player = 1; player < 8; player++)
+            for (int player = 1; player < max; player++)
             {
                 Assert.AreEqual(PlayerKind.Cpu, participants.KindOf(player));
             }
