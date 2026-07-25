@@ -12,9 +12,9 @@ namespace Tests.EditMode
             Assert.AreEqual(PlayerCountSessionModel.Min, model.Count);
         }
 
-        [TestCase(4, 4)]
-        [TestCase(8, 8)]
         [TestCase(2, 2)]
+        [TestCase(3, 3)]
+        [TestCase(4, 4)]
         public void 範囲内はそのまま選べる(int input, int expected)
         {
             PlayerCountSessionModel model = new();
