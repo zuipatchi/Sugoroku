@@ -64,19 +64,52 @@
     translate: -50% -50%;
 }
 
-/* 出目の数字。円盤の中心ハブに絶対配置で重ねる。円盤は回転するがこれは WheelArea 直下なので回らない。
-   白の太縁取りで、どのセクター色・ハブ色の上でも大きく読めるようにする。 */
-.roulette-result {
+/* キャラ名（上）＋出目の数字（下）を縦に積んで、円盤の中心へ絶対配置で中央寄せするグループ。
+   円盤は回転するがこれは WheelArea 直下なので回らない。align/justify で上下左右とも中央に揃える。 */
+.roulette-result-box {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 出目の数字。白の太縁取りで、どのセクター色・ハブ色の上でも大きく読める。グループ内で中央寄せ。 */
+.roulette-result {
     font-size: 240px;
     color: rgb(255, 255, 255);
     -unity-text-align: middle-center;
     -unity-text-outline-width: 4px;
     -unity-text-outline-color: rgba(35, 30, 15, 0.9);
+}
+
+/* 止まったときに進むキャラ名を、数字の上にプレート（濃紺の丸座＋ゴールド枠）で見せる。
+   グループ（.roulette-result-box）の align-items:center で自動的に中央寄せされる。
+   回転中は presenter が display:none で隠す。 */
+.roulette-result-name {
+    margin-bottom: 4px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 20px;
+    padding-right: 20px;
+    background-color: rgba(45, 45, 70, 0.92);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgb(235, 200, 90);
+    border-right-color: rgb(235, 200, 90);
+    border-top-color: rgb(235, 200, 90);
+    border-bottom-color: rgb(235, 200, 90);
+    font-size: 30px;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-center;
 }
 
 /* スピンボタンは画面左下のズームピル（Board パネル・left:16px・幅 52px）の右隣に固定する。

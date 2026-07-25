@@ -7,8 +7,12 @@
             <ui:VisualElement name="Wheel" class="roulette-wheel" picking-mode="Ignore" />
             <!-- Wheel より後に置き、円盤の上へ描画する（前に置くと円盤に覆われて隠れる） -->
             <ui:Label text="▼" name="Pointer" class="roulette-pointer" picking-mode="Ignore" />
-            <!-- 出目の数字。円盤の中心ハブに重ねる。円盤と違い回転しない（WheelArea 直下・絶対配置で中央固定） -->
-            <ui:Label text="" name="ResultLabel" class="roulette-result" picking-mode="Ignore" />
+            <!-- 進むキャラ名（上）＋出目の数字（下）を中央に重ねるグループ。円盤と違い回転しない（WheelArea 直下・絶対配置で中央固定）。
+                 名前は停止時のみ表示（回転中は presenter が display:none で隠す） -->
+            <ui:VisualElement name="ResultBox" class="roulette-result-box" picking-mode="Ignore">
+                <ui:Label text="" name="ResultName" class="roulette-result-name" picking-mode="Ignore" />
+                <ui:Label text="" name="ResultLabel" class="roulette-result" picking-mode="Ignore" />
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:Button text="長押しで回す" name="SpinButton" class="btn-accent roulette-spin" />
     </ui:VisualElement>

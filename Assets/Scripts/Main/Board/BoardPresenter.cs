@@ -723,8 +723,11 @@ namespace Main.Board
                 return;
             }
 
-            CharacterId id = _characterPicker.ResolveCharacter(player);
-            _turnBannerLabel.text = $"{CharacterCatalog.Find(id).DisplayName}の番";
+            // 自分（人間プレイヤー）の手番は「あなたの番」、それ以外はキャラ名で「〔キャラ名〕の番」。
+            string who = player == _humanPlayer
+                ? "あなた"
+                : CharacterCatalog.Find(_characterPicker.ResolveCharacter(player)).DisplayName;
+            _turnBannerLabel.text = $"{who}の番";
             _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
 
             // 手番が続けて変わったときは前回のトゥイーンを打ち切って出し直す。

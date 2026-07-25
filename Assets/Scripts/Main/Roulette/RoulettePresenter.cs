@@ -45,6 +45,7 @@ namespace Main.Roulette
 
         private RouletteModel _model;
         private BoardModel _board;
+        private GameParticipants _participants;
         private CpuCharacterPicker _characterPicker;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
@@ -60,6 +61,8 @@ namespace Main.Roulette
         private Label _pointer;
         private Button _spinButton;
         private Label _resultLabel;
+        // 停止時に「進むキャラ」の名前を数字の下に出すプレート。UXML 未更新でも動くよう null 許容で扱う。
+        private Label _resultNameLabel;
         // 停止後に「少し待ってから隠す」遅延タスクのキャンセル用。再回転・手番リセットで打ち切る。
         private CancellationTokenSource _hideCts;
         // 円盤の表示状態。スピン後に「消えてからコマを動かす」ため、GameFlowController が非表示化を待てるようにする。
@@ -98,6 +101,7 @@ namespace Main.Roulette
         {
             _model = model;
             _board = board;
+            _participants = participants;
             _characterPicker = characterPicker;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
@@ -141,6 +145,13 @@ namespace Main.Roulette
             _pointer = root.Q<Label>("Pointer");
             _spinButton = root.Q<Button>("SpinButton");
             _resultLabel = root.Q<Label>("ResultLabel");
+            // 進むキャラ名プレート（任意要素。無くても数字表示は成立するため必須チェックには含めない）。
+            // 停止時のみ出すため既定は非表示（空プレートが回転中に見えないように）。
+            _resultNameLabel = root.Q<Label>("ResultName");
+            if (_resultNameLabel != null)
+            {
+                _resultNameLabel.style.display = DisplayStyle.None;
+            }
             if (_wheel == null || _wheelArea == null
                 || _pointer == null || _spinButton == null || _resultLabel == null)
             {
@@ -462,22 +473,33 @@ namespace Main.Roulette
             {
                 case RouletteState.Spinning:
                     // 回転開始。再回転なら停止後の隠し予約を取り消してから表示する。
-                    // 前回の出目が回転中に残って見えないよう、出目ラベルを空にする（停止時に CompleteSpin で入る）。
+                    // 前回の出目・キャラ名が回転中に残って見えないよう空にする（停止時に CompleteSpin で入る）。
                     CancelPendingHide();
                     if (_resultLabel != null)
                     {
                         _resultLabel.text = string.Empty;
                     }
+                    // キャラ名プレートは回転中は完全に隠す（停止時にだけ出す）。
+                    if (_resultNameLabel != null)
+                    {
+                        _resultNameLabel.text = string.Empty;
+                        _resultNameLabel.style.display = DisplayStyle.None;
+                    }
                     SetRouletteVisible(true);
                     break;
                 case RouletteState.Stopped:
-                    // 出目を中央に表示する。人間・CPU どちらの停止もここを通るので両方で表示される。
+                    // 出目（数字）と進むキャラ名を中央に表示する。人間・CPU どちらの停止もここを通る。
                     // Result の値が前回と同じでも確実に出せるよう、購読ではなくここで現在値から反映する。
                     int value = _model.Result.CurrentValue;
                     if (_resultLabel != null && value > 0)
                     {
                         _resultLabel.text = value.ToString();
                         _effects?.PlayResultLabelPop();
+                    }
+                    if (_resultNameLabel != null && value > 0)
+                    {
+                        _resultNameLabel.text = ResolveAdvancingCharacterName(_model.AdvancingPlayer.CurrentValue);
+                        _resultNameLabel.style.display = DisplayStyle.Flex;
                     }
                     // 出た目を少し見せてから隠す。
                     ScheduleHideAfterStop();
@@ -505,6 +527,10 @@ namespace Main.Roulette
             if (_resultLabel != null)
             {
                 _resultLabel.style.visibility = visibility;
+            }
+            if (_resultNameLabel != null)
+            {
+                _resultNameLabel.style.visibility = visibility;
             }
             _visible.Value = visible;
         }
@@ -592,6 +618,24 @@ namespace Main.Roulette
         private RouletteOutcome CurrentOutcome()
         {
             return new RouletteOutcome(_model.AdvancingPlayer.CurrentValue, _model.Result.CurrentValue);
+        }
+
+        /// <summary>
+        /// 進む参加者 index からプレートに出す表示名を解決する（未注入・未確定は空文字）。
+        /// 自分（人間プレイヤー）が進むときは 2 行目に「（あなた）」を添える。
+        /// </summary>
+        private string ResolveAdvancingCharacterName(int player)
+        {
+            if (_characterPicker == null || player < 0)
+            {
+                return string.Empty;
+            }
+            string name = CharacterCatalog.Find(_characterPicker.ResolveCharacter(player)).DisplayName;
+            if (_participants != null && _participants.KindOf(player) == PlayerKind.Human)
+            {
+                return $"{name}\n（あなた）";
+            }
+            return name;
         }
 
         private void UpdateSpinEnabled()
