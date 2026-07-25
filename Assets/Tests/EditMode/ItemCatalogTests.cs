@@ -61,5 +61,58 @@ namespace Tests.EditMode
             ItemDefinition b = ItemCatalog.RandomItem(new Random(7));
             Assert.AreEqual(a.Id, b.Id);
         }
+
+        [Test]
+        public void 全アイテムに正の購入価格がある()
+        {
+            for (int i = 0; i < ItemCatalog.All.Count; i++)
+            {
+                Assert.Greater(ItemCatalog.All[i].Price, 0,
+                    $"{ItemCatalog.All[i].Id} の Price が 0 以下です");
+            }
+        }
+
+        [Test]
+        public void RandomLineupは枚数が範囲内でカタログ内の重複なしアイテムを返す()
+        {
+            Random rng = new(12345);
+            int catalog = ItemCatalog.All.Count;
+            for (int i = 0; i < 30; i++)
+            {
+                System.Collections.Generic.IReadOnlyList<ItemDefinition> lineup =
+                    ItemCatalog.RandomLineup(rng, 2, 4);
+
+                int expectedMax = Math.Min(4, catalog);
+                Assert.GreaterOrEqual(lineup.Count, Math.Min(2, catalog));
+                Assert.LessOrEqual(lineup.Count, expectedMax);
+
+                System.Collections.Generic.HashSet<ItemId> seen = new();
+                foreach (ItemDefinition def in lineup)
+                {
+                    Assert.IsNotNull(ItemCatalog.Find(def.Id));
+                    Assert.IsTrue(seen.Add(def.Id), $"{def.Id} が重複しています");
+                }
+            }
+        }
+
+        [Test]
+        public void RandomLineupは同じseedで決定的()
+        {
+            System.Collections.Generic.IReadOnlyList<ItemDefinition> a = ItemCatalog.RandomLineup(new Random(7), 2, 4);
+            System.Collections.Generic.IReadOnlyList<ItemDefinition> b = ItemCatalog.RandomLineup(new Random(7), 2, 4);
+            Assert.AreEqual(a.Count, b.Count);
+            for (int i = 0; i < a.Count; i++)
+            {
+                Assert.AreEqual(a[i].Id, b[i].Id);
+            }
+        }
+
+        [Test]
+        public void RandomLineupは枚数をカタログ総数でクランプする()
+        {
+            System.Collections.Generic.IReadOnlyList<ItemDefinition> lineup =
+                ItemCatalog.RandomLineup(new Random(1), 100, 200);
+            Assert.AreEqual(ItemCatalog.All.Count, lineup.Count);
+        }
     }
 }

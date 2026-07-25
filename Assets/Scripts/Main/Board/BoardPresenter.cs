@@ -126,6 +126,11 @@ namespace Main.Board
         private ItemModalPresenter _itemModal;
         // ミニゲームアイテム使用時に遊ぶミニゲームを選ばせるモーダル。BuildCells で生成。
         private MiniGameSelectPresenter _miniGameSelect;
+        // アイテム取得マス着地時に開く「アイテムショップ」モーダル。BuildCells で生成。
+        private ItemShopPresenter _itemShop;
+        // アイテムショップに並べる枚数のランダム範囲（カタログ総数でクランプ）。
+        private const int ItemShopMinItems = 2;
+        private const int ItemShopMaxItems = 4;
         // 陣地獲得アイテムのマス選択ガイドバナー（USS で既定非表示・選択中だけ表示）。
         private VisualElement _territorySelectBanner;
         // 陣地選択の結果を受け渡す完了ソース（選んだ盤面 index／キャンセル・破棄で -1）。選択中だけ非 null。
@@ -409,6 +414,18 @@ namespace Main.Board
             if (miniGameSelectOverlay != null)
             {
                 _miniGameSelect = new MiniGameSelectPresenter(miniGameSelectOverlay, _uiDocument, _iconLoader, _destroyCt);
+            }
+
+            // アイテム取得マス着地時に開くアイテムショップ。絵はショップ側からロードさせて _itemSprites に載せておくと
+            // 購入後の手札サムネイルも同じキャッシュから引ける。
+            VisualElement itemShopOverlay = root.Q<VisualElement>("ItemShopModal");
+            if (itemShopOverlay != null)
+            {
+                _itemShop = new ItemShopPresenter(
+                    itemShopOverlay,
+                    _uiDocument,
+                    (def, token) => LoadItemSpriteAsync(def, token),
+                    _destroyCt);
             }
 
             // 陣地獲得アイテムのマス選択ガイド（バナー＋キャンセル）。既定は USS で非表示。
@@ -1031,11 +1048,11 @@ namespace Main.Board
                 return;
             }
 
-            // アイテム取得マスは、抽選したアイテム絵を中央に見せてから手札（右下）へ加える。
+            // アイテム取得マスは、ランダムなラインナップのアイテムショップを開いてお金で購入する。
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.Item)
             {
-                await PlayItemSequenceAsync(player, CellPopupHoldSeconds, ct);
+                await PlayItemShopSequenceAsync(player, ct);
                 return;
             }
 
@@ -1063,45 +1080,76 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// アイテム取得マスの演出。カタログからランダムに 1 つ選び、そのアイテム絵を画面中央に
-        /// <paramref name="holdSeconds"/> 秒ほど見せてから <see cref="ItemModel"/> へ加える
-        /// （人間プレイヤーなら購読で右下の手札へ足される）。アイテム絵が未配置なら演出をスキップして取得だけ行う。
+        /// アイテム取得マスの演出。ランダムな枚数・重複なしのラインナップ（<see cref="ItemCatalog.RandomLineup"/>）
+        /// を抽選し、人間プレイヤーはアイテムショップモーダルで商品情報（絵・名前・効果説明・価格）を見て 1 つ購入する
+        /// （買わずに閉じてもよい）。CPU は買える範囲でランダムに 1 つ購入する（手札 UI は非表示のまま）。
+        /// 購入したら代金を <see cref="MoneyModel"/> から支払い、<see cref="ItemModel"/> へ加える
+        /// （人間なら <see cref="ItemModel.Gained"/> 購読で右下の手札に並ぶ）。
         /// </summary>
-        private async UniTask PlayItemSequenceAsync(int player, float holdSeconds, CancellationToken ct)
+        private async UniTask PlayItemShopSequenceAsync(int player, CancellationToken ct)
         {
             if (_items == null)
             {
                 return;
             }
 
-            ItemDefinition item = ItemCatalog.RandomItem(_itemRng);
+            IReadOnlyList<ItemDefinition> lineup = ItemCatalog.RandomLineup(_itemRng, ItemShopMinItems, ItemShopMaxItems);
+            if (lineup == null || lineup.Count == 0)
+            {
+                return;
+            }
+
+            // 所持金の範囲でしか買えない。CPU も人間も同じ予算で判定する（マイナスにはしない）。
+            int budget = _money != null ? _money.Money(player).CurrentValue : int.MaxValue;
+
+            ItemId? purchased;
+            if (player == _humanPlayer && _itemShop != null)
+            {
+                // 人間プレイヤーはショップモーダルで商品情報を見て選ぶ（「買わずに閉じる」なら買わない・暗幕クリックでは閉じない）。
+                // モーダルは全画面暗幕（sortingOrder 100）でスピンボタン等を覆うため、別途の無効化は要らない。
+                purchased = await _itemShop.SelectAsync(lineup, budget, ct);
+            }
+            else
+            {
+                purchased = PickCpuPurchase(lineup, budget);
+            }
+
+            if (purchased == null)
+            {
+                return;
+            }
+
+            ItemDefinition item = ItemCatalog.Find(purchased.Value);
             if (item == null)
             {
                 return;
             }
 
-            // 取得を通知する前に絵をロードしておく（手札サムネイルがキャッシュから引けるようにする）。
-            Sprite sprite = await LoadItemSpriteAsync(item, ct);
-
-            bool shown = await _landing.ShowCellPopupAsync(sprite, ct);
-            if (shown)
-            {
-                // 抽選したアイテム絵が見えた瞬間に取得 SE を鳴らす（手札へ加わるのはホールド後）。
-                _soundPlayer.PlaySafe(_soundStore?.ItemGetSE);
-                await UniTask.Delay(TimeSpan.FromSeconds(holdSeconds), cancellationToken: ct);
-            }
-
+            _money?.Add(player, -item.Price);
             _items.Add(player, item.Id);
-            if (!shown)
-            {
-                // 絵が未配置でポップアップを出せなかったときも、取得したことは SE で伝える。
-                _soundPlayer.PlaySafe(_soundStore?.ItemGetSE);
-            }
+            // 購入（お金を払う）なので取得 SE ではなくお金 SE を鳴らす。
+            _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+        }
 
-            if (shown)
+        /// <summary>
+        /// CPU がショップのラインナップから購入するアイテムを選ぶ。買える（価格 &le; 所持金）ものだけを候補に
+        /// ランダムで 1 つ返す。買えるものが無ければ null（買わない）。
+        /// </summary>
+        private ItemId? PickCpuPurchase(IReadOnlyList<ItemDefinition> lineup, int budget)
+        {
+            List<ItemDefinition> affordable = new();
+            for (int i = 0; i < lineup.Count; i++)
             {
-                await _landing.HideCellPopupAsync(ct);
+                if (lineup[i].Price <= budget)
+                {
+                    affordable.Add(lineup[i]);
+                }
             }
+            if (affordable.Count == 0)
+            {
+                return null;
+            }
+            return affordable[_itemRng.Next(affordable.Count)].Id;
         }
 
         /// <summary>アイテム絵をロードしてキャッシュから返す。未配置なら null（手札は文字プレースホルダになる）。</summary>

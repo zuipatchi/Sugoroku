@@ -84,6 +84,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 359d39e90d1ecf948b7f1931bd17b577
+    m_Address: Image/Item/Victory
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0f5aab72c70624d4ab5b0d93ecd894ae
     m_Address: Image/Icon/CoinIcon
     m_ReadOnly: 0

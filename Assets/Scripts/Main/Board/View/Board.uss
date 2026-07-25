@@ -1089,6 +1089,204 @@
     -unity-text-align: middle-center;
 }
 
+/* アイテムショップのカード本体はやや幅を持たせる（価格・効果説明まで載せるため）。 */
+.item-shop__card {
+    max-width: 460px;
+}
+
+/* ショップのカルーセル一式（カルーセル本体＋ページドット）を縦に積むコンテナ。中身は ItemShopPresenter が生成する。 */
+.item-shop__list {
+    width: 100%;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 16px;
+    margin-bottom: 10px;
+}
+
+/* カルーセル本体。前ボタン ‹ ／ ビューポート（2 枚ぶん）／ 次ボタン › を横並びにする。 */
+.item-shop__carousel {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 一度に 2 枚だけ見せる窓。はみ出したカードは overflow:hidden で切り、トラックを translate でスライドさせる。
+   幅は「カード 1 枚 142px × 2」。ItemShopPresenter の PageWidthPx と一致させること。
+   flex-shrink:0 でカルーセル行の中で 284px を維持する（縮むと収まってしまい 3〜4 枚見えてしまう）。 */
+.item-shop__viewport {
+    width: 284px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+/* カードを横一列に並べるトラック。ページ送りで translate を変え、スライドをトゥイーンさせる。
+   flex-shrink:0 でカードの合計幅を保つ（縮むと全カードがビューポート内に収まってしまう）。 */
+.item-shop__track {
+    flex-direction: row;
+    flex-shrink: 0;
+    transition-property: translate;
+    transition-duration: 0.2s;
+}
+
+/* 前後のページ送りボタン（‹ ›）。金枠の丸ボタン。両端では :disabled で薄くする。 */
+.item-shop__nav {
+    width: 34px;
+    height: 34px;
+    margin-left: 2px;
+    margin-right: 2px;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 22px;
+    color: rgb(255, 225, 120);
+    background-color: rgba(24, 22, 16, 0.85);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(196, 160, 74);
+    border-right-color: rgb(196, 160, 74);
+    border-top-color: rgb(196, 160, 74);
+    border-bottom-color: rgb(196, 160, 74);
+    border-top-left-radius: 17px;
+    border-top-right-radius: 17px;
+    border-bottom-left-radius: 17px;
+    border-bottom-right-radius: 17px;
+    -unity-text-align: middle-center;
+}
+
+.item-shop__nav:hover {
+    background-color: rgba(60, 52, 30, 0.9);
+}
+
+.item-shop__nav:disabled {
+    opacity: 0.3;
+}
+
+/* 現在ページを示すドット列。 */
+.item-shop__dots {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.item-shop__dot {
+    width: 8px;
+    height: 8px;
+    margin-left: 4px;
+    margin-right: 4px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    background-color: rgba(255, 225, 120, 0.3);
+}
+
+.item-shop__dot--active {
+    background-color: rgb(255, 225, 120);
+}
+
+/* 商品 1 種類分のカード（絵＋名前＋効果説明＋価格）。暗いガラス地＋金の細枠。タップで購入。
+   flex-shrink:0 が無いとトラック幅に合わせてカードが縮み、3〜4 枚が一度に見えてしまう（カルーセルが機能しない）。 */
+.item-shop-card {
+    width: 130px;
+    flex-shrink: 0;
+    margin-left: 6px;
+    margin-right: 6px;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    padding-left: 8px;
+    padding-right: 8px;
+    align-items: center;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(196, 160, 74);
+    border-right-color: rgb(196, 160, 74);
+    border-top-color: rgb(196, 160, 74);
+    border-bottom-color: rgb(196, 160, 74);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    background-color: rgba(24, 22, 16, 0.85);
+    transition-property: background-color, scale;
+    transition-duration: 0.1s;
+}
+
+.item-shop-card:hover {
+    background-color: rgba(60, 52, 30, 0.9);
+    scale: 1.03 1.03;
+}
+
+.item-shop-card:active {
+    scale: 0.98 0.98;
+}
+
+/* 買えないカード（価格 > 所持金）。暗くして操作不能に見せる（タップも受けない）。 */
+.item-shop-card--disabled {
+    opacity: 0.45;
+}
+
+.item-shop-card--disabled:hover {
+    background-color: rgba(24, 22, 16, 0.85);
+    scale: 1 1;
+}
+
+/* アイテム絵。正方形の枠に収める。未配置時は --empty で暗い座面のまま。 */
+.item-shop-card__image {
+    width: 96px;
+    height: 96px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.06);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.item-shop-card__image--empty {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 商品名。折り返して中央揃え。 */
+.item-shop-card__name {
+    margin-top: 8px;
+    width: 100%;
+    font-size: 15px;
+    color: rgb(255, 225, 120);
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+/* 効果説明。名前より控えめな色・小さめ。 */
+.item-shop-card__description {
+    margin-top: 4px;
+    width: 100%;
+    font-size: 11px;
+    color: rgb(210, 200, 170);
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+/* 価格。金コイン色で強調（コイン絵は使わず「N G」表記）。 */
+.item-shop-card__price {
+    margin-top: 8px;
+    font-size: 16px;
+    color: rgb(255, 215, 96);
+    -unity-text-align: middle-center;
+}
+
+/* 買えない価格は赤字で示す。 */
+.item-shop-card__price--unaffordable {
+    color: rgb(232, 120, 110);
+}
+
 /* 陣地獲得アイテムのマス選択ガイド。上部（ネームプレートの下）に横並びで出す。
    既定は非表示で、BoardPresenter が選択中だけ display:flex にする。コンテナは picking-mode=Ignore で
    盤面タップを通し、キャンセルボタンだけ反応する。 */

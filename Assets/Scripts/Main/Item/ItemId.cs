@@ -1,8 +1,9 @@
 namespace Main.Item
 {
     /// <summary>
-    /// アイテムの種類の識別子。アイテム取得マス（<see cref="Board.BoardCellEvent.Item"/>）に止まると
-    /// この中からランダムに 1 つもらえる。アイテムの表示名・画像アドレスは <see cref="ItemCatalog"/> が持つ。
+    /// アイテムの種類の識別子。アイテム取得マス（<see cref="Board.BoardCellEvent.Item"/>）に止まると開く
+    /// アイテムショップで、ここから抽選したランダムなラインナップを所持金で購入する。
+    /// アイテムの表示名・画像アドレス・価格は <see cref="ItemCatalog"/> が持つ。
     /// 新しいアイテムを増やすときはここに 1 行足し、<see cref="ItemCatalog"/> にも定義を追加する。
     /// </summary>
     public enum ItemId

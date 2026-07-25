@@ -67,5 +67,15 @@
                 <ui:Button text="キャンセル" name="MiniGameSelectCancel" class="item-modal__button item-modal__button--close" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <!-- アイテム取得マスに止まったときに開くアイテムショップ。既定は非表示で、ItemShopPresenter が開閉と
+             ランダムなラインナップ（ItemShopList＝一度に2枚のカルーセル。絵・名前・効果説明・価格のカード）の生成を行う。
+             買えないカードは無効表示。誤タップ防止のため暗幕クリックでは閉じず、「買わずに閉じる」ボタンでだけ閉じる -->
+        <ui:VisualElement name="ItemShopModal" class="item-modal">
+            <ui:VisualElement name="ItemShopCard" class="item-modal__card item-shop__card">
+                <ui:Label text="アイテムショップ" name="ItemShopTitle" class="item-modal__name" />
+                <ui:VisualElement name="ItemShopList" class="item-shop__list" />
+                <ui:Button text="買わずに閉じる" name="ItemShopCancel" class="item-modal__button item-modal__button--close" />
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

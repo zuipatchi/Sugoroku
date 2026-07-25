@@ -32,7 +32,7 @@ namespace Main.Board
         /// <summary>止まるとそのマスを占拠する（相手の陣地でも上書き）。盤面の陣地マス総数をプレイヤー数で割った数（端数切り上げ）を占拠すると勝ち。</summary>
         Territory = 7,
 
-        /// <summary>止まるとランダムなアイテムを 1 つもらえる（<see cref="Item.ItemCatalog"/> から抽選。効果の発動は将来対応）。</summary>
+        /// <summary>止まるとアイテムショップが開き、ランダムなラインナップ（<see cref="Item.ItemCatalog"/> から抽選）を所持金で購入できる。</summary>
         Item = 8
     }
 }
