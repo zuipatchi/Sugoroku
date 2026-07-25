@@ -1,7 +1,11 @@
 # エフェクト実装ノウハウ
 
 パーティクル・VFX エフェクトを UI Toolkit と組み合わせて実装するときのハマりポイントと対処法。
-（テンプレート標準にはパーティクル機能は含まれない。VFX を足すときのリファレンス。）
+
+このゲームでは**勝利エフェクト**（人間プレイヤーの勝利時に AssetStore の CFXR 花火 Prefab を打ち上げる）が
+下記の RenderTexture 方式で実装済み。具体的な実装は [Assets/Scripts/Main/Board/VictoryEffectPlayer.cs](../Assets/Scripts/Main/Board/VictoryEffectPlayer.cs)
+（合成シェーダーは [Assets/Shaders/AdditiveUI.shader](../Assets/Shaders/AdditiveUI.shader)＝`Sugoroku/AdditiveUI`、
+エフェクト専用レイヤーは TagManager の `Effect`〔index 6〕）を参照。以下は他の VFX を足すときにも共通するノウハウ。
 
 ---
 
