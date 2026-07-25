@@ -53,6 +53,19 @@ namespace Main.Board
         // （3→2 列）、縮小＝列を増やす（6→8 列）。盤面の列数を超える値は自動で頭打ちにする。
         [SerializeField] private int[] _zoomColumnLevels = { 2, 3, 4, 6, 8 };
 
+        [Header("勝利エフェクト（自分が勝ったときだけ再生）")]
+        // 勝利時に再生する AssetStore のパーティクル Prefab（既定は CFXR の花火）。未設定なら再生しない。
+        [SerializeField] private GameObject _victoryEffectPrefab;
+        // ワールド空間のパーティクルを UI Toolkit の前面に合成するための加算ブレンドシェーダー（Sugoroku/AdditiveUI）。
+        [SerializeField] private Shader _victoryEffectShader;
+        // エフェクトカメラ前方に Prefab を置く距離・縦オフセット（負で下＝下から打ち上がって見える）・表示スケール。
+        [SerializeField] private float _victoryEffectDistance = 8f;
+        [SerializeField] private float _victoryEffectVerticalOffset = -1.5f;
+        [SerializeField] private float _victoryEffectScale = 1f;
+        // 打ち上げる発数と、1 発ごとの時間差（秒）。既定は 3 発を横に広げて少しずつ打ち上げる。
+        [SerializeField] private int _victoryEffectCount = 3;
+        [SerializeField] private float _victoryEffectStagger = 0.35f;
+
         private BoardModel _model;
         private TerritoryModel _territory;
         private SoundStore _soundStore;
@@ -72,6 +85,8 @@ namespace Main.Board
         private PlayerNameplateView _nameplateView;
         // 手札を右下に出す人間プレイヤーの index（参加者リストから解決）。
         private int _humanPlayer;
+        // 人間プレイヤーの勝利時にパーティクル Prefab を前面再生する。初回勝利確定時に遅延生成する。
+        private VictoryEffectPlayer _victoryEffect;
 
         private UIDocument _uiDocument;
         private VisualElement _boardArea;
@@ -234,6 +249,18 @@ namespace Main.Board
                 _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
                 // 勝敗が決まったら「ホームに戻る」ボタンを出す。
                 ShowGameOverActions();
+                // 自分（人間プレイヤー）が勝ったときだけ、パーティクル Prefab を前面で再生する。
+                if (winner == _humanPlayer)
+                {
+                    _victoryEffect ??= new VictoryEffectPlayer(_victoryEffectPrefab, _victoryEffectShader);
+                    _victoryEffect.PlayAsync(
+                        _victoryEffectDistance,
+                        _victoryEffectVerticalOffset,
+                        _victoryEffectScale,
+                        _victoryEffectCount,
+                        _victoryEffectStagger,
+                        _destroyCt).Forget();
+                }
             }));
 
             _constructed = true;

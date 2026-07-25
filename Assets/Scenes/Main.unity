@@ -169,7 +169,15 @@ MonoBehaviour:
   _columns: 6
   _rows: 5
   _stepInterval: 0.18
+  _panFollowDelay: 0.09
   _cellFillRatio: 0.62
+  _visibleColumns: 4
+  _zoomColumnLevels: 0200000003000000040000000600000008000000
+  _victoryEffectPrefab: {fileID: 1978689737715041617, guid: afa54037ffe627545886e2741abb365d, type: 3}
+  _victoryEffectShader: {fileID: 4800000, guid: 3f9c1e7a5b2d4c8e9a0f1b2c3d4e5f60, type: 3}
+  _victoryEffectDistance: 8
+  _victoryEffectVerticalOffset: -1.5
+  _victoryEffectScale: 1
 --- !u!114 &207750515
 MonoBehaviour:
   m_ObjectHideFlags: 0
