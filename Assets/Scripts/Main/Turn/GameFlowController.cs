@@ -54,11 +54,12 @@ namespace Main.Turn
 
                 while (!_board.IsFinished)
                 {
-                    int player = _turn.CurrentPlayer.CurrentValue;
-                    int result = await SpinForAsync(player, ct);
+                    // 手番プレイヤー＝スピンする人。進む人はルーレットが止まったキャラで決まる（自分を含む全参加者）。
+                    int spinner = _turn.CurrentPlayer.CurrentValue;
+                    RouletteOutcome outcome = await SpinForAsync(spinner, ct);
                     // ルーレットが消えてからコマを動かす（停止 → 出目を見せて非表示 → 前進）。
                     await _roulette.WaitForHideAsync(ct);
-                    await _boardPresenter.AdvanceAsync(player, result, ct);
+                    await _boardPresenter.AdvanceAsync(outcome.Player, outcome.Steps, ct);
 
                     if (_board.IsFinished)
                     {
@@ -73,17 +74,17 @@ namespace Main.Turn
             }
         }
 
-        private async UniTask<int> SpinForAsync(int player, CancellationToken ct)
+        private async UniTask<RouletteOutcome> SpinForAsync(int spinner, CancellationToken ct)
         {
             // 手番開始時にルーレットを Idle へ戻し、前手番の Stopped を待ち受け対象から外す。
             _rouletteModel.Reset();
 
-            if (_participants.KindOf(player) == PlayerKind.Human)
+            if (_participants.KindOf(spinner) == PlayerKind.Human)
             {
                 _roulette.SetInteractable(true);
-                int value = await _roulette.WaitForManualSpinAsync(ct);
+                RouletteOutcome outcome = await _roulette.WaitForManualSpinAsync(ct);
                 _roulette.SetInteractable(false);
-                return value;
+                return outcome;
             }
 
             // CPU：手動不可にして少し間を置いてから円盤を自動で回す。

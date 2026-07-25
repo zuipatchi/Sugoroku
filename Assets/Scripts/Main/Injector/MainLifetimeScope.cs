@@ -25,6 +25,9 @@ namespace Main.Injector
             builder.Register<RouletteModel>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<RoulettePresenter>().AsSelf();
 
+            // コマ・ネームプレート・ルーレットで CPU のキャラ割り当てを一致させるため共有（Board と Roulette が注入）。
+            builder.Register<CpuCharacterPicker>(Lifetime.Scoped);
+
             // 所持金（お金マス・将来のミニゲーム報酬で増減）。
             builder.Register<MoneyModel>(Lifetime.Scoped);
 

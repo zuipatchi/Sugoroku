@@ -1,16 +1,22 @@
 using System;
-using Common.Character;
 
 namespace Main.Roulette
 {
     /// <summary>
-    /// ルーレットの「円盤の回転角度」から「針の真下にあるセクター」を求める純粋関数群。
+    /// ルーレットの「円盤の回転角度」から「針の真下にあるセクター」を求める純粋関数群と、
+    /// セクターへの「参加者」「出目（マス数）」の割り当てロジック。
     ///
     /// 角度の規約:
     /// - 円盤は時計回りに回転する（UI Toolkit の <see cref="UnityEngine.UIElements.Rotate"/> 正値と一致）。
     /// - 針は画面上部（12 時方向）に固定。
     /// - セクター i（0 始まり）は、回転 0 のとき上部から時計回りに
-    ///   [i * sectorAngle, (i+1) * sectorAngle) の範囲を占め、表示数字は i + 1。
+    ///   [i * sectorAngle, (i+1) * sectorAngle) の範囲を占める。
+    ///
+    /// 割り当ての規約（「止まったキャラが進む」方式）:
+    /// - 円盤は参加者を均等に並べる。セクター総数 = 参加者数 × K（K = 1 キャラあたりの数字枚数）。
+    /// - セクター i の参加者は <see cref="ParticipantForSector"/> ＝ i を参加者数で巡回（ラウンドロビン）。
+    /// - セクター i の出目（進むマス数）は <see cref="StepsForSector"/> ＝ (i ÷ 参加者数) + 1。
+    ///   これにより各参加者はちょうど同じ数字セット 1〜K を 1 枚ずつ持つ（数字も全キャラ同じ）。
     /// </summary>
     public static class RouletteMath
     {
@@ -18,6 +24,17 @@ namespace Main.Roulette
         public static float SectorAngle(int count)
         {
             return 360f / count;
+        }
+
+        /// <summary>
+        /// 円盤のセクター総数。参加者を均等に並べ、各参加者が数字 1〜<paramref name="numbersPerParticipant"/> を
+        /// 1 枚ずつ持つよう、参加者数 × K を返す。どちらも最低 1 に丸める。
+        /// </summary>
+        public static int SectorCount(int participantCount, int numbersPerParticipant)
+        {
+            int participants = participantCount < 1 ? 1 : participantCount;
+            int perParticipant = numbersPerParticipant < 1 ? 1 : numbersPerParticipant;
+            return participants * perParticipant;
         }
 
         /// <summary>
@@ -41,15 +58,24 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// セクター <paramref name="sectorIndex"/>（0 始まり）に装飾として貼るキャラクターを、
-        /// <see cref="CharacterCatalog"/> の表示順で割り当てる。セクター数がカタログ数を超えても
-        /// 巡回して割り当てる（出目の意味とは無関係な純粋な見た目の対応）。
+        /// セクター <paramref name="sectorIndex"/>（0 始まり）に割り当てる参加者 index。
+        /// 参加者を巡回（ラウンドロビン）で均等に並べる（セクター i → i % 参加者数）。
         /// </summary>
-        public static CharacterId CharacterForSector(int sectorIndex)
+        public static int ParticipantForSector(int sectorIndex, int participantCount)
         {
-            int count = CharacterCatalog.All.Count;
-            int wrapped = ((sectorIndex % count) + count) % count;
-            return CharacterCatalog.All[wrapped].Id;
+            int participants = participantCount < 1 ? 1 : participantCount;
+            return ((sectorIndex % participants) + participants) % participants;
+        }
+
+        /// <summary>
+        /// セクター <paramref name="sectorIndex"/>（0 始まり）の出目（進むマス数）。
+        /// 参加者ごとに同じ数字セット 1〜K を持つよう、(sectorIndex ÷ 参加者数) + 1 を返す。
+        /// </summary>
+        public static int StepsForSector(int sectorIndex, int participantCount)
+        {
+            int participants = participantCount < 1 ? 1 : participantCount;
+            int wrapped = sectorIndex < 0 ? 0 : sectorIndex;
+            return (wrapped / participants) + 1;
         }
 
         private static float Mod(float a, float m)

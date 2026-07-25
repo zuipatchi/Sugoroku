@@ -6,6 +6,7 @@ using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using Main.Board;
+using Main.Turn;
 using R3;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -27,7 +28,8 @@ namespace Main.Roulette
         // スピンボタンに貼る画像の Addressable アドレス。未配置なら文字（「長押しで回す」）のまま。
         private const string SpinButtonImageAddress = "Image/Roulette";
 
-        [SerializeField] private int _sectorCount = 8;
+        [Tooltip("1 キャラあたりの数字枚数（K）。各参加者が数字 1〜K を 1 枚ずつ持つ。セクター総数 = 参加者数 × K。")]
+        [SerializeField] private int _numbersPerCharacter = 3;
         [Tooltip("押し始めの初速（度/秒）。一瞬のタップでも最低これだけ回る。")]
         [SerializeField] private float _minSpinSpeed = 360f;
         [Tooltip("押し続けたときの最高速（度/秒）。")]
@@ -43,8 +45,12 @@ namespace Main.Roulette
 
         private RouletteModel _model;
         private BoardModel _board;
+        private CpuCharacterPicker _characterPicker;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
+        // 参加者数とセクター総数（＝参加者数 × K）。注入後に確定する。均等配置・出目の割り当てに使う。
+        private int _participantCount;
+        private int _sectorCount;
 
         private UIDocument _uiDocument;
         private VisualElement _wheel;
@@ -63,7 +69,8 @@ namespace Main.Roulette
         private readonly RouletteIconLoader _iconLoader = new();
         private readonly CompositeDisposable _disposables = new();
 
-        // 分割した協調クラス。renderer/physics はシリアライズ値が確定した Awake で、effects は UI 要素取得後（OnEnable）で生成する。
+        // 分割した協調クラス。physics は Awake で、renderer は参加者数が確定してセクター総数が決まる TryBuildWheel で、
+        // effects は UI 要素取得後（OnEnable）で生成する。
         private RouletteWheelRenderer _wheelRenderer;
         private RouletteSpinPhysics _spinPhysics;
         private RouletteEffects _effects;
@@ -71,6 +78,8 @@ namespace Main.Roulette
         // ティック演出（セクター境界の通過検出）用に、前フレームで表示へ反映した角度を覚えておく。
         private float _lastAngle;
         private bool _wheelBuilt;
+        // UI 要素の取得（OnEnable）が済んだか。Construct（参加者数）と両方そろってから円盤を組む。
+        private bool _uiReady;
         // 手番制御。ゲーム進行（GameFlowController）が現在の手番プレイヤーに応じて切り替える。
         // false の間は手動スピン不可（CPU の番・自分の番でないときなど）。
         private bool _turnInteractable;
@@ -79,12 +88,25 @@ namespace Main.Roulette
         private bool _spinReleased;
 
         [Inject]
-        public void Construct(RouletteModel model, BoardModel board, SoundStore soundStore, SoundPlayer soundPlayer)
+        public void Construct(
+            RouletteModel model,
+            BoardModel board,
+            GameParticipants participants,
+            CpuCharacterPicker characterPicker,
+            SoundStore soundStore,
+            SoundPlayer soundPlayer)
         {
             _model = model;
             _board = board;
+            _characterPicker = characterPicker;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
+
+            // 参加者数からセクター総数を確定する（参加者を均等に並べ、各キャラが数字 1〜K を 1 枚ずつ持つ）。
+            _participantCount = participants.Count;
+            _sectorCount = RouletteMath.SectorCount(_participantCount, _numbersPerCharacter);
+            // UI 構築（OnEnable）が済んでいれば円盤を組む。まだなら OnEnable 側から組む（順不同ガード）。
+            TryBuildWheel();
 
             // OnEnable で UI 構築済みのため、ここで購読してよい（injection は OnEnable の後）。
             // DOTween.dll の AddTo 拡張と衝突するため、ここでは CompositeDisposable.Add で購読を管理する。
@@ -100,7 +122,8 @@ namespace Main.Roulette
         private void Awake()
         {
             _uiDocument = GetComponent<UIDocument>();
-            _wheelRenderer = new RouletteWheelRenderer(_sectorCount);
+            // 円盤描画（renderer）はセクター総数が確定する Construct 後に作る（TryBuildWheel）。
+            // 回転物理はセクター数に依らないためここで作ってよい。
             _spinPhysics = new RouletteSpinPhysics(_minSpinSpeed, _maxSpinSpeed, _spinAcceleration);
         }
 
@@ -128,7 +151,9 @@ namespace Main.Roulette
             // 再有効化で UI 要素を取り直すため、演出も現在の要素で作り直す（前回の Tween は OnDisable で Kill 済み）。
             _effects = new RouletteEffects(_wheel, _pointer, _resultLabel);
 
-            BuildWheel();
+            // UI 要素がそろった。セクター総数が確定していれば（Construct 済み）円盤を組む（順不同ガード）。
+            _uiReady = true;
+            TryBuildWheel();
             // 初期は隠しておく（回し始めるまで盤面を見せる）。State 購読（Construct）でも同期される。
             SetRouletteVisible(false);
             // 押し続けで回す方式のため clicked ではなく PointerDown/Up を使う。
@@ -180,20 +205,31 @@ namespace Main.Roulette
             }
         }
 
-        private void BuildWheel()
+        /// <summary>
+        /// UI 要素の取得（OnEnable）と参加者数の確定（Construct）が両方そろったら円盤を組む。
+        /// どちらが先でも動くよう両方から呼ぶ（一度だけ実行）。
+        /// </summary>
+        private void TryBuildWheel()
         {
-            // 再有効化時の二重登録を防ぐため一度だけ構築する。
-            if (_wheelBuilt)
+            // 再有効化・順不同の呼び出しでの二重構築を防ぐ。UI と参加者数が両方そろってから組む。
+            if (_wheelBuilt || !_uiReady || _sectorCount <= 0)
             {
                 return;
             }
             _wheelBuilt = true;
 
+            // セクター総数はここで確定する（参加者数 × K）。描画（renderer）もここで作る。
+            _wheelRenderer = new RouletteWheelRenderer(_sectorCount);
             _wheel.generateVisualContent += _wheelRenderer.Draw;
 
+            // セクターごとに割り当てる参加者のキャラ（画像ロードに渡す）。
+            List<CharacterId> sectorCharacters = new(_sectorCount);
             _characterIcons.Clear();
             for (int i = 0; i < _sectorCount; i++)
             {
+                int participant = RouletteMath.ParticipantForSector(i, _participantCount);
+                sectorCharacters.Add(_characterPicker.ResolveCharacter(participant));
+
                 // セクターごとのキャラアイコン（コイン）。画像ロード前はプレースホルダ色。
                 VisualElement icon = new() { pickingMode = PickingMode.Ignore };
                 icon.AddToClassList("roulette-character");
@@ -202,8 +238,9 @@ namespace Main.Roulette
                 _characterIcons.Add(icon);
 
                 // 出目の数字はアイコンの子にして、アイコンの正立・周回にそのまま追従させる。
+                // 各参加者が数字 1〜K を 1 枚ずつ持つよう StepsForSector で番号を振る。
                 // USS で下部中央のバッジとして配置する（コード側の位置・逆回転は不要）。
-                Label label = new() { text = (i + 1).ToString() };
+                Label label = new() { text = RouletteMath.StepsForSector(i, _participantCount).ToString() };
                 label.AddToClassList("roulette-number");
                 label.pickingMode = PickingMode.Ignore;
                 icon.Add(label);
@@ -212,7 +249,7 @@ namespace Main.Roulette
             // レイアウト確定後にアイコン（コイン）を配置する。数字は子バッジなので一緒に付いてくる。
             _wheel.RegisterCallback<GeometryChangedEvent>(_ => PositionSectorContents());
             // キャラ画像は非同期ロード。破棄・遷移で自然に止まるよう destroyCancellationToken を渡す。
-            _iconLoader.LoadCharacterIconsAsync(_characterIcons, destroyCancellationToken).Forget();
+            _iconLoader.LoadCharacterIconsAsync(_characterIcons, sectorCharacters, destroyCancellationToken).Forget();
             // スピンボタンの文字を Roulette.png に差し替える（未配置なら文字のまま）。
             _iconLoader.LoadSpinButtonAsync(_spinButton, SpinButtonImageAddress, destroyCancellationToken).Forget();
         }
@@ -368,10 +405,13 @@ namespace Main.Roulette
         private void FinalizeSpin()
         {
             _spinPhysics.Halt();
-            int value = RouletteMath.ResultFromRotation(_spinPhysics.CurrentRotation, _sectorCount) + 1;
-            _model.CompleteSpin(value);
+            // 止まったセクターから「進む参加者」と「出目（マス数）」を確定する（止まったキャラが進む方式）。
+            int sectorIndex = RouletteMath.ResultFromRotation(_spinPhysics.CurrentRotation, _sectorCount);
+            int steps = RouletteMath.StepsForSector(sectorIndex, _participantCount);
+            int player = RouletteMath.ParticipantForSector(sectorIndex, _participantCount);
+            _model.CompleteSpin(steps, player);
             _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
-            ShowWinHighlight(value - 1);
+            ShowWinHighlight(sectorIndex);
         }
 
         /// <summary>円盤の回転を反映しつつ、針の真下を境界が通過したらティック演出を出す。</summary>
@@ -525,27 +565,33 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 手動スピンが停止して出目が確定するまで待ち、その出目を返す（人間の手番用）。
+        /// 手動スピンが停止するまで待ち、結果（進む参加者＋マス数）を返す（人間の手番用）。
         /// 呼び出し前に <see cref="RouletteModel.Reset"/> 済みであることを前提に、次の Stopped を待つ。
         /// </summary>
-        public async UniTask<int> WaitForManualSpinAsync(CancellationToken ct)
+        public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken ct)
         {
             await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
-            return _model.Result.CurrentValue;
+            return CurrentOutcome();
         }
 
         /// <summary>
-        /// CPU の手番。円盤を自動で回して自然に停止させ、その出目を返す。
+        /// CPU の手番。円盤を自動で回して自然に停止させ、結果（進む参加者＋マス数）を返す。
         /// 手動と同じ回転物理を使うため、少しの間ホールドしてから離す。
         /// </summary>
-        public async UniTask<int> AutoSpinAsync(CancellationToken ct)
+        public async UniTask<RouletteOutcome> AutoSpinAsync(CancellationToken ct)
         {
             BeginSpinInternal();
             float hold = Random.Range(_minStopDuration * 0.25f, _minStopDuration * 0.5f);
             await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
             ReleaseHold();
             await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
-            return _model.Result.CurrentValue;
+            return CurrentOutcome();
+        }
+
+        /// <summary>確定済みの Model 値から現在のスピン結果を組み立てる。</summary>
+        private RouletteOutcome CurrentOutcome()
+        {
+            return new RouletteOutcome(_model.AdvancingPlayer.CurrentValue, _model.Result.CurrentValue);
         }
 
         private void UpdateSpinEnabled()

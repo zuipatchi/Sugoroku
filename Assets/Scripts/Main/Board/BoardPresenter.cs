@@ -171,7 +171,7 @@ namespace Main.Board
             TerritoryModel territory,
             SoundStore soundStore,
             SoundPlayer soundPlayer,
-            CharacterSessionModel characterSession,
+            CpuCharacterPicker characterPicker,
             GameParticipants participants,
             MoneyModel money,
             ItemModel items,
@@ -194,7 +194,7 @@ namespace Main.Board
             _roulette = roulette;
             _boardSession = boardSession;
             _sceneTransitioner = sceneTransitioner;
-            _characterPicker = new CpuCharacterPicker(participants, characterSession);
+            _characterPicker = characterPicker;
             _nameplateView = new PlayerNameplateView(participants, money, territory, _characterPicker, _iconLoader, destroyCancellationToken, _disposables);
 
             // 手札を右下に出すのは人間プレイヤーだけ。参加者リストから最初の Human を採用する。

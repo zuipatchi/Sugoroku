@@ -23,13 +23,17 @@ namespace Main.Roulette
 
         private readonly AddressableSpriteLoader _spriteLoader = new();
 
-        /// <summary>各セクターのアイコンにキャラ画像を貼る。未配置・失敗はプレースホルダ色のまま残す。</summary>
-        public async UniTaskVoid LoadCharacterIconsAsync(IReadOnlyList<VisualElement> icons, CancellationToken ct)
+        /// <summary>
+        /// 各セクターのアイコンにキャラ画像を貼る。<paramref name="sectorCharacters"/> はセクターごとに
+        /// 割り当てた参加者のキャラ（<paramref name="icons"/> と同じ並び）。未配置・失敗はプレースホルダ色のまま残す。
+        /// </summary>
+        public async UniTaskVoid LoadCharacterIconsAsync(
+            IReadOnlyList<VisualElement> icons, IReadOnlyList<CharacterId> sectorCharacters, CancellationToken ct)
         {
-            for (int i = 0; i < icons.Count; i++)
+            int count = Mathf.Min(icons.Count, sectorCharacters.Count);
+            for (int i = 0; i < count; i++)
             {
-                CharacterId id = RouletteMath.CharacterForSector(i);
-                CharacterDefinition definition = CharacterCatalog.Find(id);
+                CharacterDefinition definition = CharacterCatalog.Find(sectorCharacters[i]);
                 // コインには盤面コマと同じ丸バッジ画像（PieceIconAddress）を使う。
                 Sprite icon = await _spriteLoader.TryLoadAsync(definition.PieceIconAddress, "ルーレットのキャラ画像", ct);
                 if (icon != null)

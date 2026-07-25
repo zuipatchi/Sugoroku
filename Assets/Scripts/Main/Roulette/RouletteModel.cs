@@ -12,12 +12,19 @@ namespace Main.Roulette
     {
         private readonly ReactiveProperty<RouletteState> _state = new(RouletteState.Idle);
         private readonly ReactiveProperty<int> _result = new(0);
+        private readonly ReactiveProperty<int> _advancingPlayer = new(-1);
 
         /// <summary>現在の状態。</summary>
         public ReadOnlyReactiveProperty<RouletteState> State => _state;
 
         /// <summary>最後に確定した出目（移動マス数）。未確定時は 0。</summary>
         public ReadOnlyReactiveProperty<int> Result => _result;
+
+        /// <summary>
+        /// 最後に確定した「進む参加者」の index（＝止まったセクターのキャラ）。未確定時は -1。
+        /// 「止まったキャラが進む」方式のため、手番プレイヤーとは別に進む人がここで決まる。
+        /// </summary>
+        public ReadOnlyReactiveProperty<int> AdvancingPlayer => _advancingPlayer;
 
         /// <summary>
         /// 回転を開始する。状態を <see cref="RouletteState.Spinning"/> にする。
@@ -29,11 +36,13 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 回転演出の完了時に呼び、出目を確定して状態を <see cref="RouletteState.Stopped"/> にする。
+        /// 回転演出の完了時に呼び、出目（進むマス数）と進む参加者を確定して状態を
+        /// <see cref="RouletteState.Stopped"/> にする。
         /// </summary>
-        public void CompleteSpin(int value)
+        public void CompleteSpin(int steps, int advancingPlayer)
         {
-            _result.Value = value;
+            _result.Value = steps;
+            _advancingPlayer.Value = advancingPlayer;
             _state.Value = RouletteState.Stopped;
         }
 
@@ -50,6 +59,7 @@ namespace Main.Roulette
         {
             _state.Dispose();
             _result.Dispose();
+            _advancingPlayer.Dispose();
         }
     }
 }
