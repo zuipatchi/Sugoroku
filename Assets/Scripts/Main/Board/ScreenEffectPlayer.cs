@@ -8,13 +8,14 @@ using UnityEngine.UI;
 namespace Main.Board
 {
     /// <summary>
-    /// 勝利時に AssetStore のパーティクル Prefab（ワールド空間）を UI Toolkit の前面に重ねて再生する。
+    /// AssetStore のパーティクル Prefab（ワールド空間）を UI Toolkit の前面に重ねて再生する汎用プレイヤー。
     /// UI Toolkit の ScreenSpaceOverlay はワールドオブジェクトを常に覆い隠すため、専用カメラで
     /// RenderTexture に描画し、加算ブレンドの uGUI Canvas 上の RawImage で前面に合成する
     /// （docs/effects.md「1. UI Toolkit の上にパーティクルを表示できない問題」の RenderTexture 方式）。
-    /// <see cref="BoardPresenter"/> が所持し、人間プレイヤーの勝利確定時に一度だけ再生する。
+    /// <see cref="BoardPresenter"/> が所持し、勝利（花火）・敗北（雨）など決着演出を一度だけ再生する。
+    /// インスタンスごとに 1 回だけ再生するので、勝利用・敗北用で別インスタンスを持つ。
     /// </summary>
-    public sealed class VictoryEffectPlayer
+    public sealed class ScreenEffectPlayer
     {
         // TagManager.asset の 6 番に用意した専用レイヤー。名前解決に失敗したときのフォールバック index。
         private const int FallbackEffectLayer = 6;
@@ -27,7 +28,7 @@ namespace Main.Board
         // 二重再生を防ぐ（勝者は 1 度しか確定しないが購読の多重発火に備える）。
         private bool _played;
 
-        public VictoryEffectPlayer(GameObject prefab, Shader additiveShader)
+        public ScreenEffectPlayer(GameObject prefab, Shader additiveShader)
         {
             _prefab = prefab;
             _additiveShader = additiveShader;
@@ -36,19 +37,23 @@ namespace Main.Board
         /// <summary>
         /// エフェクトを一度だけ再生する。Prefab・シェーダー・メインカメラが未設定なら何もしない。
         /// <paramref name="count"/> 発を横に広げ、<paramref name="stagger"/> 秒ずつ時間差で打ち上げる。
-        /// 最後の 1 発の再生が終わるまで待ってから、生成したカメラ・Canvas・RenderTexture を後片付けする。
+        /// <paramref name="keepUntilCancelled"/> が false なら実再生時間ぶん待って後片付け、true なら
+        /// <paramref name="ct"/> がキャンセルされる（＝シーン破棄など）まで再生し続けてから後片付けする
+        /// （雨のようにループさせ続けたいエフェクト向け）。
         /// </summary>
         /// <param name="distance">エフェクトカメラ前方に Prefab を置く距離。</param>
         /// <param name="verticalOffset">画面中央からの縦オフセット（負で下＝下から打ち上がって見える）。</param>
         /// <param name="scale">Prefab の表示スケール。</param>
         /// <param name="count">打ち上げる発数（1 以上）。</param>
         /// <param name="stagger">1 発ごとの打ち上げ間隔（秒）。</param>
+        /// <param name="keepUntilCancelled">true なら ct キャンセルまで再生し続ける（実再生時間で片付けない）。</param>
         public async UniTask PlayAsync(
             float distance,
             float verticalOffset,
             float scale,
             int count,
             float stagger,
+            bool keepUntilCancelled,
             CancellationToken ct)
         {
             if (_played || _prefab == null || _additiveShader == null)
@@ -86,12 +91,12 @@ namespace Main.Board
             {
                 rt = new RenderTexture(Mathf.Max(1, Screen.width), Mathf.Max(1, Screen.height), 16)
                 {
-                    name = "VictoryEffectRT"
+                    name = "ScreenEffectRT"
                 };
                 rt.Create();
 
                 // エフェクト専用カメラ（黒クリア＝加算で透明・エフェクトレイヤーだけを RenderTexture へ描く）。
-                camObj = new GameObject("VictoryEffectCamera");
+                camObj = new GameObject("ScreenEffectCamera");
                 Camera effectCam = camObj.AddComponent<Camera>();
                 effectCam.clearFlags = CameraClearFlags.SolidColor;
                 effectCam.backgroundColor = Color.black;
@@ -105,14 +110,14 @@ namespace Main.Board
                 effectCam.transform.SetPositionAndRotation(mainCam.transform.position, mainCam.transform.rotation);
 
                 // 前面合成用の Screen Space Overlay Canvas ＋ 加算ブレンド RawImage。
-                canvasObj = new GameObject("VictoryEffectCanvas");
+                canvasObj = new GameObject("ScreenEffectCanvas");
                 Canvas canvas = canvasObj.AddComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.sortingOrder = OverlaySortingOrder;
 
                 material = new Material(_additiveShader) { mainTexture = rt };
 
-                GameObject imgObj = new GameObject("VictoryEffectImage");
+                GameObject imgObj = new GameObject("ScreenEffectImage");
                 imgObj.transform.SetParent(canvasObj.transform, false);
                 RawImage img = imgObj.AddComponent<RawImage>();
                 img.texture = rt;
@@ -159,8 +164,17 @@ namespace Main.Board
                     }
                 }
 
-                // 最後の 1 発が終わるまで待つ。
-                await UniTask.Delay(TimeSpan.FromSeconds(singlePlayback), cancellationToken: ct);
+                if (keepUntilCancelled)
+                {
+                    // 雨などは固定秒数で消さず、シーン破棄（ct キャンセル）まで降らせ続ける。
+                    // WaitUntilCanceled は例外を投げずキャンセルで正常完了し、そのまま finally で後片付けする。
+                    await UniTask.WaitUntilCanceled(ct);
+                }
+                else
+                {
+                    // 最後の 1 発が終わるまで待つ。
+                    await UniTask.Delay(TimeSpan.FromSeconds(singlePlayback), cancellationToken: ct);
+                }
             }
             finally
             {

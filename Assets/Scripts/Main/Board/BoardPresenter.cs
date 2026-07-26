@@ -66,6 +66,18 @@ namespace Main.Board
         [SerializeField] private int _victoryEffectCount = 3;
         [SerializeField] private float _victoryEffectStagger = 0.35f;
 
+        [Header("敗北エフェクト（自分が負けたときだけ再生）")]
+        // 敗北時に再生する AssetStore のパーティクル Prefab（既定は CFXR4 Rain Falling の雨）。未設定なら再生しない。
+        // 合成用の加算ブレンドシェーダーは勝利エフェクトと共通（_victoryEffectShader）を使う。
+        [SerializeField] private GameObject _defeatEffectPrefab;
+        // エフェクトカメラ前方に Prefab を置く距離・縦オフセット・表示スケール。雨は画面中央付近に 1 つ置いて降らせる。
+        [SerializeField] private float _defeatEffectDistance = 8f;
+        [SerializeField] private float _defeatEffectVerticalOffset = 0f;
+        [SerializeField] private float _defeatEffectScale = 1f;
+        // 雨は連続系なので 1 つだけ。時間差は不要。
+        [SerializeField] private int _defeatEffectCount = 1;
+        [SerializeField] private float _defeatEffectStagger = 0f;
+
         private BoardModel _model;
         private TerritoryModel _territory;
         private SoundStore _soundStore;
@@ -85,8 +97,10 @@ namespace Main.Board
         private PlayerNameplateView _nameplateView;
         // 手札を右下に出す人間プレイヤーの index（参加者リストから解決）。
         private int _humanPlayer;
-        // 人間プレイヤーの勝利時にパーティクル Prefab を前面再生する。初回勝利確定時に遅延生成する。
-        private VictoryEffectPlayer _victoryEffect;
+        // 人間プレイヤーの勝利時にパーティクル Prefab（花火）を前面再生する。初回勝利確定時に遅延生成する。
+        private ScreenEffectPlayer _victoryEffect;
+        // 人間プレイヤーの敗北（CPU の勝利）時にパーティクル Prefab（雨）を前面再生する。初回敗北確定時に遅延生成する。
+        private ScreenEffectPlayer _defeatEffect;
 
         private UIDocument _uiDocument;
         private VisualElement _boardBackground;
@@ -256,16 +270,31 @@ namespace Main.Board
                 _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
                 // 勝敗が決まったら「ホームに戻る」ボタンを出す。
                 ShowGameOverActions();
-                // 自分（人間プレイヤー）が勝ったときだけ、パーティクル Prefab を前面で再生する。
+                // 自分（人間プレイヤー）の勝敗でパーティクル Prefab を前面で再生する（合成シェーダーは共通）。
                 if (winner == _humanPlayer)
                 {
-                    _victoryEffect ??= new VictoryEffectPlayer(_victoryEffectPrefab, _victoryEffectShader);
+                    // 勝利＝花火。
+                    _victoryEffect ??= new ScreenEffectPlayer(_victoryEffectPrefab, _victoryEffectShader);
                     _victoryEffect.PlayAsync(
                         _victoryEffectDistance,
                         _victoryEffectVerticalOffset,
                         _victoryEffectScale,
                         _victoryEffectCount,
                         _victoryEffectStagger,
+                        false, // 花火は実再生時間で片付ける。
+                        _destroyCt).Forget();
+                }
+                else
+                {
+                    // 敗北（CPU の勝利）＝雨。
+                    _defeatEffect ??= new ScreenEffectPlayer(_defeatEffectPrefab, _victoryEffectShader);
+                    _defeatEffect.PlayAsync(
+                        _defeatEffectDistance,
+                        _defeatEffectVerticalOffset,
+                        _defeatEffectScale,
+                        _defeatEffectCount,
+                        _defeatEffectStagger,
+                        true, // 雨はシーンを出るまで降らせ続ける。
                         _destroyCt).Forget();
                 }
             }));
