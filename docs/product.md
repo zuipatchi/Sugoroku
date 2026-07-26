@@ -14,7 +14,7 @@
 - BGM / SE 再生（音量調整・永続化）→ [architecture.md](architecture.md)「サウンド設計」
 - Common シーンを常駐させたアディティブシーン管理・フェード画面遷移演出 → [architecture.md](architecture.md)「シーン構成」
 - オプションモーダル（音量設定など）→ [architecture.md](architecture.md)「オプションモーダル」
-- オンラインマッチングの土台（ホストが定員2〜4人でルームを作成・ルーム一覧から手動参加）→ [matchmaking.md](matchmaking.md)
+- オンラインマッチングの土台（ホストが定員2〜4人＋対戦マップを選んでルームを作成・ルーム一覧から手動参加）→ [matchmaking.md](matchmaking.md)
 - NGO によるネットワーク同期の土台（セッション接続・メッセージ送受信のハマりポイントと定石）→ [networking.md](networking.md)
 
 ## ゲーム固有機能（プロジェクトごとに追記）
@@ -25,7 +25,7 @@
 - 一人用 / オンラインの2モード選択（Home で分岐。一人用はネットワーク非依存で CPU とのすごろく対戦〔人数 2〜4 を MapSelect で選ぶ〕。背景演出の詳細は [CLAUDE.md](../CLAUDE.md)「主要ファイルの場所」HomePresenter の行）→ [architecture.md](architecture.md)「シーン構成」
 - クレジット表示（Home のクレジットボタンでモーダルを開き、制作・イラスト・使用技術などを表示）→ [Assets/Scripts/Home/](../Assets/Scripts/Home/)
 - キャラクター選択（一人用は Main の前に CharacterSelect で選ぶ。全8種。立ち絵を全画面背景、カード絵の選択スロットを下部に表示。戻る／決定ボタンは画面上部（右上のオプションアイコンを避けて中央寄せ）。キャラ名は各カード内に表示。選択は `CharacterSessionModel` に保持。画像は Addressables、現状オンライン非対応）→ [Assets/Scripts/CharacterSelect/](../Assets/Scripts/CharacterSelect/)
-- マップ選択＋人数選択（一人用はキャラ選択の後、Main の前に MapSelect で対戦マップと**プレイヤー人数〔自分＋CPU・2〜4〕**を選ぶ。複数の盤面 `BoardDefinition` を `BoardCatalog` にまとめておき、盤面の形の簡易サムネイル＋マップ名でカード一覧〔サムネイルの各マスはイベント種別ごとに色分けされ、選ぶと大プレビューの下に総マス数＋イベント別の内訳〔陣地・アイテム・お金…が何マスあるか〕が出るので、どんなマップかがひと目で分かる〕。人数は −／＋ ステッパーで選び `PlayerCountSessionModel` に保存。選んだマップの盤面・人数で対戦する。選択は `BoardSessionModel` に識別子で保持し Main の `BoardPresenter` がカタログから実体を解決。オンラインは既定マップ＝カタログ先頭・人数選択は不使用）→ [Assets/Scripts/MapSelect/](../Assets/Scripts/MapSelect/)
+- マップ選択＋人数選択（一人用はキャラ選択の後、Main の前に MapSelect で対戦マップと**プレイヤー人数〔自分＋CPU・2〜4〕**を選ぶ。複数の盤面 `BoardDefinition` を `BoardCatalog` にまとめておき、盤面の形の簡易サムネイル＋マップ名でカード一覧〔サムネイルの各マスはイベント種別ごとに色分けされ、選ぶと大プレビューの下に総マス数＋イベント別の内訳〔陣地・アイテム・お金…が何マスあるか〕が出るので、どんなマップかがひと目で分かる〕。人数は −／＋ ステッパーで選び `PlayerCountSessionModel` に保存。選んだマップの盤面・人数で対戦する。選択は `BoardSessionModel` に識別子で保持し Main の `BoardPresenter` がカタログから実体を解決。**オンラインはホストがルーム作成時に MapSelect と同じ見た目の全画面オーバーレイでマップを選び、全員へ同期する**〔人数はルーム定員として別途選ぶ〕）→ [Assets/Scripts/MapSelect/](../Assets/Scripts/MapSelect/)
 - 円盤ルーレット（**「誰が何マス進むか」を決める**＝止まったキャラが進む方式。ボタンを長押し中は回転し、離すと減速して止まった位置のセクターで確定。CPU の番は同じ円盤が自動で回る。**セクターには参加者〔自分＋CPU〕をラウンドロビンで均等配置**し〔ゲーム開始時に固定〕、止まったセクターのキャラがそのセクターの数字ぶん進む〔手番＝スピンする人／進む人はルーレット任せ〕。**止まると円盤中央に「進むキャラ名＋出目の数字」を表示**する〔自分が進むときはキャラ名の下に「（あなた）」を添える・回転中は名前を隠す〕。**各参加者は同じ数字セット 1〜K を 1 枚ずつ持ち**〔数字も全キャラ同じ・K はセクターごとの数字枚数＝`RoulettePresenter._numbersPerCharacter` 既定 3・セクター総数＝人数×K〕。減速・コイン表示・SE などの演出仕様は [CLAUDE.md](../CLAUDE.md)「主要ファイルの場所」RoulettePresenter の行）→ [Assets/Scripts/Main/Roulette/](../Assets/Scripts/Main/Roulette/)
 - CPU 対戦のターン進行（一人用モード。あなたが先攻で以降交互。**勝敗は陣地マスの占拠数で決まる**（下記）。`GameFlowController` が統括し、オンラインはルーム定員ぶん＝2〜4 人（ホストがルーム作成時に選ぶ・単独プレイは廃止・盤面のターン同期は未実装）。進行フローの詳細は [architecture.md](architecture.md)「シーン構成」）→ [Assets/Scripts/Main/Turn/](../Assets/Scripts/Main/Turn/)
 - すごろくのループ盤面（盤面データ `BoardDefinition` を読んで外周マスのループ盤面を描画し、ルーレットで止まったキャラ（＝進むプレイヤー）のコマを出目ぶん移動。周回勝利は廃止したのでスタート＝ゴールを通過して回り続ける。各マスはイベント（進む/戻る/休み/ミニゲーム・お金アップ/ダウン・陣地・アイテム）と見た目（色）を持ち、マスの画像はイベント種別ごとに**全マップ共通**（`BoardEventArtCatalog`・`Board/<イベント名>` 規約）で解決する（全マス共通の枠画像・盤面の背後に画面全体で敷く背景画像は盤面ごとに設定できる）。スタート＝ゴール（先頭マス）は固定で `Board/Start` の画像を使う。お金マス・陣地マス・アイテムマスが着地で発動。**盤面は左下のズームボタンで表示列数を段階ズーム**でき、画面外へはみ出したぶんはドラッグでパンして見る〔横長マップ向け・`BoardZoomController`。段階・操作の詳細は [CLAUDE.md](../CLAUDE.md)「主要ファイルの場所」BoardZoomController の行〕。描画・レイアウト・ネームプレートの詳細は [CLAUDE.md](../CLAUDE.md)「主要ファイルの場所」BoardPresenter の行）→ [Assets/Scripts/Main/Board/](../Assets/Scripts/Main/Board/)

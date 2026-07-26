@@ -306,6 +306,19 @@ public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken c
 
 ---
 
+## 13. 複数シーンで同じ UI を出すときは「共通 UI コントローラ」を Main に切り出す
+
+同じ見た目・操作の UI を別シーンでも出したくなったら、Presenter に丸ごと再実装せず、**渡された要素を組み立てる plain C# コントローラ**に切り出して共用する（`MapPickerView`＝マップ選択のカード一覧＋大プレビュー＋イベント内訳＋選択状態。`MapSelect` シーンとオンラインのルーム作成マップ選択オーバーレイ〔`Matching`〕が共用）。
+
+### 手順・注意
+- **置き場所は Main**（`Main/Board/`）。ゲームデータ型（`BoardCatalog`／`BoardDefinition` 等）にしか依存しないなら Main が正しい住所。使う側のアセンブリ（`MapSelect`／`Matching`）は Main を参照する（`Matching` は `BoardCatalog`／`MapPickerView` 参照のため Main 参照を追加した。`Main` は両者を参照しないので循環しない）。
+- **コンストラクタで要素（グリッド・プレビュー・ラベル群）を受け取り**、`Build(catalog, initialId)` で組み、`SelectedId`／`HasSelection`／`Selected`（選択変化イベント）を公開する。SE・確定/キャンセル・シーン遷移の配線は**呼び出し側の Presenter が持つ**（コントローラは UI 構築と選択状態だけに専念）。
+- **Presenter からロジックを消して委譲に置き換える**（`MapSelectPresenter` の `BuildCards`／`UpdateSelection`／`UpdateStats` を削除しコントローラへ）。純粋な描画ヘルパ（`BoardSchematicView`）も Main 型のみ依存なら MapSelect 等のシーンアセンブリから Main へ移す。
+- **USS クラス名は共通**（`map-card`／`map-thumb`／`map-name`／`map-card--selected`／`ms-stat*`）。コントローラが同じクラス名で要素を組むので、**埋め込む各シーンの USS に同じクラスを定義する**（スタイルシートはシーンごとに別なので、クラス定義は各 USS に複製する＝USS の重複は許容）。
+- **全画面オーバーレイに埋め込むとき**は、そのシーンの UXML に「プレビュー＋ラベル＋グリッド（`ScrollView` でも可＝`Add`/`Clear` は contentContainer に効く）＋確定/閉じるボタン」を用意し、Presenter が `display` トグルで開閉する。開くたびに `Build(catalog, 確定中ID)` で選択状態を作り直せば「キャンセルを引きずらない」挙動になる。
+
+---
+
 ## 共通ルール（抜粋）
 
 - `var` は使わない。型を明示する

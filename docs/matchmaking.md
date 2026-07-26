@@ -3,7 +3,7 @@
 ## 概要
 
 Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使ったオンラインマッチング機能。
-ホストがルームを作成（定員 2〜4 人をステッパーで選ぶ）し、他プレイヤーはルーム一覧から手動参加する方式。Relay による NAT 越え対応。
+ホストがルームを作成（定員 2〜4 人をステッパーで選び、対戦マップも選ぶ）し、他プレイヤーはルーム一覧から手動参加する方式。Relay による NAT 越え対応。
 
 ---
 
@@ -46,9 +46,11 @@ Title → Home →（オンラインプレイ）→ Matching → OnlineCharacter
 
 2a. ルームを作成（ホスト）
    → 人数ステッパーで定員 2〜4 を選ぶ
-   → CreateSessionAsync(Name="Room", MaxPlayers=選んだ人数)
+   → マップを選ぶ（「変更」で MapSelect 風の全画面マップ選択オーバーレイ〔共通の `MapPickerView`〕。既定はカタログ先頭）
+   → CreateSessionAsync(Name="Room", MaxPlayers=選んだ人数)。選んだマップは `BoardSessionModel` に保持
    → 定員が埋まるまで相手待ち（120秒タイムアウト・待機中は「◯/◯人」をライブ表示）
    → 全員揃った（AvailableSlots==0）→ OnlineCharacterSelect（キャラ選択ロビー）→ 全員決定で Main へ
+   ※ 選んだマップはキャラ選択ロビーの共有プロパティ（`lobbyState.board`）でゲストへ同期し、全員同じ盤面で Main に入る
    → タイムアウト → 作成したセッションを退出（一覧から削除）→ リトライ確認ダイアログ
 
 2b. ルームに手動参加
@@ -74,7 +76,7 @@ Title → Home →（オンラインプレイ）→ Matching → OnlineCharacter
 |---|---|
 | `MatchingModel` | マッチング状態を `ReactiveProperty` で管理 |
 | `MatchingPresenter` | UI とマッチング状態のバインド（`IStartable` 実装）。入力を `MatchingFlow` へ転送する |
-| `MatchingFlow` | フロー制御（認証・2秒ごとの自動ルーム更新ループ・ルーム作成〔定員2〜4〕/参加・相手待ち〔参加人数を Model に通知〕・ゲーム開始） |
+| `MatchingFlow` | フロー制御（認証・2秒ごとの自動ルーム更新ループ・ルーム作成〔定員2〜4＋選んだマップを `BoardSessionModel` に保持〕/参加・相手待ち〔参加人数を Model に通知〕・ゲーム開始） |
 | `MatchingService` | UGS Session API 呼び出し |
 | `MatchingStateExtensions` | `IsLoading()` / `IsWaiting()` 拡張メソッドで状態グループ判定を一元化 |
 | `MatchingLifetimeScope` | Matching シーン固有 DI 登録 |
