@@ -16,9 +16,7 @@ MonoBehaviour:
   _gridColumns: 10
   _gridRows: 5
   _frameAddress: Board/Frame
-  _eventArt:
-  - _event: 8
-    _address: Board/Item
+  _backgroundAddress: Board/Background/Map3
   _cells:
   - _grid: {x: 0, y: 0}
     _event: 0

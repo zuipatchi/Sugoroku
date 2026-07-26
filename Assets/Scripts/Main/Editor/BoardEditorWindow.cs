@@ -26,6 +26,7 @@ namespace Main.EditorTools
         private IntegerField _columnsField;
         private IntegerField _rowsField;
         private TextField _frameField;
+        private TextField _backgroundField;
         private Label _infoLabel;
         private BoardEditorGridView _gridView;
         private BoardCellInspector _cellInspector;
@@ -157,6 +158,21 @@ namespace Main.EditorTools
             });
             root.Add(_frameField);
 
+            // 盤面の背後に画面全体で敷く背景画像アドレス。Enter／フォーカスアウトで確定する。
+            _backgroundField = new TextField("背景画像アドレス") { isDelayed = true };
+            _backgroundField.style.marginTop = 6f;
+            _backgroundField.RegisterValueChangedCallback(evt =>
+            {
+                if (_target == null)
+                {
+                    return;
+                }
+                Undo.RecordObject(_target, "背景画像変更");
+                _target.SetBackgroundAddress(evt.newValue);
+                EditorUtility.SetDirty(_target);
+            });
+            root.Add(_backgroundField);
+
             _infoLabel = new Label();
             _infoLabel.style.marginTop = 4f;
             root.Add(_infoLabel);
@@ -280,7 +296,7 @@ namespace Main.EditorTools
             Rebuild();
         }
 
-        /// <summary>選択中の盤面データに合わせて、ツールバーの列・行・枠画像アドレスの表示を同期する。</summary>
+        /// <summary>選択中の盤面データに合わせて、ツールバーの列・行・枠画像・背景画像アドレスの表示を同期する。</summary>
         private void SyncToolbarFields()
         {
             if (_target == null)
@@ -291,6 +307,7 @@ namespace Main.EditorTools
             _columnsField.SetValueWithoutNotify(_target.GridColumns);
             _rowsField.SetValueWithoutNotify(_target.GridRows);
             _frameField.SetValueWithoutNotify(_target.FrameAddress);
+            _backgroundField.SetValueWithoutNotify(_target.BackgroundAddress);
         }
 
         private void ApplyGridSize()

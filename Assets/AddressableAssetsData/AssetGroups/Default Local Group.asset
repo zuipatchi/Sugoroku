@@ -42,6 +42,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0f5aab72c70624d4ab5b0d93ecd894ae
+    m_Address: Image/Icon/CoinIcon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 12f2852a6b123f5438e24c391fa50e82
     m_Address: Image/HorseRun
     m_ReadOnly: 0
@@ -84,33 +89,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 359d39e90d1ecf948b7f1931bd17b577
-    m_Address: Image/Item/Victory
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0f5aab72c70624d4ab5b0d93ecd894ae
-    m_Address: Image/Icon/CoinIcon
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: d339fece79d15b34493790c60e2c6788
-    m_Address: Image/Icon/TeritoryIcon
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 70a718de7b1f5904495dc5a4ad271b1e
-    m_Address: Image/MiniGame/Renda
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 26a44bcd44bbb2e4985cca64e9449e0b
     m_Address: Image/MiniGame/Lace
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 321ff60c8d3d7d0468b16ec72bc36e8f
-    m_Address: Image/MiniGame/kaburi
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -129,6 +109,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 321ff60c8d3d7d0468b16ec72bc36e8f
+    m_Address: Image/MiniGame/kaburi
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 343fbb90d9576674c9df0431d71e47f6
     m_Address: Sound/SE/Cancel1
     m_ReadOnly: 0
@@ -140,6 +125,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels:
     - default
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 359d39e90d1ecf948b7f1931bd17b577
+    m_Address: Image/Item/Victory
+    m_ReadOnly: 0
+    m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 36d5521522564314bbd59eb18c27e0b3
     m_Address: Character/Character3/Icon
@@ -188,12 +178,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 820e8b99153e36140888cf0fcc3a4073
-    m_Address: Sound/SE/ItemGet
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - default
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5a3489b2bc0a7b440984b7b01240177d
     m_Address: Character/Character3/Card
     m_ReadOnly: 0
@@ -235,10 +219,26 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 70a718de7b1f5904495dc5a4ad271b1e
+    m_Address: Image/MiniGame/Renda
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 733d5e5f73108da4b9444842e76ff516
     m_Address: Image/Item/MiniGame
     m_ReadOnly: 0
     m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8064634e0e745634898d4a5da12a5bfa
+    m_Address: Board/Background/Map2
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 820e8b99153e36140888cf0fcc3a4073
+    m_Address: Sound/SE/ItemGet
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 84b5c48cae50aee429ca40d728f91148
     m_Address: Character/Character3/Flag
@@ -247,6 +247,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 85efe53f1709c464a854ee75fc6a7f30
     m_Address: Character/Character2/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 869a2eb483474244bbd302d110e11752
+    m_Address: Board/Item
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -280,11 +285,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: b2c3d4e5f6a70819293a4b5c6d7e8f01
-    m_Address: MiniGame/OverlapGame
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a450d432e1c26ac4e92555c6afaabe42
     m_Address: Image/DragonRun
     m_ReadOnly: 0
@@ -307,6 +307,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ad904927bf3f8bf40b1ea0c2bdcc15d1
     m_Address: Image/CatRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b2c3d4e5f6a70819293a4b5c6d7e8f01
+    m_Address: MiniGame/OverlapGame
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -355,8 +360,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d339fece79d15b34493790c60e2c6788
+    m_Address: Image/Icon/TeritoryIcon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d722c41c14ea63a41ad7404a9dbd7ab9
     m_Address: Character/Character1/Icon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d794d3ecbcd5e314691c4873e75233a3
+    m_Address: Board/Background/Map3
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -367,6 +382,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: daff4a9874134e34185f21899dac6cf2
     m_Address: Image/CrayfishRun
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dc40cdabdb49fe64cb2dab74376e922d
+    m_Address: Board/Background/Map1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -399,11 +419,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f54208596078e324cadeba2fcdda3363
     m_Address: Board/Start
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 869a2eb483474244bbd302d110e11752
-    m_Address: Board/Item
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

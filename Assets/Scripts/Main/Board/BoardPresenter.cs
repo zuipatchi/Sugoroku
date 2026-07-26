@@ -89,6 +89,7 @@ namespace Main.Board
         private VictoryEffectPlayer _victoryEffect;
 
         private UIDocument _uiDocument;
+        private VisualElement _boardBackground;
         private VisualElement _boardArea;
         private VisualElement _playerHeader;
         private VisualElement[] _cells;
@@ -152,6 +153,7 @@ namespace Main.Board
         private bool _cellsBuilt;
         private bool _cellIconLoadStarted;
         private bool _frameLoadStarted;
+        private bool _backgroundLoadStarted;
         private bool _piecesBuilt;
         private bool _headerBuilt;
         private bool _iconLoadStarted;
@@ -377,6 +379,7 @@ namespace Main.Board
                 return;
             }
 
+            _boardBackground = root.Q<VisualElement>("BoardBackground");
             _boardArea = root.Q<VisualElement>("BoardArea");
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _clearLabel = root.Q<Label>("ClearLabel");
@@ -483,6 +486,7 @@ namespace Main.Board
 
             StartLoadingCellIcons();
             StartLoadingFrameIfReady();
+            StartLoadingBackgroundIfReady();
 
             // リング領域をグリッドのアスペクト比に合わせて中央配置する。画面比が変わっても
             // マスが均等に並ぶよう、レイアウト確定（と以後のリサイズ）のたびに再計算する。
@@ -607,6 +611,30 @@ namespace Main.Board
             {
                 frameElement.style.backgroundImage = new StyleBackground(frame);
             }
+        }
+
+        /// <summary>
+        /// 盤面の背後に画面全体で敷く背景画像（<see cref="BoardDefinition.BackgroundAddress"/>）を
+        /// 読み込んで貼る（1 度だけ）。未設定・未配置なら背景なしのまま。
+        /// </summary>
+        private void StartLoadingBackgroundIfReady()
+        {
+            if (_backgroundLoadStarted || _boardDef == null || !_boardDef.HasBackground || _boardBackground == null)
+            {
+                return;
+            }
+            _backgroundLoadStarted = true;
+            LoadBackgroundAsync(_destroyCt).Forget();
+        }
+
+        private async UniTaskVoid LoadBackgroundAsync(CancellationToken ct)
+        {
+            Sprite background = await _iconLoader.LoadSpriteAsync(_boardDef.BackgroundAddress, "盤面背景画像", ct);
+            if (background == null || _boardBackground == null)
+            {
+                return;
+            }
+            _boardBackground.style.backgroundImage = new StyleBackground(background);
         }
 
         /// <summary>

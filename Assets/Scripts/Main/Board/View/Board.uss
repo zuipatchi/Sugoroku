@@ -2,6 +2,20 @@
     flex-grow: 1;
 }
 
+/* 盤面の背後に画面全体で敷く背景画像。マップごとの BoardDefinition.BackgroundAddress を
+   BoardPresenter がロードして背景に貼る（未設定なら透明のまま＝何も出ない）。最背面に置き、
+   ズーム/パンには追従しないよう画面全面へ固定する。画面比に合わせて隙間なく敷く（scale-and-crop）。 */
+.board-background {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    -unity-background-scale-mode: scale-and-crop;
+    /* 背景画像だけを少し暗くして盤面を見やすくする（白=等倍、灰=暗く。画像に掛けるティント）。 */
+    -unity-background-image-tint-color: rgb(170, 170, 170);
+}
+
 /* 外周マス・コマを絶対配置するリング領域。サイズ・位置は BoardPresenter がグリッドの
    アスペクト比 (列-1):(行-1) に合わせてピクセルで設定する（画面比に依らずマスを均等に
    並べ、右上のオプションアイコンを上マージンで避ける）。 */

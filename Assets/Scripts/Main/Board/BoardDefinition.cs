@@ -17,6 +17,7 @@ namespace Main.Board
         [SerializeField] private int _gridColumns = 5;
         [SerializeField] private int _gridRows = 7;
         [SerializeField] private string _frameAddress = string.Empty;
+        [SerializeField] private string _backgroundAddress = string.Empty;
         [SerializeField] private List<BoardCellDefinition> _cells = new();
 
         /// <summary>盤面の表示名（任意）。</summary>
@@ -27,6 +28,12 @@ namespace Main.Board
 
         /// <summary>枠画像が指定されているか。</summary>
         public bool HasFrame => !string.IsNullOrEmpty(_frameAddress);
+
+        /// <summary>盤面の背後に画面全体で敷く背景画像の Addressables アドレス（任意）。</summary>
+        public string BackgroundAddress => _backgroundAddress;
+
+        /// <summary>背景画像が指定されているか。</summary>
+        public bool HasBackground => !string.IsNullOrEmpty(_backgroundAddress);
 
         /// <summary>方眼キャンバスの列数（座標の正規化とレイアウト比に使う）。</summary>
         public int GridColumns => _gridColumns;
@@ -77,6 +84,11 @@ namespace Main.Board
         public void SetFrameAddress(string address)
         {
             _frameAddress = address ?? string.Empty;
+        }
+
+        public void SetBackgroundAddress(string address)
+        {
+            _backgroundAddress = address ?? string.Empty;
         }
 
         public void SetGridSize(int columns, int rows)
