@@ -1,15 +1,15 @@
-using Main.Board;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace MapSelect.View
+namespace Main.Board
 {
     /// <summary>
     /// 盤面データ（<see cref="BoardDefinition"/>）の形を Painter2D で簡易サムネイル描画する純粋ヘルパー。
     /// マスをグリッド座標に四角で並べ、経路順に線でつないでループを閉じる。画像アセットは使わない。
     /// 各マスはイベント種別ごとの色（<see cref="BoardEventColors"/>・盤面エディタと共通）で塗り、
     /// どんなイベント構成のマップかをサムネイルだけで見分けられるようにする。
-    /// マップ選択のカード（小）と大プレビューで共用する（コールバック配線は呼び出し側が持つ）。
+    /// マップ選択のカード（小）／大プレビュー、オンラインのルーム作成マップ選択で共用する
+    /// （コールバック配線は呼び出し側が持つ）。Main 型にしか依存しないため Main に置く。
     /// </summary>
     public static class BoardSchematicView
     {

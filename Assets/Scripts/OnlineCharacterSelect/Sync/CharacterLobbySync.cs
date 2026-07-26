@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Common.Board;
 using Common.Character;
 using Common.GameSession;
 using Cysharp.Threading.Tasks;
@@ -30,6 +31,7 @@ namespace OnlineCharacterSelect.Sync
 
         private readonly GameSessionModel _gameSession;
         private readonly OnlineRosterSessionModel _roster;
+        private readonly BoardSessionModel _board;
 
         // UI へ公開するロック表（キャラ→所有者Id）。
         private readonly ReactiveProperty<IReadOnlyDictionary<CharacterId, string>> _locks =
@@ -50,10 +52,11 @@ namespace OnlineCharacterSelect.Sync
         private string _lastWrittenState;
         private string _lastAppliedState;
 
-        public CharacterLobbySync(GameSessionModel gameSession, OnlineRosterSessionModel roster)
+        public CharacterLobbySync(GameSessionModel gameSession, OnlineRosterSessionModel roster, BoardSessionModel board)
         {
             _gameSession = gameSession;
             _roster = roster;
+            _board = board;
         }
 
         private ISession Session => _gameSession.Session;
@@ -229,6 +232,8 @@ namespace OnlineCharacterSelect.Sync
                 dto.locks.Add(new LockDto { ch = (int)pair.Key, player = pair.Value });
             }
 
+            // ホストが選んだマップ（資産名）をゲストへ共有する。全員がこの識別子で Main の盤面を解決する。
+            dto.board = _board.SelectedId;
             dto.started = _hostStarted;
             if (_hostStarted)
             {
@@ -301,6 +306,10 @@ namespace OnlineCharacterSelect.Sync
 
         private void StoreRosterAndStart(LobbyStateDto dto)
         {
+            // ホストが選んだマップをゲストの Common セッションへも反映してから開始する
+            // （ホスト側は既に自分の選択値なので冪等。空ならカタログ既定へフォールバックする）。
+            _board.Select(dto.board);
+
             List<CharacterId> seats = new(dto.roster.Count);
             int mySeat = 0;
             for (int i = 0; i < dto.roster.Count; i++)
@@ -328,6 +337,8 @@ namespace OnlineCharacterSelect.Sync
             public List<LockDto> locks = new();
             public bool started;
             public List<SeatDto> roster = new();
+            // ホストが選んだマップの識別子（資産名）。空ならカタログ既定へフォールバック。
+            public string board = string.Empty;
         }
 
         [Serializable]

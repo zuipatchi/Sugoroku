@@ -265,6 +265,56 @@
     -unity-text-align: middle-center;
 }
 
+/* ─── ルーム作成：現在のマップ表示＋「変更」 ─── */
+.ms-map-current {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 1;
+}
+
+.ms-map-current__name {
+    font-size: 15px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-right;
+    margin-right: 8px;
+    max-width: 150px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.ms-map-current__btn {
+    height: 32px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: 14px;
+    color: rgb(24, 24, 36);
+    background-color: rgb(235, 200, 90);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    -unity-text-align: middle-center;
+}
+
+.ms-map-current__btn:hover {
+    background-color: rgb(255, 225, 120);
+}
+
+.ms-map-current__btn:active {
+    scale: 0.94 0.94;
+}
+
+.ms-map-current__btn:disabled {
+    opacity: 0.35;
+}
+
 /* ─── Overlay ─── */
 .overlay-bg {
     position: absolute;
@@ -280,4 +330,210 @@
     color: rgb(240, 240, 255);
     -unity-text-align: middle-center;
     margin-bottom: 24px;
+}
+
+/* ─── マップ選択オーバーレイ（MapSelect 風。MapPickerView が中身を組む） ─── */
+/* マッチング画面いっぱいに広げる全画面パネル。 */
+.mp-panel {
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    padding-top: 24px;
+    padding-bottom: 24px;
+    padding-left: 16px;
+    padding-right: 16px;
+    background-color: rgb(22, 22, 35);
+}
+
+.mp-heading {
+    font-size: 22px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+    margin-bottom: 14px;
+}
+
+/* 選択中マップの大プレビュー（Painter2D 描画）。 */
+.mp-preview {
+    width: 220px;
+    height: 220px;
+    max-width: 70%;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.12);
+    border-right-color: rgba(255, 255, 255, 0.12);
+    border-top-color: rgba(255, 255, 255, 0.12);
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+}
+
+.mp-title {
+    margin-top: 12px;
+    font-size: 22px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+}
+
+.mp-cellcount {
+    margin-top: 6px;
+    font-size: 14px;
+    color: rgba(230, 230, 245, 0.75);
+    -unity-text-align: middle-center;
+}
+
+/* イベント別の内訳チップを横並び・折り返しで中央に置く。 */
+.mp-stats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    margin-top: 8px;
+    max-width: 96%;
+}
+
+/* カード一覧。多いときは縦スクロールさせる。 */
+.mp-grid {
+    width: 100%;
+    margin-top: 12px;
+    margin-bottom: 12px;
+    flex-grow: 1;
+}
+
+.mp-grid .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.mp-actions {
+    flex-direction: row;
+    justify-content: center;
+    width: 100%;
+}
+
+.mp-action {
+    flex-grow: 1;
+    height: 48px;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+
+/* ─── マップカード／内訳チップ（MapPickerView が生成。MapSelect.uss と共通の見た目） ─── */
+.map-card {
+    width: 104px;
+    height: 132px;
+    margin-left: 7px;
+    margin-right: 7px;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    padding-top: 8px;
+    padding-right: 8px;
+    padding-bottom: 8px;
+    padding-left: 8px;
+    background-color: rgba(22, 22, 35, 0.85);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.2);
+    border-right-color: rgba(255, 255, 255, 0.2);
+    border-top-color: rgba(255, 255, 255, 0.2);
+    border-bottom-color: rgba(255, 255, 255, 0.2);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    align-items: center;
+    justify-content: flex-start;
+    transition-property: scale, border-color;
+    transition-duration: 0.1s, 0.1s;
+}
+
+.map-card:hover {
+    scale: 1.04 1.04;
+}
+
+.map-card:active {
+    scale: 0.97 0.97;
+}
+
+.map-card--selected {
+    border-left-color: rgb(235, 200, 90);
+    border-right-color: rgb(235, 200, 90);
+    border-top-color: rgb(235, 200, 90);
+    border-bottom-color: rgb(235, 200, 90);
+    scale: 1.04 1.04;
+}
+
+.map-thumb {
+    width: 84px;
+    height: 84px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.map-name {
+    margin-top: 8px;
+    font-size: 13px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
+}
+
+.ms-stat {
+    flex-direction: row;
+    align-items: center;
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    padding-left: 8px;
+    padding-right: 10px;
+    background-color: rgba(22, 22, 35, 0.85);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.14);
+    border-right-color: rgba(255, 255, 255, 0.14);
+    border-top-color: rgba(255, 255, 255, 0.14);
+    border-bottom-color: rgba(255, 255, 255, 0.14);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+.ms-stat__dot {
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(0, 0, 0, 0.5);
+    border-right-color: rgba(0, 0, 0, 0.5);
+    border-top-color: rgba(0, 0, 0, 0.5);
+    border-bottom-color: rgba(0, 0, 0, 0.5);
+}
+
+.ms-stat__label {
+    font-size: 14px;
+    color: rgb(235, 235, 248);
+    -unity-text-align: middle-center;
 }

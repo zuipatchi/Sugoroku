@@ -372,7 +372,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a271afcc06ac28143a7f477abfd57dc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Matching::Matching.MatchingPresenter
-  _autoMatchmaking: 0
+  _catalog: {fileID: 11400000, guid: 797ea6bb6f41c974c855dd05d2e4ecff, type: 2}
 --- !u!114 &1878651925
 MonoBehaviour:
   m_ObjectHideFlags: 0

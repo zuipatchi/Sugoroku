@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Common.Board;
 using Common.GameSession;
 using Common.SceneManagement;
 using Common.SoundManagement;
@@ -24,6 +25,7 @@ namespace Matching
         private readonly MatchingService _matchingService;
         private readonly SceneTransitioner _sceneTransitioner;
         private readonly GameSessionModel _gameSessionModel;
+        private readonly BoardSessionModel _boardSessionModel;
         private readonly SoundStore _soundStore;
         private readonly SoundPlayer _soundPlayer;
 
@@ -32,6 +34,7 @@ namespace Matching
             MatchingService matchingService,
             SceneTransitioner sceneTransitioner,
             GameSessionModel gameSessionModel,
+            BoardSessionModel boardSessionModel,
             SoundStore soundStore,
             SoundPlayer soundPlayer)
         {
@@ -39,6 +42,7 @@ namespace Matching
             _matchingService = matchingService;
             _sceneTransitioner = sceneTransitioner;
             _gameSessionModel = gameSessionModel;
+            _boardSessionModel = boardSessionModel;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
         }
@@ -81,12 +85,15 @@ namespace Matching
 
         /// <summary>
         /// ルームを作成して定員（<paramref name="maxPlayers"/>）が埋まるまで待つ。
+        /// ホストが選んだマップ（<paramref name="boardId"/>＝マップ資産名）を <see cref="BoardSessionModel"/> に保持し、
+        /// キャラ選択ロビーの共有状態でゲストへ同期する（全員同じマップで Main へ進む）。
         /// 全員揃えばゲーム開始、タイムアウトなら退室して TimedOut にする。
         /// </summary>
-        public async UniTask CreateRoomAsync(int maxPlayers, CancellationToken ct)
+        public async UniTask CreateRoomAsync(int maxPlayers, string boardId, CancellationToken ct)
         {
             try
             {
+                _boardSessionModel.Select(boardId);
                 _model.State.Value = MatchingState.CreatingRoom;
                 _model.WaitingMax.Value = maxPlayers;
                 _model.WaitingCurrent.Value = 0;

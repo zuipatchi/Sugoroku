@@ -11,7 +11,14 @@
                 <ui:VisualElement class="divider" />
                 <ui:ScrollView name="RoomList" class="ms-roomlist" />
                 <ui:VisualElement class="divider" />
-                <!-- 定員（2〜4）を選んでルーム作成 -->
+                <!-- マップと定員（2〜4）を選んでルーム作成。マップは「変更」で全画面オーバーレイを開く -->
+                <ui:VisualElement class="ms-create-row">
+                    <ui:Label text="マップ" class="ms-players-label" />
+                    <ui:VisualElement class="ms-map-current">
+                        <ui:Label name="MapNameValue" text="" class="ms-map-current__name" />
+                        <ui:Button name="MapSelectButton" text="変更" class="ms-map-current__btn" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
                 <ui:VisualElement class="ms-create-row">
                     <ui:Label text="人数" class="ms-players-label" />
                     <ui:VisualElement class="ms-stepper">
@@ -47,6 +54,23 @@
             <ui:VisualElement class="card ms-overlay-card">
                 <ui:Label text="ネットワークエラーが発生しました" class="overlay-label" />
                 <ui:Button name="CloseErrorButton" text="閉じる" class="btn-secondary ms-btn-block" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- マップ選択オーバーレイ（ホストがルーム作成時に開く。MapSelect と同じサムネイル＋大プレビュー＋内訳）。
+             カード一覧・プレビュー・内訳・選択は MapPickerView（Main）に委譲する -->
+        <ui:VisualElement name="MapPickerOverlay" class="overlay-bg" style="display: none;">
+            <ui:VisualElement class="mp-panel">
+                <ui:Label text="マップを選ぶ" class="mp-heading" />
+                <ui:VisualElement name="MapPreview" class="mp-preview" picking-mode="Ignore" />
+                <ui:Label name="MapTitle" class="mp-title" />
+                <ui:Label name="MapCellCount" class="mp-cellcount" />
+                <ui:VisualElement name="MapStats" class="mp-stats" picking-mode="Ignore" />
+                <ui:ScrollView name="MapGrid" class="mp-grid" />
+                <ui:VisualElement class="mp-actions">
+                    <ui:Button name="MapCancelButton" text="閉じる" class="btn-secondary mp-action" />
+                    <ui:Button name="MapConfirmButton" text="このマップにする" class="btn-accent mp-action" />
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
 

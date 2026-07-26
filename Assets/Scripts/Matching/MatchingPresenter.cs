@@ -4,6 +4,7 @@ using Common.SceneManagement;
 using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
+using Main.Board;
 using R3;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,6 +19,9 @@ namespace Matching
     /// </summary>
     public class MatchingPresenter : MonoBehaviour, IStartable
     {
+        // ホストが作るルームで選べるマップ一覧（インスペクタで割り当てる）。MapSelect の Presenter と同じ資産。
+        [SerializeField] private BoardCatalog _catalog;
+
         private MatchingModel _model;
         private MatchingFlow _flow;
         private SceneTransitioner _sceneTransitioner;
@@ -30,6 +34,21 @@ namespace Matching
         private Button _playerCountMinus;
         private Button _playerCountPlus;
         private Label _playerCountValue;
+        // ルーム作成パネルの「現在のマップ名＋変更」。変更で全画面オーバーレイを開く。
+        private Button _mapSelectButton;
+        private Label _mapNameValue;
+        // マップ選択オーバーレイ（MapSelect 風）。カード一覧・プレビュー・内訳・選択は MapPickerView に委譲。
+        private VisualElement _mapPickerOverlay;
+        private VisualElement _mapPreview;
+        private Label _mapTitle;
+        private Label _mapCellCount;
+        private VisualElement _mapStats;
+        private ScrollView _mapGrid;
+        private Button _mapConfirmButton;
+        private Button _mapCancelButton;
+        private MapPickerView _picker;
+        // ルーム作成に使う確定済みのマップ識別子（資産名）。オーバーレイで「このマップにする」を押すと更新。
+        private string _committedMapId = string.Empty;
         // ホストが作るルームの定員（自分＋相手）。2〜4 でクランプする。
         private int _roomPlayerCount = PlayerCountSessionModel.Min;
         private VisualElement _loadingOverlay;
@@ -68,6 +87,16 @@ namespace Matching
             _playerCountMinus = root.Q<Button>("PlayerCountMinus");
             _playerCountPlus = root.Q<Button>("PlayerCountPlus");
             _playerCountValue = root.Q<Label>("PlayerCountValue");
+            _mapSelectButton = root.Q<Button>("MapSelectButton");
+            _mapNameValue = root.Q<Label>("MapNameValue");
+            _mapPickerOverlay = root.Q<VisualElement>("MapPickerOverlay");
+            _mapPreview = root.Q<VisualElement>("MapPreview");
+            _mapTitle = root.Q<Label>("MapTitle");
+            _mapCellCount = root.Q<Label>("MapCellCount");
+            _mapStats = root.Q<VisualElement>("MapStats");
+            _mapGrid = root.Q<ScrollView>("MapGrid");
+            _mapConfirmButton = root.Q<Button>("MapConfirmButton");
+            _mapCancelButton = root.Q<Button>("MapCancelButton");
             _loadingOverlay = root.Q<VisualElement>("LoadingOverlay");
             _loadingLabel = root.Q<Label>("LoadingLabel");
             _waitingOverlay = root.Q<VisualElement>("WaitingOverlay");
@@ -89,10 +118,14 @@ namespace Matching
             _createButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                _flow.CreateRoomAsync(_roomPlayerCount, destroyCancellationToken).Forget();
+                _flow.CreateRoomAsync(_roomPlayerCount, _committedMapId, destroyCancellationToken).Forget();
             };
             _playerCountMinus.clicked += () => ChangeRoomPlayerCount(-1);
             _playerCountPlus.clicked += () => ChangeRoomPlayerCount(1);
+            _mapSelectButton.clicked += OpenMapPicker;
+            _mapConfirmButton.clicked += ConfirmMapPicker;
+            _mapCancelButton.clicked += CloseMapPicker;
+            InitializeMapSelection();
             UpdatePlayerCountUI();
             _cancelWaitButton.clicked += () =>
             {
@@ -199,6 +232,65 @@ namespace Matching
             _playerCountValue.text = _roomPlayerCount.ToString();
             _playerCountMinus.SetEnabled(_roomPlayerCount > PlayerCountSessionModel.Min);
             _playerCountPlus.SetEnabled(_roomPlayerCount < PlayerCountSessionModel.Max);
+        }
+
+        // マップ選択の初期化。共通の MapPickerView を組み、既定（カタログ先頭）を確定マップにする。
+        // カタログ未割り当て・空ならマップ選択と作成を無効化する。
+        private void InitializeMapSelection()
+        {
+            if (_catalog == null || _catalog.IsEmpty)
+            {
+                Debug.LogError("MatchingPresenter に BoardCatalog が未割り当て、またはマップが 1 枚も登録されていません。");
+                _mapNameValue.text = "（マップ未登録）";
+                _mapSelectButton.SetEnabled(false);
+                _createButton.SetEnabled(false);
+                return;
+            }
+
+            _picker = new MapPickerView(_mapGrid, _mapPreview, _mapTitle, _mapCellCount, _mapStats);
+            _picker.Selected += () => _soundPlayer.PlaySE(_soundStore.Enter3SE);
+            _committedMapId = _catalog.Default != null ? _catalog.Default.name : string.Empty;
+            UpdateMapNameLabel();
+        }
+
+        // ルーム作成パネルに確定中マップの表示名を反映する。
+        private void UpdateMapNameLabel()
+        {
+            BoardDefinition board = _catalog != null ? _catalog.Find(_committedMapId) : null;
+            _mapNameValue.text = board == null
+                ? string.Empty
+                : (string.IsNullOrEmpty(board.DisplayName) ? board.name : board.DisplayName);
+        }
+
+        // マップ選択オーバーレイを開く。確定中マップから選択状態を作り直す（前回のキャンセルを引きずらない）。
+        private void OpenMapPicker()
+        {
+            if (_picker == null)
+            {
+                return;
+            }
+            _soundPlayer.PlaySE(_soundStore.Enter1SE);
+            _picker.Build(_catalog, _committedMapId);
+            _mapPickerOverlay.style.display = DisplayStyle.Flex;
+        }
+
+        // 「このマップにする」。ピッカーの選択を確定してオーバーレイを閉じる。
+        private void ConfirmMapPicker()
+        {
+            if (_picker != null && _picker.HasSelection)
+            {
+                _committedMapId = _picker.SelectedId;
+                UpdateMapNameLabel();
+            }
+            _soundPlayer.PlaySE(_soundStore.Enter1SE);
+            _mapPickerOverlay.style.display = DisplayStyle.None;
+        }
+
+        // 「閉じる」。選択を確定せずオーバーレイを閉じる。
+        private void CloseMapPicker()
+        {
+            _soundPlayer.PlaySE(_soundStore.Cancel1SE);
+            _mapPickerOverlay.style.display = DisplayStyle.None;
         }
 
         private void RebuildRoomList(IReadOnlyList<LobbyInfo> rooms)
