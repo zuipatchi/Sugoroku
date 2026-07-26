@@ -3,7 +3,7 @@
 ## 概要
 
 Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使ったオンラインマッチング機能。
-クイックマッチ（自動マッチング）またはルーム一覧からの手動参加に対応。Relay による NAT 越え対応。
+ホストがルームを作成（定員 2〜4 人をステッパーで選ぶ）し、他プレイヤーはルーム一覧から手動参加する方式。Relay による NAT 越え対応。
 
 ---
 
@@ -44,21 +44,16 @@ Title → Home →（オンラインプレイ）→ Matching → Main
    → 匿名認証（UnityServices.Initialize + SignInAnonymously）
    → ルーム一覧を表示
 
-2a. クイックマッチ（推奨）
-   → QuerySessions で Name="QuickMatch" かつ AvailableSlots>0 を検索
-   → 見つかった → JoinSessionByIdAsync → Main シーンへ遷移
-   → 見つからない → CreateSessionAsync(Name="QuickMatch", MaxPlayers=2)
-     → PlayerJoined イベント待機（30秒タイムアウト）
-     → タイムアウト → 作成したセッションを退出（一覧から削除）→ リトライ確認ダイアログ
-
-2b. ルームを手動作成
-   → CreateSessionAsync(MaxPlayers=2)
-   → PlayerJoined イベント待機（120秒タイムアウト）
+2a. ルームを作成（ホスト）
+   → 人数ステッパーで定員 2〜4 を選ぶ
+   → CreateSessionAsync(Name="Room", MaxPlayers=選んだ人数)
+   → 定員が埋まるまで相手待ち（120秒タイムアウト・待機中は「◯/◯人」をライブ表示）
+   → 全員揃った（AvailableSlots==0）→ Main シーンへ遷移
    → タイムアウト → 作成したセッションを退出（一覧から削除）→ リトライ確認ダイアログ
 
-2c. ルームに手動参加
-   → JoinSessionByIdAsync(sessionId)
-   → Main シーンへ遷移
+2b. ルームに手動参加
+   → 一覧のルーム（「Room 1/4」等）をタップ → JoinSessionByIdAsync(sessionId)
+   → Main シーンへ遷移（ホスト側で定員が埋まるとゲーム開始）
 
 3. Main シーン開始
 ```
@@ -73,7 +68,7 @@ Title → Home →（オンラインプレイ）→ Matching → Main
 |---|---|
 | `MatchingModel` | マッチング状態を `ReactiveProperty` で管理 |
 | `MatchingPresenter` | UI とマッチング状態のバインド（`IStartable` 実装）。入力を `MatchingFlow` へ転送する |
-| `MatchingFlow` | フロー制御（認証・2秒ごとの自動ルーム更新ループ・クイックマッチ・ルーム作成/参加・相手待ち・ゲーム開始） |
+| `MatchingFlow` | フロー制御（認証・2秒ごとの自動ルーム更新ループ・ルーム作成〔定員2〜4〕/参加・相手待ち〔参加人数を Model に通知〕・ゲーム開始） |
 | `MatchingService` | UGS Session API 呼び出し |
 | `MatchingStateExtensions` | `IsLoading()` / `IsWaiting()` 拡張メソッドで状態グループ判定を一元化 |
 | `MatchingLifetimeScope` | Matching シーン固有 DI 登録 |
@@ -108,8 +103,7 @@ Unity の `Start()` が先に呼ばれる。VContainer の `IStartable.Start()` 
 | `Authenticating` | UGS 初期化・認証中 |
 | `BrowsingRooms` | ルーム一覧表示中（ボタン有効・2秒ごと自動更新） |
 | `CreatingRoom` | ルーム作成中 |
-| `WaitingForPlayer` | クイックマッチ作成後の相手待ち（30秒タイムアウト） |
-| `WaitingInCreatedRoom` | 手動ルーム作成後の相手待ち（120秒タイムアウト） |
+| `WaitingInCreatedRoom` | ルーム作成後の相手待ち（定員が埋まるまで・120秒タイムアウト・「◯/◯人」表示） |
 | `JoiningRoom` | ルーム参加中 |
 | `Starting` | Main シーンへ遷移中 |
 | `TimedOut` | タイムアウト（リトライ確認中） |
@@ -158,8 +152,8 @@ while (true)
 
 `Window → Multiplayer → Multiplayer Play Mode` で Virtual Player を追加して Enter Play Mode。
 
-メインエディターとバーチャルプレイヤーの両方で「クイックマッチ」ボタンを押すとマッチングする。
-先に起動した側がルームを作成して待機し、後から起動した側がルームを見つけて参加する。
+メインエディターで人数（2〜4）を選んで「ルームを作成」して待機し、バーチャルプレイヤー側がルーム一覧から
+そのルームをタップして参加する。定員が埋まると全員が Main シーンへ遷移する。
 
 ---
 
