@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Common.GameSession;
 using Common.SceneManagement;
 using Common.SoundManagement;
 using Common.Store;
@@ -25,8 +26,12 @@ namespace Matching
 
         private ScrollView _roomList;
         private Button _backButton;
-        private Button _quickMatchButton;
         private Button _createButton;
+        private Button _playerCountMinus;
+        private Button _playerCountPlus;
+        private Label _playerCountValue;
+        // ホストが作るルームの定員（自分＋相手）。2〜4 でクランプする。
+        private int _roomPlayerCount = PlayerCountSessionModel.Min;
         private VisualElement _loadingOverlay;
         private Label _loadingLabel;
         private VisualElement _waitingOverlay;
@@ -59,8 +64,10 @@ namespace Matching
 
             _roomList = root.Q<ScrollView>("RoomList");
             _backButton = root.Q<Button>("BackButton");
-            _quickMatchButton = root.Q<Button>("QuickMatchButton");
             _createButton = root.Q<Button>("CreateButton");
+            _playerCountMinus = root.Q<Button>("PlayerCountMinus");
+            _playerCountPlus = root.Q<Button>("PlayerCountPlus");
+            _playerCountValue = root.Q<Label>("PlayerCountValue");
             _loadingOverlay = root.Q<VisualElement>("LoadingOverlay");
             _loadingLabel = root.Q<Label>("LoadingLabel");
             _waitingOverlay = root.Q<VisualElement>("WaitingOverlay");
@@ -79,16 +86,14 @@ namespace Matching
                 _soundPlayer.PlaySE(_soundStore.Enter2SE);
                 _sceneTransitioner.Transit(Scenes.Title).Forget();
             };
-            _quickMatchButton.clicked += () =>
-            {
-                _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                _flow.QuickMatchAsync(destroyCancellationToken).Forget();
-            };
             _createButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Enter1SE);
-                _flow.CreateRoomAsync(destroyCancellationToken).Forget();
+                _flow.CreateRoomAsync(_roomPlayerCount, destroyCancellationToken).Forget();
             };
+            _playerCountMinus.clicked += () => ChangeRoomPlayerCount(-1);
+            _playerCountPlus.clicked += () => ChangeRoomPlayerCount(1);
+            UpdatePlayerCountUI();
             _cancelWaitButton.clicked += () =>
             {
                 _soundPlayer.PlaySE(_soundStore.Cancel1SE);
@@ -121,6 +126,11 @@ namespace Matching
                 .Subscribe(RebuildRoomList)
                 .AddTo(destroyCancellationToken);
 
+            // 相手待ち中の参加人数が変わるたびに「◯/◯人」の待機ラベルを更新する。
+            _model.WaitingCurrent
+                .Subscribe(_ => UpdateWaitingLabel())
+                .AddTo(destroyCancellationToken);
+
             _flow.InitializeAsync(destroyCancellationToken).Forget();
             _flow.AutoRefreshLoopAsync(destroyCancellationToken).Forget();
         }
@@ -147,17 +157,48 @@ namespace Matching
 
             if (isWaiting)
             {
-                _waitingLabel.text = state switch
-                {
-                    MatchingState.TimedOut => "タイムアウトしました",
-                    MatchingState.WaitingForPlayer => $"プレイヤーを待っています...\n{(int)MatchingFlow.QuickMatchTimeoutDuration.TotalSeconds}秒でタイムアウトします",
-                    MatchingState.WaitingInCreatedRoom => $"プレイヤーを待っています...\n{(int)MatchingFlow.CreateRoomTimeoutDuration.TotalMinutes}分で自動解散します",
-                    _ => "プレイヤーを待っています..."
-                };
+                UpdateWaitingLabel();
                 _cancelWaitButton.style.display = isTimedOut ? DisplayStyle.None : DisplayStyle.Flex;
                 _retryButton.style.display = isTimedOut ? DisplayStyle.Flex : DisplayStyle.None;
                 _backToTitleButton.style.display = isTimedOut ? DisplayStyle.Flex : DisplayStyle.None;
             }
+        }
+
+        // 相手待ち中の待機ラベルを「◯/◯人」付きで更新する（状態変化・参加人数変化のどちらからも呼ぶ）。
+        private void UpdateWaitingLabel()
+        {
+            switch (_model.State.Value)
+            {
+                case MatchingState.TimedOut:
+                    _waitingLabel.text = "タイムアウトしました";
+                    break;
+                case MatchingState.WaitingInCreatedRoom:
+                    _waitingLabel.text =
+                        $"プレイヤーを待っています...（{_model.WaitingCurrent.Value}/{_model.WaitingMax.Value}人）\n"
+                        + $"{(int)MatchingFlow.CreateRoomTimeoutDuration.TotalMinutes}分で自動解散します";
+                    break;
+            }
+        }
+
+        // 定員ステッパーの増減（2〜4 でクランプ）。端では何もしない。
+        private void ChangeRoomPlayerCount(int delta)
+        {
+            int next = Mathf.Clamp(_roomPlayerCount + delta, PlayerCountSessionModel.Min, PlayerCountSessionModel.Max);
+            if (next == _roomPlayerCount)
+            {
+                return;
+            }
+            _roomPlayerCount = next;
+            _soundPlayer.PlaySE(_soundStore.Enter2SE);
+            UpdatePlayerCountUI();
+        }
+
+        // 定員の数値ラベルを反映し、下限/上限で −／＋ を無効化する。
+        private void UpdatePlayerCountUI()
+        {
+            _playerCountValue.text = _roomPlayerCount.ToString();
+            _playerCountMinus.SetEnabled(_roomPlayerCount > PlayerCountSessionModel.Min);
+            _playerCountPlus.SetEnabled(_roomPlayerCount < PlayerCountSessionModel.Max);
         }
 
         private void RebuildRoomList(IReadOnlyList<LobbyInfo> rooms)
@@ -172,10 +213,6 @@ namespace Matching
             }
             foreach (LobbyInfo room in rooms)
             {
-                if (room.Name == MatchingService.QuickMatchRoomName)
-                {
-                    continue;
-                }
                 string sessionId = room.LobbyId;
                 Button roomButton = new Button(() =>
                 {

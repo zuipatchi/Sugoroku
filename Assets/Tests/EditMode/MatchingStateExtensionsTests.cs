@@ -36,12 +36,6 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void WaitingForPlayerはIsWaiting()
-        {
-            Assert.IsTrue(MatchingState.WaitingForPlayer.IsWaiting());
-        }
-
-        [Test]
         public void WaitingInCreatedRoomはIsWaiting()
         {
             Assert.IsTrue(MatchingState.WaitingInCreatedRoom.IsWaiting());

@@ -32,6 +32,53 @@
     margin-bottom: 16px;
 }
 
+/* ─── Layout（スマホ縦長 540x960）─── */
+/* 画面いっぱいに縦へ広げるパネル。ルーム一覧が伸び、操作は下部に縦積み。 */
+.ms-root {
+    flex-grow: 1;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 24px;
+    padding-bottom: 24px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.ms-panel {
+    width: 100%;
+    max-width: 500px;
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.ms-roomlist {
+    flex-grow: 1;
+    min-height: 120px;
+    margin-bottom: 16px;
+}
+
+.ms-create-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+/* 下部の操作ボタンは横幅いっぱい・タップしやすい高さで縦積み。 */
+.ms-btn-block {
+    width: 100%;
+    height: 48px;
+    margin-top: 10px;
+}
+
+/* オーバーレイ内のカードも縦長画面に収まる幅にする。 */
+.ms-overlay-card {
+    width: 86%;
+    max-width: 440px;
+    align-items: center;
+}
+
 /* ─── Buttons ─── */
 .btn-accent {
     background-color: rgb(70, 90, 180);
@@ -157,6 +204,65 @@
     -unity-text-align: middle-center;
     margin-top: 32px;
     margin-bottom: 32px;
+}
+
+/* ─── Player count stepper（ルーム定員 2〜4）─── */
+.ms-players-label {
+    font-size: 14px;
+    color: rgb(200, 200, 225);
+    margin-right: 8px;
+    -unity-text-align: middle-center;
+}
+
+.ms-stepper {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.15);
+    border-right-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgba(255, 255, 255, 0.15);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+}
+
+.ms-stepper__btn {
+    width: 36px;
+    height: 36px;
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(230, 230, 245);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    font-size: 20px;
+    -unity-text-align: middle-center;
+}
+
+.ms-stepper__btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.ms-stepper__btn:active {
+    background-color: rgba(255, 255, 255, 0.03);
+    scale: 0.94;
+}
+
+.ms-stepper__btn:disabled {
+    opacity: 0.35;
+}
+
+.ms-stepper__value {
+    width: 36px;
+    font-size: 18px;
+    color: rgb(240, 240, 255);
+    -unity-text-align: middle-center;
 }
 
 /* ─── Overlay ─── */

@@ -63,14 +63,29 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void オンラインは人数選択に依らずHumanが2人でCpuなし()
+        public void オンラインはSession未設定なら人数選択に依らずHumanが2人でCpuなし()
         {
-            // 単独プレイは廃止＝最低 2 人。2 人固定ルームに合わせて全員 Human。
+            // 単独プレイは廃止＝最低 2 人。Session 未設定（テスト）は下限 2 で全員 Human。
             GameParticipants participants = Online();
             Assert.AreEqual(2, participants.Count);
             Assert.AreEqual(PlayerKind.Human, participants.KindOf(0));
             Assert.AreEqual(PlayerKind.Human, participants.KindOf(1));
             Assert.IsFalse(participants.HasCpu);
+        }
+
+        [Test]
+        public void OnlinePlayerCountFromはSession未設定なら2()
+        {
+            Assert.AreEqual(2, GameParticipants.OnlinePlayerCountFrom(null));
+        }
+
+        [TestCase(4, 4)]  // ルーム定員をそのまま反映
+        [TestCase(3, 3)]
+        [TestCase(2, 2)]
+        [TestCase(1, 2)]  // 2 未満は下限 2 にクランプ
+        public void OnlinePlayerCountFromはルーム定員を反映し下限2にクランプする(int maxPlayers, int expected)
+        {
+            Assert.AreEqual(expected, GameParticipants.OnlinePlayerCountFrom(maxPlayers));
         }
     }
 }

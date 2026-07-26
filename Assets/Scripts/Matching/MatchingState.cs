@@ -7,7 +7,6 @@ namespace Matching
         BrowsingRooms,
         CreatingRoom,
         JoiningRoom,
-        WaitingForPlayer,
         WaitingInCreatedRoom,
         Starting,
         Ready,
@@ -27,8 +26,7 @@ namespace Matching
 
         public static bool IsWaiting(this MatchingState state)
         {
-            return state is MatchingState.WaitingForPlayer
-                or MatchingState.WaitingInCreatedRoom
+            return state is MatchingState.WaitingInCreatedRoom
                 or MatchingState.TimedOut;
         }
     }

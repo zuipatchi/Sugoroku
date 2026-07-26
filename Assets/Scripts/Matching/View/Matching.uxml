@@ -1,43 +1,52 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <Style src="Matching.uss" />
-    <ui:VisualElement style="flex-grow: 1; align-items: center; justify-content: center;">
+    <!-- スマホ縦長（参照解像度 540x960・幅基準スケール）向け。パネルは画面幅いっぱいに収め、
+         ルーム一覧が縦に伸び、操作ボタンは下部に縦積みにする。 -->
+    <ui:VisualElement style="flex-grow: 1;">
 
-        <!-- メインカード -->
-        <ui:VisualElement class="card" style="width: 640px; flex-direction: column;">
-            <ui:Label text="ルーム選択" class="card__title" />
-            <ui:VisualElement class="divider" />
-            <ui:ScrollView name="RoomList" style="flex-grow: 1; min-height: 300px; margin-bottom: 20px;" />
-            <ui:VisualElement style="flex-direction: row; justify-content: space-between; align-items: center;">
-                <ui:Button name="BackButton" text="ホームへ" class="btn-secondary" style="width: 160px;" />
-                <ui:VisualElement style="flex-direction: row;">
-                    <ui:Button name="QuickMatchButton" text="クイックマッチ" class="btn-accent" style="width: 160px; margin-right: 8px;" />
-                    <ui:Button name="CreateButton" text="ルームを作成" class="btn-accent" style="width: 160px;" />
+        <!-- メインパネル（縦に伸びる） -->
+        <ui:VisualElement class="ms-root">
+            <ui:VisualElement class="card ms-panel">
+                <ui:Label text="ルーム選択" class="card__title" />
+                <ui:VisualElement class="divider" />
+                <ui:ScrollView name="RoomList" class="ms-roomlist" />
+                <ui:VisualElement class="divider" />
+                <!-- 定員（2〜4）を選んでルーム作成 -->
+                <ui:VisualElement class="ms-create-row">
+                    <ui:Label text="人数" class="ms-players-label" />
+                    <ui:VisualElement class="ms-stepper">
+                        <ui:Button name="PlayerCountMinus" text="−" class="ms-stepper__btn" />
+                        <ui:Label name="PlayerCountValue" text="2" class="ms-stepper__value" />
+                        <ui:Button name="PlayerCountPlus" text="＋" class="ms-stepper__btn" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
+                <ui:Button name="CreateButton" text="ルームを作成" class="btn-accent ms-btn-block" />
+                <ui:Button name="BackButton" text="ホームへ" class="btn-secondary ms-btn-block" />
             </ui:VisualElement>
         </ui:VisualElement>
 
         <!-- ローディングオーバーレイ（認証中・作成中・参加中） -->
         <ui:VisualElement name="LoadingOverlay" class="overlay-bg" style="display: none;">
-            <ui:VisualElement class="card" style="min-width: 300px; align-items: center;">
+            <ui:VisualElement class="card ms-overlay-card">
                 <ui:Label name="LoadingLabel" text="接続中..." class="overlay-label" style="margin-bottom: 0;" />
             </ui:VisualElement>
         </ui:VisualElement>
 
         <!-- 待機オーバーレイ（プレイヤー待ち・タイムアウト） -->
         <ui:VisualElement name="WaitingOverlay" class="overlay-bg" style="display: none;">
-            <ui:VisualElement class="card" style="min-width: 300px; align-items: center;">
+            <ui:VisualElement class="card ms-overlay-card">
                 <ui:Label name="WaitingLabel" text="プレイヤーを待っています..." class="overlay-label" />
-                <ui:Button name="CancelWaitButton" text="キャンセル" class="btn-secondary" style="width: 200px; margin-bottom: 8px;" />
-                <ui:Button name="RetryButton" text="リトライ" class="btn-accent" style="width: 200px; margin-bottom: 8px; display: none;" />
-                <ui:Button name="BackToTitleButton" text="タイトルへ戻る" class="btn-secondary" style="width: 200px; display: none;" />
+                <ui:Button name="CancelWaitButton" text="キャンセル" class="btn-secondary ms-btn-block" />
+                <ui:Button name="RetryButton" text="リトライ" class="btn-accent ms-btn-block" style="display: none;" />
+                <ui:Button name="BackToTitleButton" text="タイトルへ戻る" class="btn-secondary ms-btn-block" style="display: none;" />
             </ui:VisualElement>
         </ui:VisualElement>
 
         <!-- エラーオーバーレイ -->
         <ui:VisualElement name="ErrorOverlay" class="overlay-bg" style="display: none;">
-            <ui:VisualElement class="card" style="min-width: 300px; align-items: center;">
+            <ui:VisualElement class="card ms-overlay-card">
                 <ui:Label text="ネットワークエラーが発生しました" class="overlay-label" />
-                <ui:Button name="CloseErrorButton" text="閉じる" class="btn-secondary" style="width: 200px;" />
+                <ui:Button name="CloseErrorButton" text="閉じる" class="btn-secondary ms-btn-block" />
             </ui:VisualElement>
         </ui:VisualElement>
 

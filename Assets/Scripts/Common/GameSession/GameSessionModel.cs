@@ -11,6 +11,10 @@ namespace Common.GameSession
         public bool HasSession => Session != null;
         public bool IsHost => Session?.IsHost ?? false;
 
+        /// <summary>作成/参加したルームの定員（<c>ISession.MaxPlayers</c>）。未接続時は null。
+        /// Main 側（<c>GameParticipants</c>）が Multiplayer アセンブリに依存せず参加者数を決めるために公開する。</summary>
+        public int? SessionMaxPlayers => Session?.MaxPlayers;
+
         /// <summary>現在のプレイ形態。既定はオンライン。</summary>
         public GameMode Mode { get; private set; } = GameMode.Online;
 

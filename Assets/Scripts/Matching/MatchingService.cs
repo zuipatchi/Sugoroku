@@ -13,8 +13,6 @@ namespace Matching
 {
     public class MatchingService
     {
-        public const string QuickMatchRoomName = "QuickMatch";
-
         private readonly GameSessionModel _gameSessionModel;
         private bool _isQuerying;
 
@@ -97,7 +95,7 @@ namespace Matching
             }
         }
 
-        public async UniTask<IHostSession> CreateRoomAsync(string roomName, CancellationToken ct = default)
+        public async UniTask<IHostSession> CreateRoomAsync(string roomName, int maxPlayers, CancellationToken ct = default)
         {
             await _gameSessionModel.LeaveCurrentSessionAsync();
             DisableNgoSceneManagement();
@@ -105,7 +103,7 @@ namespace Matching
             SessionOptions options = new SessionOptions
             {
                 Name = roomName,
-                MaxPlayers = 2
+                MaxPlayers = maxPlayers
             };
             IHostSession session = await MultiplayerService.Instance
                 .CreateSessionAsync(options)
@@ -129,24 +127,12 @@ namespace Matching
             _gameSessionModel.SetSession(session);
         }
 
-        public async UniTask<LobbyInfo?> FindQuickMatchRoomAsync(CancellationToken ct = default)
-        {
-            IReadOnlyList<LobbyInfo> rooms = await GetRoomsAsync(ct);
-            if (rooms == null)
-            {
-                return null;
-            }
-            foreach (LobbyInfo room in rooms)
-            {
-                if (room.Name == QuickMatchRoomName && room.PlayerCount < room.MaxPlayers)
-                {
-                    return room;
-                }
-            }
-            return null;
-        }
-
-        public async UniTask<bool> WaitForPlayerAsync(ISession session, TimeSpan timeout, CancellationToken ct = default)
+        /// <summary>
+        /// ルームが満室（全員参加）になるまで待つ。<paramref name="onPlayerCount"/> に現在の参加人数を通知して、
+        /// 呼び出し側が「◯/◯人」の進捗表示を更新できるようにする（登録直後と参加検知の各タイミング・メインスレッド）。
+        /// </summary>
+        public async UniTask<bool> WaitForPlayerAsync(
+            ISession session, TimeSpan timeout, CancellationToken ct = default, Action<int> onPlayerCount = null)
         {
             // PlayerJoined は別スレッドで発火し得るため、ポーリング側との可視性を Volatile で保証する。
             bool joined = false;
@@ -160,6 +146,7 @@ namespace Matching
             // ハンドラを先に登録してからセッション状態を確認（競合防止）
             // CreateRoomAsync 返却直後に参加された場合、PlayerJoined が登録前に発火する
             session.PlayerJoined += OnPlayerJoined;
+            onPlayerCount?.Invoke(session.PlayerCount);
 
             if (session.AvailableSlots == 0)
             {
@@ -177,9 +164,11 @@ namespace Matching
                 while (true)
                 {
                     linked.Token.ThrowIfCancellationRequested();
+                    onPlayerCount?.Invoke(session.PlayerCount);
                     if (Volatile.Read(ref joined) || session.AvailableSlots == 0)
                     {
                         session.PlayerJoined -= OnPlayerJoined;
+                        onPlayerCount?.Invoke(session.PlayerCount);
                         return true;
                     }
                     await UniTask.Delay(TimeSpan.FromMilliseconds(500), cancellationToken: linked.Token);
