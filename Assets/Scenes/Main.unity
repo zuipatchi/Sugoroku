@@ -180,6 +180,12 @@ MonoBehaviour:
   _victoryEffectScale: 0.8
   _victoryEffectCount: 5
   _victoryEffectStagger: 0.35
+  _defeatEffectPrefab: {fileID: 6077168872989578693, guid: f514474ff8e94554d8477de1f2f601b0, type: 3}
+  _defeatEffectDistance: 8
+  _defeatEffectVerticalOffset: 5
+  _defeatEffectScale: 1
+  _defeatEffectCount: 1
+  _defeatEffectStagger: 0
 --- !u!114 &207750515
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -304,7 +310,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be543fbcd5937d9449460b9dc935e25a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Main::Main.Roulette.RoulettePresenter
-  _sectorCount: 8
+  _numbersPerCharacter: 3
   _minSpinSpeed: 360
   _maxSpinSpeed: 1200
   _spinAcceleration: 2400
