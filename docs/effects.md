@@ -2,9 +2,10 @@
 
 パーティクル・VFX エフェクトを UI Toolkit と組み合わせて実装するときのハマりポイントと対処法。
 
-このゲームでは**勝利エフェクト**（人間プレイヤーの勝利時に AssetStore の CFXR 花火 Prefab を打ち上げる）が
-下記の RenderTexture 方式で実装済み。具体的な実装は [Assets/Scripts/Main/Board/VictoryEffectPlayer.cs](../Assets/Scripts/Main/Board/VictoryEffectPlayer.cs)
-（合成シェーダーは [Assets/Shaders/AdditiveUI.shader](../Assets/Shaders/AdditiveUI.shader)＝`Sugoroku/AdditiveUI`、
+このゲームでは**決着エフェクト**（人間プレイヤーの勝利時に CFXR 花火 Prefab、敗北＝CPU 勝利時に CFXR4 Rain Falling の雨 Prefab を前面で再生する）が
+下記の RenderTexture 方式で実装済み。具体的な実装は [Assets/Scripts/Main/Board/ScreenEffectPlayer.cs](../Assets/Scripts/Main/Board/ScreenEffectPlayer.cs)
+（任意のパーティクル Prefab を前面再生する汎用プレイヤー。勝利用・敗北用で別インスタンスを持ち、`BoardPresenter` の `BoardModel.Winner` 購読が勝敗で出し分ける。
+合成シェーダーは [Assets/Shaders/AdditiveUI.shader](../Assets/Shaders/AdditiveUI.shader)＝`Sugoroku/AdditiveUI`、
 エフェクト専用レイヤーは TagManager の `Effect`〔index 6〕）を参照。以下は他の VFX を足すときにも共通するノウハウ。
 
 ---
