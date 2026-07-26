@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
-using Common.Character;
 using Common.GameSession;
 using Common.SceneManagement;
 using Common.SoundManagement;
@@ -13,14 +11,20 @@ using VContainer;
 
 namespace Home.Presenter
 {
-    // タイトルロゴと2つのモードボタンを表示する。
-    // 「一人用モード」は CharacterSelect（キャラ選択）へ、「オンラインプレイ」は Matching へ遷移する。
-    // 背景にはカタログからランダムに選んだキャラのカード画像を1枚、全画面に表示する
+    // 2つのモードボタン（一人用/オンライン）とクレジットボタンを表示する。
+    // 「一人用モード」は CharacterSelect（キャラ選択）へ、「オンラインプレイ」は Matching へ遷移し、
+    // 「クレジット」はクレジットモーダルを開く。
+    // 背景には固定画像 Image/HomeBackGround を全画面に表示する
     // （前面 UI が読めるよう上に暗いスクリムを重ねる。未配置は色面プレースホルダ）。
     // 表示前に画像のロードを終えるため ISceneReady を実装する。
     [RequireComponent(typeof(UIDocument))]
     public sealed class HomePresenter : MonoBehaviour, ISceneReady
     {
+        // 全画面背景に敷くホーム背景画像の Addressables アドレス。
+        private const string BackgroundAddress = "Image/HomeBackGround";
+        // 背景画像が未配置のときのフォールバック色（テーマの暗い地色）。
+        private static readonly Color BackgroundPlaceholderColor = new(0.086f, 0.086f, 0.14f, 1f);
+
         private SceneTransitioner _sceneTransitioner;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
@@ -107,7 +111,7 @@ namespace Home.Presenter
             _backgroundInitTask = BuildBackgroundAsync(destroyCancellationToken).Preserve();
         }
 
-        // ランダムに選んだ1キャラのカード画像を背景（HeroImage）に表示する。
+        // 固定のホーム背景画像（Image/HomeBackGround）を背景（HeroImage）に表示する。
         private async UniTask BuildBackgroundAsync(CancellationToken ct)
         {
             try
@@ -125,25 +129,21 @@ namespace Home.Presenter
                     return;
                 }
 
-                IReadOnlyList<CharacterDefinition> all = CharacterCatalog.All;
-                int index = UnityEngine.Random.Range(0, all.Count);
-                CharacterDefinition definition = all[index];
-
-                Sprite card = await _spriteLoader.TryLoadAsync(definition.CardAddress, "カード画像", ct);
+                Sprite background = await _spriteLoader.TryLoadAsync(BackgroundAddress, "ホーム背景画像", ct);
 
                 if (this == null)
                 {
                     return;
                 }
 
-                if (card != null)
+                if (background != null)
                 {
-                    heroImage.style.backgroundImage = new StyleBackground(card);
+                    heroImage.style.backgroundImage = new StyleBackground(background);
                 }
                 else
                 {
-                    // カード未配置時は色面プレースホルダ。
-                    heroImage.style.backgroundColor = CharacterPalette.PlaceholderColor(index, all.Count);
+                    // 画像未配置時は色面プレースホルダ。
+                    heroImage.style.backgroundColor = BackgroundPlaceholderColor;
                 }
             }
             catch (OperationCanceledException)

@@ -4,13 +4,6 @@
     justify-content: center;
 }
 
-.title-logo {
-    font-size: 72px;
-    color: rgb(240, 240, 255);
-    -unity-text-align: middle-center;
-    margin-bottom: 24px;
-}
-
 .mode-buttons {
     align-items: center;
 }
@@ -21,7 +14,7 @@
     margin-bottom: 12px;
 }
 
-/* ランダムカードの全画面背景 ----------------------------------------------- */
+/* 全画面背景（Image/HomeBackGround）----------------------------------------------- */
 
 /* 全画面枠。はみ出しをここで隠す。入力は奪わない。 */
 .home-bg {
@@ -33,7 +26,7 @@
     overflow: hidden;
 }
 
-/* ランダムに選んだカード画像。全画面をカバーするよう scale-and-crop で敷く。 */
+/* ホーム背景画像（Image/HomeBackGround）。全画面をカバーするよう scale-and-crop で敷く。 */
 .home-bg__image {
     position: absolute;
     left: 0;
@@ -83,43 +76,6 @@
 
 .btn-accent:active {
     background-color: rgb(50, 65, 145);
-    scale: 0.96 0.96;
-}
-
-/* セカンダリボタン（design-system.md 準拠） */
-.btn-secondary {
-    background-color: rgba(255, 255, 255, 0.07);
-    color: rgb(230, 230, 245);
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-left-color: rgba(255, 255, 255, 0.15);
-    border-right-color: rgba(255, 255, 255, 0.15);
-    border-top-color: rgba(255, 255, 255, 0.15);
-    border-bottom-color: rgba(255, 255, 255, 0.15);
-    padding-top: 10px;
-    padding-right: 10px;
-    padding-bottom: 10px;
-    padding-left: 10px;
-    font-size: 14px;
-    -unity-text-align: middle-center;
-}
-
-.btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.13);
-}
-
-.btn-secondary:focus {
-    background-color: rgba(255, 255, 255, 0.18);
-}
-
-.btn-secondary:active {
-    background-color: rgba(255, 255, 255, 0.03);
     scale: 0.96 0.96;
 }
 

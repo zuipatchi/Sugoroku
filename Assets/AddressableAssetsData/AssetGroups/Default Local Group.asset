@@ -255,6 +255,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8a44f4f59a3f4cc43b9bafc5d7ff972e
+    m_Address: Image/HomeBackGround
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8c487e6efcbfcd243bb3de48ad001d42
     m_Address: Board/MoneyUp
     m_ReadOnly: 0
