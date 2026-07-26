@@ -32,6 +32,8 @@
     font-size: 28px;
     color: rgb(240, 240, 255);
     -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgb(0, 0, 0);
 }
 
 .ocs-status {

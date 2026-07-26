@@ -297,13 +297,10 @@ namespace OnlineCharacterSelect.Presenter
             {
                 _statusLabel.text = "他のプレイヤーに取られました。別のキャラクターを選んでください";
             }
-            else if (_sync.CurrentSelection.HasValue)
-            {
-                _statusLabel.text = "「決定」を押して確定します";
-            }
             else
             {
-                _statusLabel.text = "使うキャラクターを選んでください";
+                // 選択前・選択中（未決定）の案内文言は出さない。
+                _statusLabel.text = string.Empty;
             }
         }
 

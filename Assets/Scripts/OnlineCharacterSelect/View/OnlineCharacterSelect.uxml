@@ -7,7 +7,7 @@
             <!-- 見出しと状態表示。右上のオプションアイコンを避けて中央寄せにする。 -->
             <ui:VisualElement name="Header" class="ocs-header">
                 <ui:Label text="キャラクターを選択" class="ocs-title" />
-                <ui:Label name="StatusLabel" text="使うキャラクターを選んでください" class="ocs-status" />
+                <ui:Label name="StatusLabel" text="" class="ocs-status" />
             </ui:VisualElement>
             <ui:VisualElement name="Bottom" class="ocs-bottom">
                 <!-- カードはコードで CharacterGrid に追加する -->
