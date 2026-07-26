@@ -38,6 +38,8 @@ namespace MapSelect.Presenter
         private VisualElement _grid;
         private VisualElement _preview;
         private Label _title;
+        private Label _cellCount;
+        private VisualElement _stats;
         private Button _confirmButton;
         private Button _backButton;
         private Button _playerCountMinus;
@@ -83,12 +85,15 @@ namespace MapSelect.Presenter
             _grid = _root.Q<VisualElement>("MapGrid");
             _preview = _root.Q<VisualElement>("MapPreview");
             _title = _root.Q<Label>("MapTitle");
+            _cellCount = _root.Q<Label>("MapCellCount");
+            _stats = _root.Q<VisualElement>("MapStats");
             _confirmButton = _root.Q<Button>("ConfirmButton");
             _backButton = _root.Q<Button>("BackButton");
             _playerCountMinus = _root.Q<Button>("PlayerCountMinus");
             _playerCountPlus = _root.Q<Button>("PlayerCountPlus");
             _playerCountValue = _root.Q<Label>("PlayerCountValue");
-            if (_grid == null || _preview == null || _title == null || _confirmButton == null || _backButton == null
+            if (_grid == null || _preview == null || _title == null || _cellCount == null || _stats == null
+                || _confirmButton == null || _backButton == null
                 || _playerCountMinus == null || _playerCountPlus == null || _playerCountValue == null)
             {
                 Debug.LogError("MapSelect の UI 要素が見つかりませんでした。");
@@ -224,6 +229,43 @@ namespace MapSelect.Presenter
 
             _title.text = _previewBoard != null ? DisplayNameOf(_previewBoard) : string.Empty;
             _preview.MarkDirtyRepaint();
+            UpdateStats();
+        }
+
+        // 選択中マップのイベント構成（総マス数＋イベント別の色チップ）を組み直す。
+        // どんなマップか（陣地・アイテム・お金…がどれだけあるか）をひと目で分かるようにする。
+        private void UpdateStats()
+        {
+            _stats.Clear();
+            if (_previewBoard == null)
+            {
+                _cellCount.text = string.Empty;
+                return;
+            }
+
+            _cellCount.text = $"全 {_previewBoard.CellCount} マス";
+            foreach ((BoardCellEvent cellEvent, int count) in BoardEventTally.Summarize(_previewBoard))
+            {
+                _stats.Add(BuildStatChip(cellEvent, count));
+            }
+        }
+
+        // 1 イベント分のチップ（色ドット＋「ラベル ×N」）。ドット色・ラベルはサムネイルの塗り分けと共通。
+        private static VisualElement BuildStatChip(BoardCellEvent cellEvent, int count)
+        {
+            VisualElement chip = new() { pickingMode = PickingMode.Ignore };
+            chip.AddToClassList("ms-stat");
+
+            VisualElement dot = new() { pickingMode = PickingMode.Ignore };
+            dot.AddToClassList("ms-stat__dot");
+            dot.style.backgroundColor = BoardEventColors.Of(cellEvent);
+            chip.Add(dot);
+
+            Label label = new($"{BoardEventLabel.Of(cellEvent)} ×{count}") { pickingMode = PickingMode.Ignore };
+            label.AddToClassList("ms-stat__label");
+            chip.Add(label);
+
+            return chip;
         }
 
         private void OnConfirmClicked()

@@ -6,10 +6,13 @@
             <ui:Button text="戻る" name="BackButton" class="btn-secondary ms-action" />
             <ui:Button text="決定" name="ConfirmButton" class="btn-accent ms-action" />
         </ui:VisualElement>
-        <!-- 選択中マップの大プレビュー（盤面サムネイルをコードで Painter2D 描画）とマップ名 -->
+        <!-- 選択中マップの大プレビュー（盤面サムネイルをコードで Painter2D 描画）とマップ名・イベント内訳 -->
         <ui:VisualElement name="PreviewWrap" class="ms-preview-wrap">
             <ui:VisualElement name="MapPreview" class="ms-preview" picking-mode="Ignore" />
             <ui:Label name="MapTitle" class="ms-title" />
+            <!-- 選択中マップのイベント内訳（総マス数＋イベント別の色チップ）。MapSelectPresenter が中身を組む -->
+            <ui:Label name="MapCellCount" class="ms-cellcount" />
+            <ui:VisualElement name="MapStats" class="ms-stats" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:VisualElement name="Bottom" class="ms-bottom">
             <!-- プレイヤー人数（自分＋CPU・2〜4）のステッパー。MapSelectPresenter が値を制御する -->

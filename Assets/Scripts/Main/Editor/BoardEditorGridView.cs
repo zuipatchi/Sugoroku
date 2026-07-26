@@ -101,32 +101,12 @@ namespace Main.EditorTools
 
         /// <summary>
         /// イベント種別ごとのマス背景色。カスタム色が未設定のマスの塗り分けと、
-        /// エディタの凡例（色→イベントの対応表）で共通に使う。
-        /// <see cref="BoardCellEvent.None"/>（通常マス）は中立色。
+        /// エディタの凡例（色→イベントの対応表）で共通に使う。配色の実体は
+        /// ランタイム共通の <see cref="BoardEventColors"/>（マップ選択のサムネイルと同じ色）。
         /// </summary>
         public static Color EventColor(BoardCellEvent cellEvent)
         {
-            switch (cellEvent)
-            {
-                case BoardCellEvent.Forward:
-                    return new Color(0.24f, 0.62f, 0.5f);
-                case BoardCellEvent.Back:
-                    return new Color(0.82f, 0.52f, 0.22f);
-                case BoardCellEvent.Rest:
-                    return new Color(0.5f, 0.5f, 0.52f);
-                case BoardCellEvent.MiniGame:
-                    return new Color(0.56f, 0.36f, 0.72f);
-                case BoardCellEvent.MoneyUp:
-                    return new Color(0.3f, 0.66f, 0.32f);
-                case BoardCellEvent.MoneyDown:
-                    return new Color(0.76f, 0.3f, 0.3f);
-                case BoardCellEvent.Territory:
-                    return new Color(0.3f, 0.46f, 0.76f);
-                case BoardCellEvent.Item:
-                    return new Color(0.86f, 0.66f, 0.24f);
-                default:
-                    return new Color(0.35f, 0.45f, 0.55f);
-            }
+            return BoardEventColors.Of(cellEvent);
         }
     }
 }

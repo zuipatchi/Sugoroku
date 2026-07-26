@@ -178,32 +178,10 @@ namespace Main.EditorTools
             root.Add(_infoLabel);
         }
 
-        /// <summary>イベント種別の日本語ラベル。</summary>
+        /// <summary>イベント種別の日本語ラベル（実体はランタイム共通の <see cref="BoardEventLabel"/>）。</summary>
         private static string EventLabel(BoardCellEvent cellEvent)
         {
-            switch (cellEvent)
-            {
-                case BoardCellEvent.None:
-                    return "通常マス";
-                case BoardCellEvent.Forward:
-                    return "進む";
-                case BoardCellEvent.Back:
-                    return "戻る";
-                case BoardCellEvent.Rest:
-                    return "休み";
-                case BoardCellEvent.MiniGame:
-                    return "ミニゲーム";
-                case BoardCellEvent.MoneyUp:
-                    return "お金アップ";
-                case BoardCellEvent.MoneyDown:
-                    return "お金ダウン";
-                case BoardCellEvent.Territory:
-                    return "陣地";
-                case BoardCellEvent.Item:
-                    return "アイテム";
-                default:
-                    return cellEvent.ToString();
-            }
+            return BoardEventLabel.Of(cellEvent);
         }
 
         /// <summary>
