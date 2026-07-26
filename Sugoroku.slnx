@@ -129,6 +129,7 @@
   <Project Path="Unity.Services.Core.Registration.csproj" />
   <Project Path="Title.csproj" />
   <Project Path="Tests.PlayMode.csproj" />
+  <Project Path="OnlineCharacterSelect.csproj" />
   <Project Path="R3.Unity.XRInteractionToolkit.csproj" />
   <Project Path="Unity.InputSystem.DocCodeSamples.csproj" />
   <Project Path="Unity.Netcode.PackageChecker.Editor.csproj" />

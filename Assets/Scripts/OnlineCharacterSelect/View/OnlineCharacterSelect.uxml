@@ -1,0 +1,22 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="OnlineCharacterSelect.uss" />
+    <ui:VisualElement name="OnlineCharacterSelectRoot" class="ocs-root">
+        <!-- 選択中キャラの立ち絵を全画面背景に表示する（コードで backgroundImage を差し替える） -->
+        <ui:VisualElement name="PortraitView" class="ocs-portrait" picking-mode="Ignore" />
+        <ui:VisualElement name="Foreground" class="ocs-foreground">
+            <!-- 見出しと状態表示。右上のオプションアイコンを避けて中央寄せにする。 -->
+            <ui:VisualElement name="Header" class="ocs-header">
+                <ui:Label text="キャラクターを選択" class="ocs-title" />
+                <ui:Label name="StatusLabel" text="使うキャラクターを選んでください" class="ocs-status" />
+            </ui:VisualElement>
+            <ui:VisualElement name="Bottom" class="ocs-bottom">
+                <!-- カードはコードで CharacterGrid に追加する -->
+                <ui:VisualElement name="CharacterGrid" class="ocs-grid" />
+                <ui:VisualElement name="Actions" class="ocs-actions">
+                    <ui:Button text="退出" name="LeaveButton" class="btn-secondary ocs-action" />
+                    <ui:Button text="決定" name="ConfirmButton" class="btn-accent ocs-action" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

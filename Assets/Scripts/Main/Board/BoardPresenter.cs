@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Common.Board;
 using Common.Character;
+using Common.GameSession;
 using Common.MiniGame;
 using Common.SceneManagement;
 using Common.SoundManagement;
@@ -196,7 +197,9 @@ namespace Main.Board
             RouletteModel rouletteModel,
             RoulettePresenter roulette,
             BoardSessionModel boardSession,
-            SceneTransitioner sceneTransitioner)
+            SceneTransitioner sceneTransitioner,
+            GameSessionModel gameSession,
+            OnlineRosterSessionModel onlineRoster)
         {
             _model = model;
             _territory = territory;
@@ -213,14 +216,22 @@ namespace Main.Board
             _characterPicker = characterPicker;
             _nameplateView = new PlayerNameplateView(participants, money, territory, _characterPicker, _iconLoader, destroyCancellationToken, _disposables);
 
-            // 手札を右下に出すのは人間プレイヤーだけ。参加者リストから最初の Human を採用する。
+            // 手札を右下に出すのは自分＝人間プレイヤーだけ。
+            // オンラインはロビーで確定した自分の席、それ以外は参加者リストの最初の Human を採用する。
             _humanPlayer = 0;
-            for (int i = 0; i < participants.Count; i++)
+            if (gameSession.Mode == GameMode.Online && onlineRoster.HasRoster)
             {
-                if (participants.KindOf(i) == PlayerKind.Human)
+                _humanPlayer = onlineRoster.MySeat;
+            }
+            else
+            {
+                for (int i = 0; i < participants.Count; i++)
                 {
-                    _humanPlayer = i;
-                    break;
+                    if (participants.KindOf(i) == PlayerKind.Human)
+                    {
+                        _humanPlayer = i;
+                        break;
+                    }
                 }
             }
 

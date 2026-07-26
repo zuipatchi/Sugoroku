@@ -29,6 +29,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/MapSelect.unity
     guid: 7e2b9fa06d3c58fb0ab5c6d7e8f9a0b1
+  - enabled: 1
+    path: Assets/Scenes/OnlineCharacterSelect.unity
+    guid: b1545e07352e6984bb0275846b381253
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: fb7d0395aff0ab744b4696115cf49797, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

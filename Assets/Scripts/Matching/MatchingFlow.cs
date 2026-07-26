@@ -174,9 +174,10 @@ namespace Matching
 
         private async UniTask StartGameAsync()
         {
+            // 満室になったら、まずキャラ選択ロビー（被り防止）へ進む。全員がキャラを確定すると Main へ遷移する。
             _model.State.Value = MatchingState.Starting;
             _soundPlayer.PlaySE(_soundStore.DecisionSE);
-            await _sceneTransitioner.Transit(Scenes.Main);
+            await _sceneTransitioner.Transit(Scenes.OnlineCharacterSelect);
         }
 
         private async UniTask HandleMatchingErrorAsync(string context, Exception e, CancellationToken ct)
