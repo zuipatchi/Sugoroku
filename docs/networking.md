@@ -13,7 +13,7 @@ Unity 6 + NGO (Netcode for GameObjects) + UGS Multiplayer Services + MPM (Multip
 | 3 | MPM でロード済みシーンへの遷移が壊れる | `SceneTransitioner.Transit` | ✅ |
 | 4 | `CustomMessagingManager` が null | `NetworkSessionStartup.StartAsync` | ✅ |
 | 5 | `IsConnectedClient=true` でもメッセージが届かない | Main シーン実装時に適用 | ⬜ |
-| 6 | `PlayerJoined` イベントの競合 | `MatchingService.WaitForPlayerAsync` | ✅ |
+| 6 | 相手待ちは `AvailableSlots` ポーリングで判定（`PlayerJoined` 完了は使わない・N人部屋対応） | `MatchingService.WaitForPlayerAsync` | ✅ |
 | 7 | MPM でフォーカスを失った画面の BGM・時間が止まる | `ProjectSettings` の `runInBackground` | ✅ |
 | 8 | 遅延ハンドラ登録によるメッセージロスト（恒久対策） | Main シーン実装時に適用 | ⬜ |
 
@@ -194,39 +194,30 @@ while (!requestReceived)
 
 ---
 
-### 6. `PlayerJoined` イベントの競合
+### 6. 相手待ちは `PlayerJoined` ではなく `AvailableSlots` のポーリングで判定する
 
 **適用先**: `MatchingService.WaitForPlayerAsync`
 
-**症状**: クライアントがルーム参加を完了した後にホストが `WaitForPlayerAsync` を呼ぶと、イベントが既に発火済みで永久に待ち続ける。
+**症状（過去バグ）**: 3〜4 人部屋を作っても、2 人目が参加した瞬間にゲームが始まってしまう。
 
-**原因**: `CreateRoomAsync` が返った直後にクライアントが参加した場合、`session.PlayerJoined` への登録前にイベントが発火して失われる。
+**原因**: `session.PlayerJoined` は **1 人参加するたびに発火**する。これを完了トリガーにすると、定員に達していなくても最初の参加で待機が完了してしまう（2 人固定ルーム時代の名残）。加えて `PlayerJoined` はメインスレッド外で発火し得る／登録前に発火して失われる、といった競合もある。
 
-**対処**: ハンドラを先に登録してから `AvailableSlots` で既に埋まっていないかを確認する。「登録 → 状態確認」の順を守ることで競合ウィンドウを狭める。さらに、待機ループ中も `AvailableSlots` を定期ポーリング（500ms 間隔）して、イベント取りこぼしの保険にする。
+**対処**: 完了条件を **`AvailableSlots == 0`（＝定員が全員埋まる）だけ**にし、`AvailableSlots` を 500ms 間隔でポーリングする。これで人数に依らず「全員そろってから」開始でき、`PlayerJoined` の競合も考えなくてよい（最大 500ms の検知遅延は許容）。併せて `session.PlayerCount` を通知して「◯/◯人」の待機表示を更新する。
 
 ```csharp
-session.PlayerJoined += OnPlayerJoined;  // 先に登録
+onPlayerCount?.Invoke(session.PlayerCount);
+if (session.AvailableSlots == 0) { return true; }   // 既に満室
 
-if (session.AvailableSlots == 0)         // 後から確認
-{
-    session.PlayerJoined -= OnPlayerJoined;
-    return true;  // 既に参加済み
-}
-
-// 待機ループ: イベント発火フラグ or AvailableSlots==0 のどちらかで成立
 while (true)
 {
     linked.Token.ThrowIfCancellationRequested();
-    if (joined || session.AvailableSlots == 0)
-    {
-        session.PlayerJoined -= OnPlayerJoined;
-        return true;
-    }
+    onPlayerCount?.Invoke(session.PlayerCount);
+    if (session.AvailableSlots == 0) { return true; }   // 満室＝全員参加で成立
     await UniTask.Delay(TimeSpan.FromMilliseconds(500), cancellationToken: linked.Token);
 }
 ```
 
-「登録 → 状態確認」の一度きりチェックだけでは、ハンドラ登録の直前に相手が参加した狭い窓を取りこぼし得る。待機ループ内でも `AvailableSlots` を監視し続けることで、イベントが来なくても参加を検知できる。
+`CreateRoomAsync` 返却直後に相手が参加した「取りこぼし」も、待機に入る前の初回チェックとその後のポーリングでカバーされる（`PlayerJoined` の登録競合を気にする必要がない）。
 
 ---
 

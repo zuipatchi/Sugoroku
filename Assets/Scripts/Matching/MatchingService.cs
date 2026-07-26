@@ -129,28 +129,16 @@ namespace Matching
 
         /// <summary>
         /// ルームが満室（全員参加）になるまで待つ。<paramref name="onPlayerCount"/> に現在の参加人数を通知して、
-        /// 呼び出し側が「◯/◯人」の進捗表示を更新できるようにする（登録直後と参加検知の各タイミング・メインスレッド）。
+        /// 呼び出し側が「◯/◯人」の進捗表示を更新できるようにする（開始時とポーリングの各タイミング・メインスレッド）。
         /// </summary>
         public async UniTask<bool> WaitForPlayerAsync(
             ISession session, TimeSpan timeout, CancellationToken ct = default, Action<int> onPlayerCount = null)
         {
-            // PlayerJoined は別スレッドで発火し得るため、ポーリング側との可視性を Volatile で保証する。
-            bool joined = false;
-
-            void OnPlayerJoined(string playerId)
-            {
-                session.PlayerJoined -= OnPlayerJoined;
-                Volatile.Write(ref joined, true);
-            }
-
-            // ハンドラを先に登録してからセッション状態を確認（競合防止）
-            // CreateRoomAsync 返却直後に参加された場合、PlayerJoined が登録前に発火する
-            session.PlayerJoined += OnPlayerJoined;
+            // 完了条件は「定員が埋まる（AvailableSlots==0）」＝全員参加。PlayerJoined は 1 人参加するたびに
+            // 発火するため、3〜4 人部屋で 1 人目の参加で開始してしまう。満室のみを完了条件にする。
             onPlayerCount?.Invoke(session.PlayerCount);
-
             if (session.AvailableSlots == 0)
             {
-                session.PlayerJoined -= OnPlayerJoined;
                 return true;
             }
 
@@ -159,16 +147,14 @@ namespace Matching
 
             try
             {
-                // PlayerJoined イベントが主経路。ただしハンドラ登録前に相手が参加したケースに
-                // 備え、AvailableSlots も定期ポーリングで監視する。
+                // AvailableSlots を 500ms 間隔でポーリングし、満室になったら成立。
+                // 併せて現在の参加人数を通知して「◯/◯人」表示を更新する。
                 while (true)
                 {
                     linked.Token.ThrowIfCancellationRequested();
                     onPlayerCount?.Invoke(session.PlayerCount);
-                    if (Volatile.Read(ref joined) || session.AvailableSlots == 0)
+                    if (session.AvailableSlots == 0)
                     {
-                        session.PlayerJoined -= OnPlayerJoined;
-                        onPlayerCount?.Invoke(session.PlayerCount);
                         return true;
                     }
                     await UniTask.Delay(TimeSpan.FromMilliseconds(500), cancellationToken: linked.Token);
@@ -176,7 +162,6 @@ namespace Matching
             }
             catch (OperationCanceledException)
             {
-                session.PlayerJoined -= OnPlayerJoined;
                 await UniTask.SwitchToMainThread();
                 if (ct.IsCancellationRequested)
                 {

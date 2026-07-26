@@ -124,27 +124,31 @@ Unity の `Start()` が先に呼ばれる。VContainer の `IStartable.Start()` 
 
 ## WaitForPlayerAsync の実装メモ
 
-`WaitForPlayerAsync` は `CancellationTokenSource(timeout)` と外部 `ct` をリンクし、`PlayerJoined` イベントを主経路にしつつ `AvailableSlots` を 500ms 間隔でポーリングして待機する（ハンドラ登録の直前に相手が参加した取りこぼしへの保険）。
+`WaitForPlayerAsync` は `CancellationTokenSource(timeout)` と外部 `ct` をリンクし、**`AvailableSlots == 0`（＝定員が全員埋まる）になるまで** `AvailableSlots` を 500ms 間隔でポーリングして待機する。併せて `session.PlayerCount` を `onPlayerCount` で通知し、呼び出し側が「◯/◯人」の待機表示を更新する。
 
 ```csharp
+onPlayerCount?.Invoke(session.PlayerCount);
+if (session.AvailableSlots == 0) { return true; }   // 既に満室
+
 using CancellationTokenSource timeoutCts = new(timeout);
 using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, ct);
 
 while (true)
 {
     linked.Token.ThrowIfCancellationRequested();
-    if (joined || session.AvailableSlots == 0) { return true; }   // joined は PlayerJoined で立つフラグ
+    onPlayerCount?.Invoke(session.PlayerCount);
+    if (session.AvailableSlots == 0) { return true; }   // 満室＝全員参加で成立
     await UniTask.Delay(TimeSpan.FromMilliseconds(500), cancellationToken: linked.Token);
 }
 ```
 
-`PlayerJoined` はメインスレッド外で発火し得るため、`joined` フラグの読み書きは `Volatile.Read` / `Volatile.Write` で行いポーリング側との可視性を保証する。
+**完了条件は「満室（`AvailableSlots == 0`）」だけにする**。`PlayerJoined` は 1 人参加するたびに発火するため、これを完了トリガーにすると 3〜4 人部屋でも 1 人目の参加で開始してしまう（過去バグ）。`AvailableSlots` のポーリングだけなら人数に依らず「全員そろってから」開始できる（最大 500ms の検知遅延は許容）。
 
 **注意: タイムアウト起因のキャンセルはスレッドプールスレッドで継続され得る**
 
 `new CancellationTokenSource(TimeSpan)` のタイマーは .NET のスレッドプールで発火するため、タイムアウトでキャンセルされたときの catch ブロックがスレッドプールスレッドに到達することがある（スタックトレースに `System.Threading._ThreadPoolWaitCallback:PerformWaitCallback()` が現れることで確認できる）。
 
-そのため catch ブロック内で Unity API を触る前に `await UniTask.SwitchToMainThread()` を入れる。既にメインスレッドなら no-op なので、正常完了パス（`PlayerJoined` 経由）への影響はない。
+そのため catch ブロック内で Unity API を触る前に `await UniTask.SwitchToMainThread()` を入れる。既にメインスレッドなら no-op なので、正常完了パスへの影響はない。
 
 ---
 
