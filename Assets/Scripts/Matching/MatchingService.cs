@@ -114,7 +114,7 @@ namespace Matching
             return session;
         }
 
-        public async UniTask JoinRoomAsync(string sessionId, CancellationToken ct = default)
+        public async UniTask<ISession> JoinRoomAsync(string sessionId, CancellationToken ct = default)
         {
             await _gameSessionModel.LeaveCurrentSessionAsync();
             DisableNgoSceneManagement();
@@ -125,6 +125,7 @@ namespace Matching
                 .AttachExternalCancellation(ct);
 
             _gameSessionModel.SetSession(session);
+            return session;
         }
 
         /// <summary>

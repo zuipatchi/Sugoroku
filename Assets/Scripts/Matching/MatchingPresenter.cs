@@ -175,7 +175,7 @@ namespace Matching
                 case MatchingState.WaitingInCreatedRoom:
                     _waitingLabel.text =
                         $"プレイヤーを待っています...（{_model.WaitingCurrent.Value}/{_model.WaitingMax.Value}人）\n"
-                        + $"{(int)MatchingFlow.CreateRoomTimeoutDuration.TotalMinutes}分で自動解散します";
+                        + "全員そろうと自動で開始します";
                     break;
             }
         }

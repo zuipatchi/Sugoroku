@@ -117,8 +117,25 @@ namespace Matching
             try
             {
                 _model.State.Value = MatchingState.JoiningRoom;
-                await _matchingService.JoinRoomAsync(sessionId, ct);
-                await StartGameAsync();
+                ISession session = await _matchingService.JoinRoomAsync(sessionId, ct);
+
+                // 参加してもすぐには始めず、ホストと同じく定員が埋まる（全員そろう）まで待ってから開始する。
+                // これをしないとゲストだけ 2 人目参加の時点で先に始まってしまう。
+                _model.WaitingMax.Value = session.MaxPlayers;
+                _model.WaitingCurrent.Value = session.PlayerCount;
+                _model.State.Value = MatchingState.WaitingInCreatedRoom;
+
+                bool full = await _matchingService.WaitForPlayerAsync(
+                    session, CreateRoomTimeoutDuration, ct, current => _model.WaitingCurrent.Value = current);
+                if (full)
+                {
+                    await StartGameAsync();
+                }
+                else
+                {
+                    await _gameSessionModel.LeaveCurrentSessionAsync();
+                    _model.State.Value = MatchingState.TimedOut;
+                }
             }
             catch (OperationCanceledException) { }
             catch (Exception e)

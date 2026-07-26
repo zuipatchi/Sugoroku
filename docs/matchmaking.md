@@ -53,7 +53,9 @@ Title → Home →（オンラインプレイ）→ Matching → Main
 
 2b. ルームに手動参加
    → 一覧のルーム（「Room 1/4」等）をタップ → JoinSessionByIdAsync(sessionId)
-   → Main シーンへ遷移（ホスト側で定員が埋まるとゲーム開始）
+   → 参加側も定員が埋まるまで相手待ち（ホストと同じ WaitForPlayerAsync・「◯/◯人」表示）
+   → 全員そろった（AvailableSlots==0）→ Main シーンへ遷移
+   ※ 参加してすぐ開始しない（そうしないとゲストだけ 2 人目参加の時点で先に始まる）
 
 3. Main シーン開始
 ```
