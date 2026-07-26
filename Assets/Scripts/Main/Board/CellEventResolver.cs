@@ -8,19 +8,20 @@ namespace Main.Board
     public static class CellEventResolver
     {
         /// <summary>
-        /// 着地マスのイベント <paramref name="cellEvent"/>（数値パラメータ <paramref name="amount"/>）が
-        /// お金イベントなら true を返し、所持金の変化量を <paramref name="delta"/> に入れる
-        /// （MoneyUp は +amount、MoneyDown は -amount）。お金イベント以外は false（delta は 0）。
+        /// 着地マスのイベント <paramref name="cellEvent"/> が正の額の増減額 <paramref name="magnitude"/>
+        /// （<see cref="Money.MoneyCellRule.Amount"/> で毎回ランダムに決める）を伴うお金イベントなら true を返し、
+        /// 符号を付けた所持金の変化量を <paramref name="delta"/> に入れる（MoneyUp は +magnitude、
+        /// MoneyDown は -magnitude）。お金イベント以外は false（delta は 0）。
         /// </summary>
-        public static bool TryGetMoneyDelta(BoardCellEvent cellEvent, int amount, out int delta)
+        public static bool TryGetMoneyDelta(BoardCellEvent cellEvent, int magnitude, out int delta)
         {
             switch (cellEvent)
             {
                 case BoardCellEvent.MoneyUp:
-                    delta = amount;
+                    delta = magnitude;
                     return true;
                 case BoardCellEvent.MoneyDown:
-                    delta = -amount;
+                    delta = -magnitude;
                     return true;
                 default:
                     delta = 0;

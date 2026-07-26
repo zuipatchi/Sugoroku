@@ -581,9 +581,9 @@ namespace Main.Board
                 case BoardCellEvent.MiniGame:
                     return "MG";
                 case BoardCellEvent.MoneyUp:
-                    return $"$+{definition.Amount}";
+                    return "$+";
                 case BoardCellEvent.MoneyDown:
-                    return $"$-{definition.Amount}";
+                    return "$-";
                 case BoardCellEvent.Territory:
                     return "陣";
                 case BoardCellEvent.Item:
@@ -1356,7 +1356,8 @@ namespace Main.Board
             BoardCellDefinition cell = _boardDef.Cell(position);
 
             // 陣地マスは PlayLandingSequenceAsync の旗演出側で占拠を確定するため、ここには来ない。
-            if (_money != null && CellEventResolver.TryGetMoneyDelta(cell.Event, cell.Amount, out int delta))
+            // お金マスの増減額はマスごとの固定値ではなく着地のたびに n×100 のランダムで決める。
+            if (_money != null && CellEventResolver.TryGetMoneyDelta(cell.Event, MoneyCellRule.Amount(_itemRng), out int delta))
             {
                 _money.Add(player, delta);
                 _soundPlayer.PlaySafe(_soundStore?.MoneySE);
