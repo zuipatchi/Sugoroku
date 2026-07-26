@@ -28,11 +28,11 @@ Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使っ�
 ## シーン構成
 
 ```
-Title → Home →（オンラインプレイ）→ Matching → Main
+Title → Home →（オンラインプレイ）→ Matching → OnlineCharacterSelect（満室後）→ Main
 ```
 
-- `Matching` は Home の「オンラインプレイ」ボタンから遷移する（「一人用モード」は `Matching` を経由せず `Main` へ直行する）
-- `Matching` シーンでルーム選択・接続を完了させてから `Main` へ遷移
+- `Matching` は Home の「オンラインプレイ」ボタンから遷移する（「一人用モード」は `Matching` を経由せず `CharacterSelect`→`MapSelect`→`Main` へ進む）
+- `Matching` シーンでルーム選択・接続を完了させ、満室になったら `OnlineCharacterSelect`（キャラ選択ロビー・被り防止）を経て `Main` へ遷移する（ロビーの詳細は CLAUDE.md／[architecture.md](architecture.md)）
 - `Common` シーンは常駐（既存の構成を維持）
 
 ---
@@ -48,16 +48,20 @@ Title → Home →（オンラインプレイ）→ Matching → Main
    → 人数ステッパーで定員 2〜4 を選ぶ
    → CreateSessionAsync(Name="Room", MaxPlayers=選んだ人数)
    → 定員が埋まるまで相手待ち（120秒タイムアウト・待機中は「◯/◯人」をライブ表示）
-   → 全員揃った（AvailableSlots==0）→ Main シーンへ遷移
+   → 全員揃った（AvailableSlots==0）→ OnlineCharacterSelect（キャラ選択ロビー）→ 全員決定で Main へ
    → タイムアウト → 作成したセッションを退出（一覧から削除）→ リトライ確認ダイアログ
 
 2b. ルームに手動参加
    → 一覧のルーム（「Room 1/4」等）をタップ → JoinSessionByIdAsync(sessionId)
    → 参加側も定員が埋まるまで相手待ち（ホストと同じ WaitForPlayerAsync・「◯/◯人」表示）
-   → 全員そろった（AvailableSlots==0）→ Main シーンへ遷移
+   → 全員そろった（AvailableSlots==0）→ OnlineCharacterSelect（キャラ選択ロビー）→ 全員決定で Main へ
    ※ 参加してすぐ開始しない（そうしないとゲストだけ 2 人目参加の時点で先に始まる）
 
-3. Main シーン開始
+3. OnlineCharacterSelect（キャラ選択ロビー）
+   → 全員が被らないキャラを選ぶ（UGS プロパティでホスト審判の先着ロック）
+   → 全員「決定」→ 席順→キャラの割り当てを OnlineRosterSessionModel に保存 → Main へ
+
+4. Main シーン開始
 ```
 
 ---
@@ -107,7 +111,7 @@ Unity の `Start()` が先に呼ばれる。VContainer の `IStartable.Start()` 
 | `CreatingRoom` | ルーム作成中 |
 | `WaitingInCreatedRoom` | ルーム作成後の相手待ち（定員が埋まるまで・120秒タイムアウト・「◯/◯人」表示） |
 | `JoiningRoom` | ルーム参加中 |
-| `Starting` | Main シーンへ遷移中 |
+| `Starting` | キャラ選択ロビー（OnlineCharacterSelect）へ遷移中 |
 | `TimedOut` | タイムアウト（リトライ確認中） |
 | `Error` | エラー発生 |
 
@@ -159,7 +163,7 @@ while (true)
 `Window → Multiplayer → Multiplayer Play Mode` で Virtual Player を追加して Enter Play Mode。
 
 メインエディターで人数（2〜4）を選んで「ルームを作成」して待機し、バーチャルプレイヤー側がルーム一覧から
-そのルームをタップして参加する。定員が埋まると全員が Main シーンへ遷移する。
+そのルームをタップして参加する。定員が埋まると全員が OnlineCharacterSelect（キャラ選択ロビー）へ遷移し、全員がキャラを決定すると Main シーンへ進む。
 
 ---
 
