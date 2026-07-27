@@ -10,12 +10,18 @@ namespace Tests.EditMode
     {
         private sealed class FakeSessionInfo : ISessionInfo
         {
-            public FakeSessionInfo(string id, string name, int maxPlayers, int availableSlots)
+            public FakeSessionInfo(string id, string name, int maxPlayers, int availableSlots, string boardId = null)
             {
                 Id = id;
                 Name = name;
                 MaxPlayers = maxPlayers;
                 AvailableSlots = availableSlots;
+                Properties = boardId == null
+                    ? null
+                    : new Dictionary<string, SessionProperty>
+                    {
+                        [MatchingService.BoardPropertyKey] = new SessionProperty(boardId)
+                    };
             }
 
             public string Name { get; }
@@ -28,7 +34,7 @@ namespace Tests.EditMode
             public bool HasPassword => false;
             public DateTime LastUpdated => default;
             public DateTime Created => default;
-            public IReadOnlyDictionary<string, SessionProperty> Properties => null;
+            public IReadOnlyDictionary<string, SessionProperty> Properties { get; }
         }
 
         [Test]
@@ -79,6 +85,26 @@ namespace Tests.EditMode
             Assert.AreEqual(1, rooms.Count);
             Assert.AreEqual("open", rooms[0].LobbyId);
             Assert.AreEqual(2, rooms[0].PlayerCount);
+        }
+
+        [Test]
+        public void 公開プロパティのマップ識別子がLobbyInfoに変換される()
+        {
+            List<ISessionInfo> sessions = new() { new FakeSessionInfo("id-1", "Room1", 4, 1, "Board_Forest") };
+
+            IReadOnlyList<LobbyInfo> rooms = MatchingService.MapSessionsToRooms(sessions);
+
+            Assert.AreEqual("Board_Forest", rooms[0].BoardId);
+        }
+
+        [Test]
+        public void マップ識別子が無いセッションはBoardIdが空文字になる()
+        {
+            List<ISessionInfo> sessions = new() { new FakeSessionInfo("id-1", "Room1", 4, 1) };
+
+            IReadOnlyList<LobbyInfo> rooms = MatchingService.MapSessionsToRooms(sessions);
+
+            Assert.AreEqual(string.Empty, rooms[0].BoardId);
         }
 
         [Test]

@@ -13,6 +13,11 @@ namespace Matching
 {
     public class MatchingService
     {
+        // ルーム作成時にホストが選んだマップ識別子を載せる公開セッションプロパティのキー。
+        // Public 可視性なので QuerySessionsAsync の結果（ISessionInfo.Properties）にも含まれ、
+        // ルーム一覧を閲覧するゲストからも参加前にマップ名を表示できる。
+        public const string BoardPropertyKey = "board";
+
         private readonly GameSessionModel _gameSessionModel;
         private bool _isQuerying;
 
@@ -81,9 +86,21 @@ namespace Matching
                     continue;
                 }
                 int playerCount = info.MaxPlayers - info.AvailableSlots;
-                rooms.Add(new LobbyInfo(info.Id, info.Name, playerCount, info.MaxPlayers));
+                rooms.Add(new LobbyInfo(info.Id, info.Name, playerCount, info.MaxPlayers, ReadBoardId(info)));
             }
             return rooms;
+        }
+
+        // セッションの公開プロパティからマップ識別子を取り出す（未設定なら空文字）。
+        private static string ReadBoardId(ISessionInfo info)
+        {
+            if (info.Properties != null
+                && info.Properties.TryGetValue(BoardPropertyKey, out SessionProperty prop)
+                && prop != null)
+            {
+                return prop.Value ?? string.Empty;
+            }
+            return string.Empty;
         }
 
         private static void DisableNgoSceneManagement()
@@ -95,7 +112,8 @@ namespace Matching
             }
         }
 
-        public async UniTask<IHostSession> CreateRoomAsync(string roomName, int maxPlayers, CancellationToken ct = default)
+        public async UniTask<IHostSession> CreateRoomAsync(
+            string roomName, int maxPlayers, string boardId, CancellationToken ct = default)
         {
             await _gameSessionModel.LeaveCurrentSessionAsync();
             DisableNgoSceneManagement();
@@ -105,6 +123,12 @@ namespace Matching
                 Name = roomName,
                 MaxPlayers = maxPlayers
             };
+            // ルーム一覧を閲覧するゲストにもマップ名を見せるため、選んだマップ識別子を公開プロパティに載せる。
+            if (!string.IsNullOrEmpty(boardId))
+            {
+                options.SessionProperties[BoardPropertyKey] =
+                    new SessionProperty(boardId, VisibilityPropertyOptions.Public);
+            }
             IHostSession session = await MultiplayerService.Instance
                 .CreateSessionAsync(options)
                 .AsUniTask()

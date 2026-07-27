@@ -306,17 +306,38 @@ namespace Matching
             foreach (LobbyInfo room in rooms)
             {
                 string sessionId = room.LobbyId;
+                string mapName = ResolveMapName(room.BoardId);
+                string label = $"{room.Name}  {room.PlayerCount}/{room.MaxPlayers}";
+                if (!string.IsNullOrEmpty(mapName))
+                {
+                    label += $"\nマップ：{mapName}";
+                }
                 Button roomButton = new Button(() =>
                 {
                     _soundPlayer.PlaySE(_soundStore.Enter1SE);
                     _flow.SelectRoomAsync(sessionId, destroyCancellationToken).Forget();
                 })
                 {
-                    text = $"{room.Name}  {room.PlayerCount}/{room.MaxPlayers}"
+                    text = label
                 };
                 roomButton.AddToClassList("room-item");
                 _roomList.Add(roomButton);
             }
+        }
+
+        // ルームのマップ識別子（資産名）をカタログで表示名に解決する。未登録・未割り当てなら空文字。
+        private string ResolveMapName(string boardId)
+        {
+            if (_catalog == null || string.IsNullOrEmpty(boardId))
+            {
+                return string.Empty;
+            }
+            BoardDefinition board = _catalog.Find(boardId);
+            if (board == null)
+            {
+                return string.Empty;
+            }
+            return string.IsNullOrEmpty(board.DisplayName) ? board.name : board.DisplayName;
         }
     }
 }

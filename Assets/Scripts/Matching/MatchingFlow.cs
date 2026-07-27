@@ -97,7 +97,7 @@ namespace Matching
                 _model.State.Value = MatchingState.CreatingRoom;
                 _model.WaitingMax.Value = maxPlayers;
                 _model.WaitingCurrent.Value = 0;
-                IHostSession session = await _matchingService.CreateRoomAsync("Room", maxPlayers, ct);
+                IHostSession session = await _matchingService.CreateRoomAsync("Room", maxPlayers, boardId, ct);
                 _model.State.Value = MatchingState.WaitingInCreatedRoom;
 
                 bool found = await _matchingService.WaitForPlayerAsync(
