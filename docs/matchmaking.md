@@ -54,7 +54,9 @@ Title → Home →（オンラインプレイ）→ Matching → OnlineCharacter
    → タイムアウト → 作成したセッションを退出（一覧から削除）→ リトライ確認ダイアログ
 
 2b. ルームに手動参加
-   → 一覧のルーム（「Room 1/4」等）をタップ → JoinSessionByIdAsync(sessionId)
+   → 一覧のルーム（「Room 1/4」＋「マップ：〇〇」）をタップ → JoinSessionByIdAsync(sessionId)
+   ※ ルーム作成時にホストが選んだマップ識別子を公開セッションプロパティ（キー `board`）に載せるので、
+     参加前でも一覧でマップ名を確認できる（`MatchingService.BoardPropertyKey`・`LobbyInfo.BoardId`）
    → 参加側も定員が埋まるまで相手待ち（ホストと同じ WaitForPlayerAsync・「◯/◯人」表示）
    → 全員そろった（AvailableSlots==0）→ OnlineCharacterSelect（キャラ選択ロビー）→ 全員決定で Main へ
    ※ 参加してすぐ開始しない（そうしないとゲストだけ 2 人目参加の時点で先に始まる）
@@ -127,6 +129,7 @@ Unity の `Start()` が先に呼ばれる。VContainer の `IStartable.Start()` 
   - クエリが既に実行中（`_isQuerying` ガード）— 自動更新と手動更新の競合時など
   - `SessionException`（UGS SDK がセッション離脱直後の過渡期に投げる NullRef の回避。次のリフレッシュで再試行）
 - 変換ロジックは純メソッド `MatchingService.MapSessionsToRooms(IList<ISessionInfo>)` に分離してある。満室（`AvailableSlots == 0`）を除外し、`PlayerCount = MaxPlayers - AvailableSlots` を算出する。EditMode テスト（`MatchingServiceTests`）の対象。
+- **マップ名の表示**: ホストは `CreateRoomAsync` 時に選んだマップ識別子（資産名）を公開セッションプロパティ（`VisibilityPropertyOptions.Public`・キー `MatchingService.BoardPropertyKey="board"`）に載せる。`QuerySessionsAsync` の結果（`ISessionInfo.Properties`）にも含まれるので、`MapSessionsToRooms` が `LobbyInfo.BoardId` へ取り出し、`MatchingPresenter` が `BoardCatalog` で表示名に解決してルーム一覧のボタンに「マップ：〇〇」と表示する（未設定・未登録なら省略）。
 
 ---
 
