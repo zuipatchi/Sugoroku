@@ -267,6 +267,7 @@ public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken c
 - **人間と CPU は同じ流れの分岐にする**。人間＝入力の完了を待つ、CPU＝同じ UI（円盤）をコードから回して（`AutoSpinAsync`）結果を待つ、と**入口だけ変えて後段（コマ前進・勝敗判定）は共通**にすると、演出コードを二重化せずに済む。
 - **キャンセルは握る**。ループの `await` はシーン破棄でキャンセルされる。`StartAsync` 全体を `try { ... } catch (OperationCanceledException) { }` で囲む（VContainer 由来のトークンなので [#4](#4-シーン表示前に非同期初期化を待つisceneready) と同じ扱い）。
 - **接続待ちを最初に置く**とオンライン/オフラインを同じループで扱える（`NetworkModel.State` が `Connected` になるまで `FirstAsync` で待ってから進行を始める。一人用は即 `Connected`）。
+- **進行そのものはアクションストリームで駆動する**（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）。ループは「手番の席を担当するクライアントだけが決めて発行 → 全員が受信したアクションを適用」の形になり、オンライン/一人用が同じコードパスになる。
 
 ---
 
@@ -288,20 +289,23 @@ public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken c
 2. アイテム絵を `Assets/AddressableAssets/Image/Item/` に置き、**Addressable アドレスを `Image/Item/<名前>`** に設定する（未配置でも動く。その場合は手札にアイテム名の文字が出る）
 3. [ItemCatalog.cs](../Assets/Scripts/Main/Item/ItemCatalog.cs) の `All` に 1 行足す（`ItemId` → 表示名・**効果説明文（`Description`・アイテムモーダル/ショップの本文に出る）**・画像アドレス・**購入価格（`Price`）**）。ラインナップ抽選（`RandomLineup`）はカタログ全体から選ぶので分岐追加は不要
 
-- **アイテムは着地時に開くアイテムショップで購入する**。アイテム取得マスに止まると `BoardPresenter.PlayItemShopSequenceAsync` が `ItemCatalog.RandomLineup(_itemRng, 2, 4)` でランダムな枚数・重複なしのラインナップを抽選し、人間は `ItemShopPresenter.SelectAsync(lineup, budget, ct)`（一度に 2 枚のカルーセル・買えないカードは無効・「買わずに閉じる」でスキップ）で選ぶ。CPU は `PickCpuPurchase` で買える範囲からランダムに 1 つ。確定したら代金を `MoneyModel.Add(player, -price)` で払い `ItemModel.Add` で手札へ（購入音＝`MoneySE`）。カルーセルは `flex-shrink:0` のカードを `overflow:hidden` のビューポートに収め、`ShowPage` で `PageWidthPx`（カード142px×2）ぶん translate する（ビューポート幅・`CardSlotWidthPx` は USS と一致させる）。
+- **アイテムは着地時に開くアイテムショップで購入する**。アイテム取得マスに止まると `BoardPresenter.PlayItemShopSequenceAsync` が動く。**買い物は「決定」と「適用」に分かれている**（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）：着地した本人のクライアントだけが `DecidePurchaseAsync` で `ItemCatalog.RandomLineup(_itemRng, 2, 4)`（ランダムな枚数・重複なし）を抽選し、人間は `ItemShopPresenter.SelectAsync(lineup, budget, ct)`（一度に 2 枚のカルーセル・買えないカードは無効・「買わずに閉じる」でスキップ）、CPU は `PickCpuPurchase` で買える範囲からランダムに 1 つ選ぶ。結果を `GameAction.ShopResult` で発行し、**全クライアントが `ApplyShopResult` で代金の支払い（`MoneyModel.Add(player, -price)`）と `ItemModel.Add`（購入音＝`MoneySE`）を行う**。カルーセルは `flex-shrink:0` のカードを `overflow:hidden` のビューポートに収め、`ShowPage` で `PageWidthPx`（カード142px×2）ぶん translate する（ビューポート幅・`CardSlotWidthPx` は USS と一致させる）。
 - 取得の保持は [ItemModel.cs](../Assets/Scripts/Main/Item/ItemModel.cs)（`MoneyModel`／`TerritoryModel` と同じ Scoped DI・参加者ごと）。右下手札への反映は `ItemModel.Gained` 購読→`BoardPresenter.AppendItemToHand`（同じアイテムはカードを増やさず「x2」の枚数バッジで表示をまとめる。`ItemModel` 側の手札リストは重複を保持）。
 - 手札カードのクリックで [ItemModalPresenter.cs](../Assets/Scripts/Main/Item/ItemModalPresenter.cs) の詳細モーダル（絵・名前・効果説明＋「使用する」「閉じる」）が開く。**「使用する」はモーダル自身では消費せず、生成側から渡された効果ハンドラ `Action<ItemId> onUse`（＝`BoardPresenter.HandleItemUse`）を呼んで閉じるだけ**（消費〔`ItemModel.Use`〕のタイミングは効果側に委ねる。マス選択のキャンセルで消費しない効果があるため）。手札 UI の減算は `ItemModel.Used` を購読する `BoardPresenter.RemoveItemFromHand`。
 - 「使用する」ボタンは**自分の手番かつルーレット未回転（`RouletteState.Idle`）でアイテム効果の実行中でないときだけ有効**にする。`BoardPresenter.CanUseItem`（`Func<bool>`＝`!_itemEffectRunning && _turn.CurrentPlayer.CurrentValue == _humanPlayer && _rouletteModel.State.CurrentValue == RouletteState.Idle`）を `ItemModalPresenter` へ渡し、モーダルを開くたびに `SetEnabled` で評価する（回した後・コマ移動中・相手の手番中・効果実行中は無効）。
 
-### アイテムの効果を実装する（`BoardPresenter.HandleItemUse` で分岐）
+### アイテムの効果を実装する（決定＝`HandleItemUse` / 適用＝`ApplyActionAsync`）
 
-- **効果の発動は使用側 `BoardPresenter.HandleItemUse(ItemId)` がアイテム種別で分岐して担う**。効果未実装のアイテムは従来どおり `_items.Use(_humanPlayer, item)` で消費のみ。効果を足すときはこのメソッドに `if (item == ...)` を 1 本足して、そこから `TerritoryModel`／`MoneyModel`／`MiniGameLauncher` などにつなぐ。
-- **消費のタイミングは効果側で決める**。即時発動なら `_items.Use` を呼んでから効果を出す。マス選択などユーザー操作を挟んでキャンセルできる効果は、**確定できたときだけ `_items.Use` を呼ぶ**（キャンセル・シーン破棄では消費しない）。多重起動と実行中の再使用を防ぐため `_itemEffectRunning` フラグを立て（`CanUseItem` にも組み込む）、`finally` で必ず戻す。ターンを消費しない効果なら、選択・演出の間だけ `RoulettePresenter.SetInteractable(false)` でスピンを止め、終わったら自分の手番かつ `Idle` のとき `true` に戻す。
-- **実装例＝陣地獲得（`StealTerritory`）**。`RunTerritoryStealAsync`（`async UniTaskVoid`・`_destroyCt` で `Forget`）が、`TerritoryModel.CellsNotOwnedBy(_humanPlayer)` で対象マス（未占拠＋相手占拠）を出し（0 個なら消費せず終了）、`SelectTerritoryCellAsync` でマス選択を待つ。対象マスは `board-cell--selectable`（金枠）＋重ねた `board-cell__glow` を `AnimateSelectableGlowAsync` が ping パルスで駆動して強調し、ガイドバナー（`TerritorySelectBanner`）を出す。選択入力は `BoardZoomController.BeginCellSelection(Func<Vector2,bool>)`／`EndCellSelection` に委ね、**ドラッグ層でタップ（ほぼ動かず離す）とパン（動かす）を振り分ける**（盤面タップとドラッグパンを両立）。タップ位置は `cell.worldBound.Contains(screenPos)` で対象マスに当てる。選択結果は `UniTaskCompletionSource<int>`（キャンセル・破棄で -1）で受け取り、確定したら `ItemModel.Use` → 既存の旗演出（`PlayTerritoryFlagSequenceAsync`）→ `ApplyTerritoryLanding`（占拠・必要数〔総数÷プレイヤー数の切り上げ〕到達で勝利）を再利用する。
-- **実装例＝ミニゲーム（`MiniGame`）**。`RunMiniGameAsync`（`async UniTaskVoid`・`_destroyCt` で `Forget`）が、`MiniGameSelectPresenter.SelectAsync`（`MiniGameCatalog` をサムネイル画像＋ゲーム名のカード一覧にした選択モーダル・`UniTaskCompletionSource<MiniGameId?>`＝キャンセル/暗幕/破棄で null）で遊ぶミニゲームを選ばせ、null なら消費せず終了。確定したら `ItemModel.Use` → `MiniGameLauncher.PlayAsync`（Additive 起動）→ `DetermineMiniGameWin`（各ゲームがスコア 1=勝ちで報告する共通判定＝`Score==1`）で勝敗判定し、勝てば `MoneyModel.Add`（既定 +500）で報酬。ターン非消費で選択・プレイ中は `RoulettePresenter.SetInteractable(false)`。
-- **実装例＝お金よこどり（`StealMoney`）**。`RunMoneyStealAsync`（`async UniTaskVoid`・`_destroyCt` で `Forget`）が、自分以外の参加者ごとに `MoneyStealRule.Amount(相手の所持金, _itemRng)`（相手の所持金が正のとき 20〜50％をランダムに奪う純粋ロジック・端数切り捨て・最低1・上限＝相手の所持金）で奪う額を先に集計する。合計 0（＝奪える相手がいない）なら消費せず終了。合計が正なら `ItemModel.Use` → 相手から `MoneyModel.Add(player, -amount)` で引いて自分に合計を足し、増額を `BoardLandingPresentation.ShowMoneyFloatAsync` で見せる。ユーザー操作を挟まない即時効果だが、ほかと同じく `_itemEffectRunning` を立て・演出中は `RoulettePresenter.SetInteractable(false)`・ターン非消費。**奪う額の乱数ルールはモデルに持たせず純粋クラス（`MoneyStealRule`）へ切り出す**と `System.Random` で seed 固定して EditMode テストできる（`RaceGameConfig`／`RouletteMath` と同じ方針）。
-- **実装例＝勝利（`InstantWin`／最小の即時効果）**。マス選択・非同期演出を一切持たない即時効果は `HandleItemUse` 内で同期的に完結できる。`if (item == ItemId.InstantWin)` の中で `_items.Use(_humanPlayer, item)` で消費し、`_model.SetWinner(_humanPlayer)` を呼ぶだけ（`BoardModel.SetWinner` は確定済みなら上書きしない）。勝者テキスト・「ホームに戻る」ボタン・花火エフェクト（人間の勝利なので `ScreenEffectPlayer` の勝利インスタンス）はすべて既存の `BoardModel.Winner` 購読が担うため、効果側で演出を書く必要はない。`_itemEffectRunning` フラグも不要（同期完結で再入の隙が無い）。
-- **選択モーダルの sortingOrder 罠**：`ItemModalPresenter`／`MiniGameSelectPresenter`／`ItemShopPresenter` はいずれも開いている間だけ Board の `UIDocument.sortingOrder` を 100 へ持ち上げて元へ戻す。詳細モーダルの「使用する」から効果を起こすと、効果側が別のモーダルを開くのと詳細モーダルの `Close`（sortingOrder 復元）が同フレームで競合し、持ち上げ済みの値を base として取り込んで戻らなくなる。効果側で選択モーダルを開く前に `await UniTask.Yield(PlayerLoopTiming.Update, ct)` を 1 回挟み、詳細モーダルの `Close` を先に完了させてから開く（`RunMiniGameAsync` 参照）。
+効果は**「決定（1 人だけ）」と「適用（全員）」の 2 段**で書く（理由と全体像は [#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）。新しい効果を足すときは、`HandleItemUse` の `switch` に決定側を、`ApplyActionAsync` の `switch` に適用側を 1 本ずつ足す。
+
+- **決定側（`BoardPresenter.HandleItemUse(ItemId)`）はパラメータを決めて `_sync.Publish(GameAction.ItemUse(...))` するだけ**。`ItemModel.Use` も効果の反映もここでは行わない。マス選択などユーザー操作を挟む効果は、**確定できたときだけ発行する**（キャンセル・対象なし・シーン破棄では発行しない＝消費もされない）。効果パラメータは `int[]` で運ぶ（陣地獲得＝対象マス index、お金よこどり＝**席 index 順**の奪取額、ミニゲーム＝所持金報酬）。
+- **適用側（`BoardPresenter.ApplyActionAsync`）が `ItemModel.Use(seat, item)` で消費してから効果を反映する**。使用者だけでなく全クライアントで走るので、演出も含めてここに書けば相手の画面にも同じものが出る。
+- **多重起動と実行中の再使用は `_itemEffectRunning` で防ぐ**（`CanUseItem` にも組み込み済み）。`BeginItemEffect()`（フラグを立て `RoulettePresenter.SetInteractable(false)`）／`EndItemEffect()`（フラグを戻し、自分の手番かつ `Idle` ならスピンを再有効化）を使う。**決定側で発行できたらフラグは戻さない**（続けて走る適用側の `finally` が `EndItemEffect` するため）。効果はターンを消費しないので、終わればそのままルーレットを回せる。
+- **実装例＝陣地獲得（`StealTerritory`）**。決定＝`DecideTerritoryStealAsync`（`async UniTaskVoid`・`_destroyCt` で `Forget`）が `TerritoryModel.CellsNotOwnedBy(_humanPlayer)` で対象マス（未占拠＋相手占拠）を出し（0 個なら発行せず終了）、`SelectTerritoryCellAsync` でマス選択を待って選んだ index を発行する。対象マスは `board-cell--selectable`（金枠）＋重ねた `board-cell__glow` を `AnimateSelectableGlowAsync` が ping パルスで駆動して強調し、ガイドバナー（`TerritorySelectBanner`）を出す。選択入力は `BoardZoomController.BeginCellSelection(Func<Vector2,bool>)`／`EndCellSelection` に委ね、**ドラッグ層でタップ（ほぼ動かず離す）とパン（動かす）を振り分ける**（盤面タップとドラッグパンを両立）。タップ位置は `cell.worldBound.Contains(screenPos)` で対象マスに当てる。選択結果は `UniTaskCompletionSource<int>`（キャンセル・破棄で -1）で受け取る。適用＝`ApplyTerritoryStealAsync` が既存の旗演出（`PlayTerritoryFlagSequenceAsync`）→ `ApplyTerritoryLanding`（占拠・必要数〔総数÷プレイヤー数の切り上げ〕到達で勝利）を再利用する。
+- **実装例＝ミニゲーム（`MiniGame`）**。決定＝`DecideMiniGameAsync` が `MiniGameSelectPresenter.SelectAsync`（`MiniGameCatalog` をサムネイル画像＋ゲーム名のカード一覧にした選択モーダル・`UniTaskCompletionSource<MiniGameId?>`＝キャンセル/暗幕/破棄で null）で遊ぶミニゲームを選ばせ（null なら発行せず終了）、`MiniGameLauncher.PlayAsync`（Additive 起動）→ `DetermineMiniGameWin`（各ゲームがスコア 1=勝ちで報告する共通判定＝`Score==1`）で勝敗を出し、**報酬額（勝ち=500／負け=0）を発行**する。適用＝`ApplyMoneyRewardAsync` が `MoneyModel.Add` と浮遊テキスト。**ミニゲーム自体はローカル完結**で、他プレイヤーには結果（報酬額）だけが配られる。
+- **実装例＝お金よこどり（`StealMoney`／ユーザー操作の無い抽選）**。決定＝`DecideMoneySteal`（同期メソッド）が、自分以外の参加者ごとに `MoneyStealRule.Amount(相手の所持金, _itemRng)`（相手の所持金が正のとき 20〜50％をランダムに奪う純粋ロジック・端数切り捨て・最低1・上限＝相手の所持金）で奪う額を集計し、**席 index をそのまま添字にした `int[]`** で発行する（合計 0＝奪える相手がいないなら発行せず終了）。適用＝`ApplyMoneyStealAsync` が相手から `MoneyModel.Add(seat, -amount)` で引いて使用者に合計を足し、増額を `BoardLandingPresentation.ShowMoneyFloatAsync` で見せる。**奪う額の乱数ルールはモデルに持たせず純粋クラス（`MoneyStealRule`）へ切り出す**と `System.Random` で seed 固定して EditMode テストできる（`MoneyCellRule`／`RouletteMath` と同じ方針）。
+- **実装例＝勝利（`InstantWin`／最小の効果）**。決めることが何も無い効果は `HandleItemUse` の `default` 分岐（`BeginItemEffect()` → 効果パラメータなしで発行）だけで済む。適用側は `_model.SetWinner(seat)` を呼ぶ 1 行（`BoardModel.SetWinner` は確定済みなら上書きしない）。勝者テキスト・「ホームに戻る」ボタン・決着エフェクトはすべて既存の `BoardModel.Winner` 購読が担うため、効果側で演出を書く必要はない。
+- **選択モーダルの sortingOrder 罠**：`ItemModalPresenter`／`MiniGameSelectPresenter`／`ItemShopPresenter` はいずれも開いている間だけ Board の `UIDocument.sortingOrder` を 100 へ持ち上げて元へ戻す。詳細モーダルの「使用する」から効果を起こすと、効果側が別のモーダルを開くのと詳細モーダルの `Close`（sortingOrder 復元）が同フレームで競合し、持ち上げ済みの値を base として取り込んで戻らなくなる。効果側で選択モーダルを開く前に `await UniTask.Yield(PlayerLoopTiming.Update, ct)` を 1 回挟み、詳細モーダルの `Close` を先に完了させてから開く（`DecideMiniGameAsync` 参照）。
 - **盤面タップを拾えるようにする**（`BoardZoomController`）：`BeginCellSelection` 中はドラッグ層を常に `PickingMode.Position` にして（盤面が画面内に収まっていてもタップを拾う）、`OnPointerUp` で押下からの最大移動量が閾値以下ならタップとしてコールバックを呼ぶ。`UpdateInteractivity` も選択中は反応を切らない。`EndCellSelection` で通常（盤面がはみ出すときだけ有効）へ戻す。
 
 ---
@@ -316,6 +320,36 @@ public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken c
 - **Presenter からロジックを消して委譲に置き換える**（`MapSelectPresenter` の `BuildCards`／`UpdateSelection`／`UpdateStats` を削除しコントローラへ）。純粋な描画ヘルパ（`BoardSchematicView`）も Main 型のみ依存なら MapSelect 等のシーンアセンブリから Main へ移す。
 - **USS クラス名は共通**（`map-card`／`map-thumb`／`map-name`／`map-card--selected`／`ms-stat*`）。コントローラが同じクラス名で要素を組むので、**埋め込む各シーンの USS に同じクラスを定義する**（スタイルシートはシーンごとに別なので、クラス定義は各 USS に複製する＝USS の重複は許容）。
 - **全画面オーバーレイに埋め込むとき**は、そのシーンの UXML に「プレビュー＋ラベル＋グリッド（`ScrollView` でも可＝`Add`/`Clear` は contentContainer に効く）＋確定/閉じるボタン」を用意し、Presenter が `display` トグルで開閉する。開くたびに `Build(catalog, 確定中ID)` で選択状態を作り直せば「キャンセルを引きずらない」挙動になる。
+
+---
+
+## 14. オンライン同期は「決定」と「適用」を分けてアクションストリームで配る
+
+盤面の進行を全クライアントで一致させるとき、**各クライアントが自分でゲームを進めて結果だけ突き合わせる**設計にすると、乱数・モーダル操作・演出タイミングのどれか 1 つがズレただけで盤面が食い違う。代わりに**「ゲームを進める決定」を 1 本のストリームに流し、全員が受信した順にだけ適用する**（実装: [Assets/Scripts/Main/Online/](../Assets/Scripts/Main/Online/)、設計の全体像は [networking.md](networking.md)「ゲーム進行の同期」）。
+
+```
+決める人（手番の人／着地した人／アイテムを使った人）
+   └─ OnlineGameSync.Publish(GameAction)
+         ├─ ホスト : 自分以外へ再配信してから自分のキューへ積む
+         └─ ゲスト : ホストへ送るだけ（適用しない）
+        全員（決めた本人も含む）: 受信したアクションだけを適用
+```
+
+- **決めた本人も一度ネットワークを往復させてから適用する**。これが肝で、ホストが唯一の順序付け役になるので全クライアントの適用順が必ず一致する。「自分の分だけ先に適用する」最適化をすると順序が崩れる。
+- **一人用モードも同じストリームを通す**（`Publish` が即ローカルのキューへ積まれるだけ）。オンライン用の `if` が進行コードに散らず、片方だけ壊れる事故が減る。`OnlineGameSync.IsLocalDecider(seat)` が「その席の決定を自分がするか」を吸収する（オンライン＝自席のみ／一人用＝全席）。
+- **決定と適用を必ず分ける**。乱数を引く・モーダルで選ばせる・ミニゲームを遊ぶといった「1 人しかできないこと」は決定側に置き、`Model` の更新と演出は適用側に置く。適用側は全クライアントで走るので、相手の画面にも同じ演出が出る。
+- **配るのは復元できない情報だけ**。コマ移動・陣地占拠・勝敗判定は「誰が何マス進むか」と盤面データから決定論的に導けるので送らない。ルーレットも `(進む人, 出目)` とセクターの割り当てが 1 対 1 なら（`RouletteMath.SectorFor` が逆変換）**整数 1 つ**で足りる。ペイロードは小さいほど食い違いの余地が減る。
+- **受信は必ずキューにバッファする**（`ActionStream`）。「待つ直前にハンドラを登録」だと受信が先に来たぶんを取りこぼす（[networking.md](networking.md) 8）。接続確立時に 1 度だけ永続登録し、待機側は「キューにあれば即取得、無ければ待つ」にする。
+- **同時に待つのは 1 箇所だけにする**。`ActionStream.NextAsync` は 2 箇所から待つと `InvalidOperationException` を投げる（進行の組み立て違いを早期に検出するため）。所有権は「手番待ち＝`GameFlowController`」→「着地待ち＝`BoardPresenter`」と受け渡す。
+- **想定外のアクションが来ても止まらないようにする**。期待と違う種別が届いたら、取りこぼすと困るもの（アイテム使用）は適用し、それ以外は警告ログを残して読み飛ばす。ハングよりログのほうが原因を追える。
+- **切断は「進行の打ち切り」として扱う**。`NetworkManager.OnClientDisconnectCallback` を監視し、内部 `CancellationTokenSource` を `Cancel` して待機中の `NextAsync` を解く（各 `async` ループの `catch (OperationCanceledException)` がそのまま受け止める）。**ゲスト同士には切断が伝わらない**（NGO はクライアント同士を繋がない）ので、ホストが退出通知（`GameAction.Leave`）を残り全員へ配る。
+
+### 新しいアクションを足す手順
+
+1. [GameActionType.cs](../Assets/Scripts/Main/Online/GameActionType.cs) に種別を 1 つ足す（引数の意味を doc コメントに書く）
+2. [GameAction.cs](../Assets/Scripts/Main/Online/GameAction.cs) に静的ファクトリと名前付きプロパティを足す（引数の添字を呼び出し側に散らさない）
+3. 決定側（1 人だけ通る場所）で `_sync.Publish(...)`、適用側（全員が通る場所）で受信して反映
+4. [GameActionCodecTests.cs](../Assets/Tests/EditMode/GameActionCodecTests.cs) に往復テストを 1 本足す（JSON 化はここだけの責務なので純粋にテストできる）
 
 ---
 

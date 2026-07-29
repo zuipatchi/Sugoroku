@@ -10,7 +10,7 @@
 
 ## テストプレイの仕方
 - 一人用モード: Unity Editor で `Title` シーンから Play し、Home →「一人用モード」→ キャラ選択 → マップ選択（マップ＋人数 2〜4）→ Main で CPU 対戦（勝敗が決まると盤面下部の「ホームに戻る」ボタンで Home へ戻れる。自分が勝つと花火、負けると雨のエフェクトが再生される）
-- オンライン: Multiplayer Play Mode で複数プレイヤーを起動し、Home →「オンラインプレイ」からマッチング（ホストはルーム作成時に定員 2〜4 とマップを選ぶ）→ 満室後にキャラ選択ロビー（全員が被らないキャラを選ぶ）→ Main（詳細は [docs/matchmaking.md](docs/matchmaking.md)）
+- オンライン: Multiplayer Play Mode で複数プレイヤーを起動し、Home →「オンラインプレイ」からマッチング（ホストはルーム作成時に定員 2〜4 とマップを選ぶ）→ 満室後にキャラ選択ロビー（全員が被らないキャラを選ぶ）→ Main（詳細は [docs/matchmaking.md](docs/matchmaking.md)）。Main の進行（手番・出目・コマ移動・お金・アイテム・勝敗）は全プレイヤーで同期する（[docs/networking.md](docs/networking.md)「ゲーム進行の同期」）。**⚠️ NGO が Relay を経由していないため、対戦できるのは同一マシン内〔MPM〕だけ**（[docs/networking.md](docs/networking.md)「既知の制限」）
 - ミニゲーム単体: `MiniGameTest` シーンをエディタで直接開いて Play（本番フロー外の動作確認用）
 
 ## 使用 Package

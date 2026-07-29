@@ -198,5 +198,7 @@ Assets/Scenes/
 
 ## 未決事項
 
-- [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）※接続の土台（セッション接続・メッセージ送受信）のみ。ゲーム内容（手番・出目）の同期は未実装（[product.md](product.md)「未実装」参照）
+- [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）
+- [x] ゲーム進行（手番・出目・コマ移動・お金・アイテム・勝敗）の同期＝`OnlineGameSync` のアクションストリーム → [networking.md](networking.md)「ゲーム進行の同期」
+- [ ] Relay 経由の接続（現状の NGO 接続は同一マシン内＝MPM 限定）→ [networking.md](networking.md)「既知の制限」
 - [x] オフライン時のフォールバック

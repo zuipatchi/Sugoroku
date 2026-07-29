@@ -12,10 +12,10 @@ Unity 6 + NGO (Netcode for GameObjects) + UGS Multiplayer Services + MPM (Multip
 | 2 | MPM で VContainer 親スコープが見つからない | `SceneExtensions.BuildLifetimeScopes` | ✅ |
 | 3 | MPM でロード済みシーンへの遷移が壊れる | `SceneTransitioner.Transit` | ✅ |
 | 4 | `CustomMessagingManager` が null | `NetworkSessionStartup.StartAsync` | ✅ |
-| 5 | `IsConnectedClient=true` でもメッセージが届かない | Main シーン実装時に適用 | ⬜ |
+| 5 | `IsConnectedClient=true` でもメッセージが届かない | 該当せず（接続直後のハンドシェイクを持たない設計にした） | — |
 | 6 | 相手待ちは `AvailableSlots` ポーリングで判定（`PlayerJoined` 完了は使わない・N人部屋対応） | `MatchingService.WaitForPlayerAsync` | ✅ |
 | 7 | MPM でフォーカスを失った画面の BGM・時間が止まる | `ProjectSettings` の `runInBackground` | ✅ |
-| 8 | 遅延ハンドラ登録によるメッセージロスト（恒久対策） | Main シーン実装時に適用 | ⬜ |
+| 8 | 遅延ハンドラ登録によるメッセージロスト（恒久対策） | `OnlineGameSync` / `ActionStream` | ✅ |
 
 ---
 
@@ -162,7 +162,7 @@ while (nm.CustomMessagingManager == null
 
 ### 5. `IsConnectedClient=true` でもメッセージが届かない
 
-**Main シーン実装時に適用**（テンプレートへの組み込み不要）
+**本プロジェクトでは該当せず**（接続直後のハンドシェイクを持たない設計にしたため。最初のメッセージは接続確立から数秒後の 1 手目のスピンになる）
 
 **症状**: ホストが受信ハンドラを登録して待機中、クライアントが送信しても受信できない。
 
@@ -285,6 +285,78 @@ foreach (string messageName in messageNames)
 **新メッセージ追加時の指針**: メッセージ名を登録リストに足し、送信は共通ヘルパー（`SendJson(messageName, json)`）、受信待機は `channel.WaitAsync(ct)` を使う。これだけでタイミング非依存になる。手動でのハンドラ登録・解除は不要・禁止。
 
 > ハンドシェイク（接続直後の一度きりで明示的に順序付けされたやり取り）は、リトライ送信（セクション 5）で受信を保証しているため、この一般化の対象外。従来どおり都度登録・解除する。
+
+---
+
+## ゲーム進行の同期（アクションストリーム）
+
+Main シーンの盤面進行を全クライアントで一致させる仕組み。実装は `Assets/Scripts/Main/Online/`。
+
+### 原則
+
+**ゲームを進める「決定」を 1 本のストリームに流し、全員が受信した順にだけ適用する。**
+
+```
+決める人（手番の人／着地した人／アイテムを使った人）
+   └─ Publish(GameAction)
+         ├─ ホスト  : 自分以外へ再配信してから自分のキューへ積む
+         └─ ゲスト  : ホストへ送るだけ（適用しない）
+                          ↓ ホストが再配信
+        全員（決めた本人も含む）: 受信したアクションだけを適用
+```
+
+**決めた本人も一度ネットワークを往復させてから適用する**のがポイント。これで全クライアントの適用順が必ず一致する。ホストが唯一の順序付け役（sequencer）なので、順序の衝突は起きない。
+
+一人用モード（`GameMode.SinglePlayer`）でも同じストリームを通す（`Publish` が即ローカルのキューへ積まれるだけ）。進行のコードパスがオンラインと一本化するので、片方だけ壊れる事故が減る。
+
+### アクションの種類
+
+| 種別 | ペイロード | 決める人 |
+|---|---|---|
+| `Spin` | 停止セクター index | 手番の人 |
+| `MoneyLanding` | 所持金の増減額（符号付き） | 着地した人 |
+| `ShopResult` | 買ったアイテム（負値＝買わなかった） | 着地した人 |
+| `ItemUse` | アイテム＋効果パラメータ | 使用者 |
+| `Leave` | （なし） | ホスト（ゲスト離脱時） |
+
+**送らないもの**: コマ移動・陣地占拠・勝敗判定は「誰が何マス進むか」と盤面データから決定論的に導けるので配らない。ルーレットの停止セクターも、`(進む人, 出目)` との割り当てが 1 対 1（`RouletteMath.SectorFor` が逆変換）なので **1 つの整数だけ**で足りる。
+
+受信側は `RoulettePresenter.PlaySpinToAsync(sector)` で同じセクターに止まる円盤演出を再生する（`RouletteSpinPhysics.ReleaseTo` が目標角ちょうどで止める ease-out 減速を担う）。
+
+### 決定と適用を分ける
+
+乱数・モーダル操作を含む処理は **「決定（1 人だけ）」と「適用（全員）」に分ける**。
+
+| 処理 | 決定 | 適用 |
+|---|---|---|
+| お金マスの増減額 | `MoneyCellRule.Amount` を着地者だけが引く | 受信した額を `MoneyModel.Add` |
+| アイテムショップ | 着地者だけがラインナップ抽選＋モーダル選択 | 代金支払い＋`ItemModel.Add` |
+| アイテム効果 | 使用者だけが対象マス・奪取額・ミニゲーム結果を決める | `ItemModel.Use` ＋効果の反映 |
+
+**アイテムの消費（`ItemModel.Use`）は適用側で行う**。キャンセルされた使用は発行されないので、そもそも消費されない。
+
+### ストリームを待てるのは同時に 1 箇所だけ
+
+`ActionStream.NextAsync` を同時に 2 箇所から待つと `InvalidOperationException` になる。進行は次のように所有権を受け渡す設計になっている。
+
+- 手番の待機（`GameFlowController.WaitForSpinAsync`）— アイテム使用が割り込んで来たら `BoardPresenter.ApplyActionAsync` へ流して待ち続ける
+- 着地の待機（`BoardPresenter.WaitForActionAsync`）— `GameFlowController` は `AdvanceAsync` を待っている間ストリームを触らない
+
+アイテムは「自分の手番かつルーレット未回転（`RouletteState.Idle`）」のときしか使えないので、着地の待機中にアイテム使用が発生することは通常ない。
+
+### 切断
+
+`NetworkManager.OnClientDisconnectCallback` を `OnlineGameSync` が監視する。ゲスト同士には切断が伝わらない（NGO はクライアント同士を繋がない）ため、**ホストが `Leave` を残りの全員へ配る**。受け取ると `SessionLost` が立ち、待機中の `NextAsync` がキャンセルされて進行が止まり、`BoardPresenter` が「相手が退出しました」と「ホームに戻る」を出す。
+
+### 既知の制限：実インターネット越しには繋がらない
+
+`MatchingService.CreateRoomAsync` は `SessionOptions` に **`WithRelayNetwork()` を付けていない**ため、NGO は Relay を経由しない。`NetworkSessionStartup` が素の `UnityTransport`（既定 `127.0.0.1`）で `StartHost()` / `StartClient()` するので、**現状の NGO 接続は同一マシン内（MPM）でしか成立しない**。
+
+UGS セッション自体（ルーム一覧・マッチング・キャラ選択ロビー）はクラウド経由なので離れた場所からでも動く。実インターネットで対戦するには別途これらが必要:
+
+1. `NetworkManager` を Main シーンから Common シーンへ移して常駐させる（セッション作成時に存在している必要がある）
+2. `CreateSessionAsync` / `JoinSessionByIdAsync` に Relay を要求する（`WithRelayNetwork()`）
+3. `NetworkSessionStartup` の手動 `StartHost()` / `StartClient()` を撤去する（SDK 側が起動するため）
 
 ---
 
