@@ -614,6 +614,37 @@ namespace Main.Roulette
             return CurrentOutcome();
         }
 
+        /// <summary>
+        /// 他プレイヤーが回したスピンの結果を、同じ演出で再生する（オンラインの受信側）。
+        /// 手番制御（<see cref="_turnInteractable"/>）に依らず円盤を回し、
+        /// <paramref name="sector"/> の中心でちょうど止めるので、全クライアントで同じ出目になる。
+        /// </summary>
+        public async UniTask PlaySpinToAsync(int sector, CancellationToken ct)
+        {
+            BeginSpinInternal();
+            float hold = Random.Range(_minStopDuration * 0.25f, _minStopDuration * 0.5f);
+            await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
+            ReleaseToSector(sector);
+            await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
+        }
+
+        /// <summary>
+        /// 押下解除して、指定セクターの中心でちょうど止まるよう減速させる。
+        /// 余分に 2〜3 周させてから止めることで、手動スピンと同じ止まり方の印象にする。
+        /// </summary>
+        private void ReleaseToSector(int sector)
+        {
+            if (!_spinPhysics.IsHolding)
+            {
+                return;
+            }
+            float target = RouletteMath.NextRotationFor(
+                _spinPhysics.CurrentRotation, sector, _sectorCount, Random.Range(2, 4));
+            _spinPhysics.ReleaseTo(target, Random.Range(_minStopDuration, _maxStopDuration));
+            _spinReleased = true;
+            UpdateSpinEnabled();
+        }
+
         /// <summary>確定済みの Model 値から現在のスピン結果を組み立てる。</summary>
         private RouletteOutcome CurrentOutcome()
         {

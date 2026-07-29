@@ -2,8 +2,8 @@ using System;
 using System.Threading;
 using Common.GameSession;
 using Cysharp.Threading.Tasks;
+using Main.Online;
 using Unity.Netcode;
-using UnityEngine;
 using VContainer.Unity;
 
 namespace Main
@@ -12,11 +12,14 @@ namespace Main
     {
         private readonly GameSessionModel _gameSessionModel;
         private readonly NetworkModel _networkModel;
+        private readonly OnlineGameSync _sync;
 
-        public NetworkSessionStartup(GameSessionModel gameSessionModel, NetworkModel networkModel)
+        public NetworkSessionStartup(
+            GameSessionModel gameSessionModel, NetworkModel networkModel, OnlineGameSync sync)
         {
             _gameSessionModel = gameSessionModel;
             _networkModel = networkModel;
+            _sync = sync;
         }
 
         public async UniTask StartAsync(CancellationToken ct)
@@ -51,6 +54,10 @@ namespace Main
             {
                 await UniTask.NextFrame(cancellationToken: ct);
             }
+
+            // 進行の開始（Connected 通知）より前にハンドラを永続登録しておく。
+            // これで最初のアクションから取りこぼさない（networking.md issue 8）。
+            _sync.OnConnected();
 
             _networkModel.State.Value = NetworkState.Connected;
         }

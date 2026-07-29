@@ -8,6 +8,15 @@ namespace Main.Board
     public static class CellEventResolver
     {
         /// <summary>
+        /// 着地マスのイベント <paramref name="cellEvent"/> がお金の増減を伴うか。増減額（ランダム）を決める前に
+        /// 「このマスはお金マスか」だけを全クライアントで一致して判定するために使う（オンライン同期）。
+        /// </summary>
+        public static bool IsMoneyEvent(BoardCellEvent cellEvent)
+        {
+            return cellEvent == BoardCellEvent.MoneyUp || cellEvent == BoardCellEvent.MoneyDown;
+        }
+
+        /// <summary>
         /// 着地マスのイベント <paramref name="cellEvent"/> が正の額の増減額 <paramref name="magnitude"/>
         /// （<see cref="Money.MoneyCellRule.Amount"/> で毎回ランダムに決める）を伴うお金イベントなら true を返し、
         /// 符号を付けた所持金の変化量を <paramref name="delta"/> に入れる（MoneyUp は +magnitude、

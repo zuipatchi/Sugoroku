@@ -78,6 +78,42 @@ namespace Main.Roulette
             return (wrapped / participants) + 1;
         }
 
+        /// <summary>
+        /// <see cref="ParticipantForSector"/> と <see cref="StepsForSector"/> の逆変換。
+        /// 参加者 <paramref name="participantIndex"/> が出目 <paramref name="steps"/> を出すセクター index を返す。
+        /// セクターへの割り当ては 1 対 1 なので、スピン結果（進む人＋マス数）からセクターを一意に復元できる
+        /// （オンラインで停止セクターだけを送り、受信側が同じ結果を再現するために使う）。
+        /// </summary>
+        public static int SectorFor(int participantIndex, int steps, int participantCount)
+        {
+            int participants = participantCount < 1 ? 1 : participantCount;
+            int player = ((participantIndex % participants) + participants) % participants;
+            int number = steps < 1 ? 1 : steps;
+            return (number - 1) * participants + player;
+        }
+
+        /// <summary>
+        /// セクター <paramref name="sectorIndex"/> の中心が針の真下に来る回転角（0 以上 360 未満）。
+        /// <see cref="ResultFromRotation"/> にこの角度を渡すと <paramref name="sectorIndex"/> が返る。
+        /// </summary>
+        public static float RotationForSectorCenter(int sectorIndex, int count)
+        {
+            return Mod(-((sectorIndex + 0.5f) * SectorAngle(count)), 360f);
+        }
+
+        /// <summary>
+        /// 現在の回転角 <paramref name="currentRotation"/> から前方（時計回り）へ回して、
+        /// セクター <paramref name="sectorIndex"/> の中心で止まる回転角を返す。
+        /// <paramref name="extraTurns"/> 周ぶん余分に回して自然な見た目にする（常に現在角以上を返す）。
+        /// </summary>
+        public static float NextRotationFor(float currentRotation, int sectorIndex, int count, int extraTurns)
+        {
+            float center = RotationForSectorCenter(sectorIndex, count);
+            float delta = Mod(center - Mod(currentRotation, 360f), 360f);
+            int turns = extraTurns < 0 ? 0 : extraTurns;
+            return currentRotation + delta + 360f * turns;
+        }
+
         private static float Mod(float a, float m)
         {
             return ((a % m) + m) % m;

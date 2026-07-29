@@ -1,6 +1,7 @@
 using Main.Board;
 using Main.Item;
 using Main.Money;
+using Main.Online;
 using Main.Roulette;
 using Main.Turn;
 using VContainer;
@@ -15,6 +16,8 @@ namespace Main.Injector
         {
             builder.Register<NetworkModel>(Lifetime.Scoped);
             builder.Register<NgoMessenger>(Lifetime.Scoped);
+            // 進行の決定を全クライアントへ配るアクションストリーム（一人用モードでも同じ経路を通る）。
+            builder.Register<OnlineGameSync>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkSessionStartup>();
 
             // ターン進行（参加者・手番・オーケストレーション）。

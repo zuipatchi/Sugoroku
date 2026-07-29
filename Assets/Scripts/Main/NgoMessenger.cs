@@ -2,48 +2,89 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
-using UnityEngine;
 
 namespace Main
 {
+    /// <summary>
+    /// NGO の名前付きメッセージを JSON 文字列で送受信する薄いラッパー。
+    /// ペイロードの型付けは上位層（<see cref="Online.GameActionCodec"/> など）に任せ、
+    /// ここは「誰に送るか」「どう受けるか」だけを扱う。
+    /// </summary>
     public class NgoMessenger : IDisposable
     {
         private readonly List<string> _registered = new();
 
-        private CustomMessagingManager Messaging => NetworkManager.Singleton.CustomMessagingManager;
+        private CustomMessagingManager Messaging => NetworkManager.Singleton?.CustomMessagingManager;
 
-        public void Send<T>(string messageName, ulong targetClientId, T data)
+        /// <summary>指定のクライアントへ JSON 文字列を送る。</summary>
+        public void SendJson(string messageName, ulong targetClientId, string json)
         {
-            string json = JsonUtility.ToJson(data);
+            CustomMessagingManager messaging = Messaging;
+            if (messaging == null)
+            {
+                return;
+            }
             // networking.md: Unicode 文字の最大バイト数を考慮して json.Length * 2 + 8 でバッファを確保する
             using FastBufferWriter writer = new(json.Length * 2 + 8, Allocator.Temp);
             writer.WriteValueSafe(json);
-            Messaging.SendNamedMessage(messageName, targetClientId, writer);
+            messaging.SendNamedMessage(messageName, targetClientId, writer);
         }
 
-        public void Register<T>(string messageName, Action<ulong, T> handler)
+        /// <summary>
+        /// 自分以外の全接続クライアントへ JSON 文字列を送る（ホストの再配信用）。
+        /// 自分ぶんは送らないので、呼び出し側がローカル適用を明示的に行う（適用順を確定させるため）。
+        /// <paramref name="excludeClientId"/> を渡すとそのクライアントも除外する（退出直後の相手など）。
+        /// </summary>
+        public void SendJsonToOthers(string messageName, string json, ulong? excludeClientId = null)
         {
+            NetworkManager nm = NetworkManager.Singleton;
+            if (nm == null || nm.CustomMessagingManager == null)
+            {
+                return;
+            }
+            foreach (ulong clientId in nm.ConnectedClientsIds)
+            {
+                if (clientId == nm.LocalClientId || clientId == excludeClientId)
+                {
+                    continue;
+                }
+                SendJson(messageName, clientId, json);
+            }
+        }
+
+        /// <summary>JSON 文字列のまま受け取るハンドラを登録する。</summary>
+        public void RegisterJson(string messageName, Action<ulong, string> handler)
+        {
+            CustomMessagingManager messaging = Messaging;
+            if (messaging == null)
+            {
+                return;
+            }
             _registered.Add(messageName);
-            Messaging.RegisterNamedMessageHandler(messageName, (senderId, reader) =>
+            messaging.RegisterNamedMessageHandler(messageName, (senderId, reader) =>
             {
                 reader.ReadValueSafe(out string json);
-                T data = JsonUtility.FromJson<T>(json);
-                handler(senderId, data);
+                handler(senderId, json);
             });
         }
 
         public void Unregister(string messageName)
         {
             _registered.Remove(messageName);
-            Messaging.UnregisterNamedMessageHandler(messageName);
+            Messaging?.UnregisterNamedMessageHandler(messageName);
         }
 
         public void Dispose()
         {
-            if (NetworkManager.Singleton?.CustomMessagingManager == null) return;
+            CustomMessagingManager messaging = Messaging;
+            if (messaging == null)
+            {
+                _registered.Clear();
+                return;
+            }
             foreach (string name in _registered)
             {
-                Messaging.UnregisterNamedMessageHandler(name);
+                messaging.UnregisterNamedMessageHandler(name);
             }
             _registered.Clear();
         }

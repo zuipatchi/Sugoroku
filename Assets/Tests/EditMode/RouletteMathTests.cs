@@ -104,5 +104,58 @@ namespace Tests.EditMode
             Assert.AreEqual(new[] { 1, 2, 3, 4 }, p0Numbers);
             Assert.AreEqual(new[] { 1, 2, 3, 4 }, p1Numbers);
         }
+
+        [Test]
+        public void SectorForは進む人と出目からセクターを一意に復元する()
+        {
+            // 停止セクターだけをオンラインで配れるよう、割り当ては 1 対 1 でなければならない。
+            for (int participants = 2; participants <= 4; participants++)
+            {
+                int sectorCount = RouletteMath.SectorCount(participants, 3);
+                for (int sector = 0; sector < sectorCount; sector++)
+                {
+                    int player = RouletteMath.ParticipantForSector(sector, participants);
+                    int steps = RouletteMath.StepsForSector(sector, participants);
+                    Assert.AreEqual(
+                        sector,
+                        RouletteMath.SectorFor(player, steps, participants),
+                        $"participants {participants} / sector {sector}");
+                }
+            }
+        }
+
+        [Test]
+        public void RotationForSectorCenterの角度はそのセクターと判定される()
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                float rotation = RouletteMath.RotationForSectorCenter(i, Count);
+                Assert.AreEqual(i, RouletteMath.ResultFromRotation(rotation, Count), $"sector {i}");
+            }
+        }
+
+        [Test]
+        public void NextRotationForは現在角より前方で目的のセクターに止まる()
+        {
+            float[] currents = { 0f, 17f, 359f, 1234.5f, -720f };
+            foreach (float current in currents)
+            {
+                for (int i = 0; i < Count; i++)
+                {
+                    float target = RouletteMath.NextRotationFor(current, i, Count, 2);
+                    Assert.GreaterOrEqual(target, current, $"current {current} / sector {i}");
+                    Assert.AreEqual(
+                        i, RouletteMath.ResultFromRotation(target, Count), $"current {current} / sector {i}");
+                }
+            }
+        }
+
+        [Test]
+        public void NextRotationForは余分な周回ぶんだけ長く回す()
+        {
+            float noTurn = RouletteMath.NextRotationFor(0f, 3, Count, 0);
+            float threeTurns = RouletteMath.NextRotationFor(0f, 3, Count, 3);
+            Assert.AreEqual(noTurn + 360f * 3f, threeTurns, 0.001f);
+        }
     }
 }

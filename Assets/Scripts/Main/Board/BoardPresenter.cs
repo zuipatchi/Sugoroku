@@ -11,6 +11,7 @@ using Common.Store;
 using Cysharp.Threading.Tasks;
 using Main.Item;
 using Main.Money;
+using Main.Online;
 using Main.Roulette;
 using Main.Turn;
 using R3;
@@ -96,6 +97,8 @@ namespace Main.Board
         private SceneTransitioner _sceneTransitioner;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
+        // 進行の決定を配るアクションストリーム。着地の乱数・アイテム効果は「決めた人が発行 → 全員が受信して適用」。
+        private OnlineGameSync _sync;
         // 手札を右下に出す人間プレイヤーの index（参加者リストから解決）。
         private int _humanPlayer;
         // 人間プレイヤーの勝利時にパーティクル Prefab（花火）を前面再生する。初回勝利確定時に遅延生成する。
@@ -199,9 +202,11 @@ namespace Main.Board
             BoardSessionModel boardSession,
             SceneTransitioner sceneTransitioner,
             GameSessionModel gameSession,
-            OnlineRosterSessionModel onlineRoster)
+            OnlineRosterSessionModel onlineRoster,
+            OnlineGameSync sync)
         {
             _model = model;
+            _sync = sync;
             _territory = territory;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
@@ -308,6 +313,20 @@ namespace Main.Board
                         true, // 雨はシーンを出るまで降らせ続ける。
                         _destroyCt).Forget();
                 }
+            }));
+
+            // オンラインで誰かが退出したら対戦は続行できない。決着時と同じ帯で知らせて Home へ戻れるようにする。
+            _disposables.Add(_sync.SessionLost.Subscribe(lost =>
+            {
+                if (!lost || _returningHome || _model.IsFinished)
+                {
+                    return;
+                }
+                if (_clearLabel != null)
+                {
+                    _clearLabel.text = "相手が退出しました";
+                }
+                ShowGameOverActions();
             }));
 
             _constructed = true;
@@ -1151,11 +1170,10 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// アイテム取得マスの演出。ランダムな枚数・重複なしのラインナップ（<see cref="ItemCatalog.RandomLineup"/>）
-        /// を抽選し、人間プレイヤーはアイテムショップモーダルで商品情報（絵・名前・効果説明・価格）を見て 1 つ購入する
-        /// （買わずに閉じてもよい）。CPU は買える範囲でランダムに 1 つ購入する（手札 UI は非表示のまま）。
-        /// 購入したら代金を <see cref="MoneyModel"/> から支払い、<see cref="ItemModel"/> へ加える
-        /// （人間なら <see cref="ItemModel.Gained"/> 購読で右下の手札に並ぶ）。
+        /// アイテム取得マスの演出。着地した本人のクライアントだけが、ランダムな枚数・重複なしのラインナップ
+        /// （<see cref="ItemCatalog.RandomLineup"/>）を抽選して購入を決め（<see cref="DecidePurchaseAsync"/>）、
+        /// 結果を発行する。適用（代金の支払いと手札への追加）は全クライアントが受信して行う
+        /// （<see cref="ApplyShopResult"/>）ので、オンラインでも所持金と手札が食い違わない。
         /// </summary>
         private async UniTask PlayItemShopSequenceAsync(int player, CancellationToken ct)
         {
@@ -1164,33 +1182,54 @@ namespace Main.Board
                 return;
             }
 
+            // ラインナップの抽選も購入の選択も、着地した本人のクライアントだけが行って結果を発行する。
+            // 他のクライアントはショップを開かず、結果が届くのを待つ（オンラインで買い物を一致させる）。
+            if (_sync.IsLocalDecider(player))
+            {
+                ItemId? purchased = await DecidePurchaseAsync(player, ct);
+                _sync.Publish(GameAction.ShopResult(player, purchased.HasValue ? (int)purchased.Value : -1));
+            }
+
+            GameAction result = await WaitForActionAsync(GameActionType.ShopResult, ct);
+            ApplyShopResult(result.Seat, result.ShopItemId);
+        }
+
+        /// <summary>
+        /// アイテムショップで何を買うかを決める（買わないなら null）。人間プレイヤーはショップモーダルで
+        /// 商品情報を見て選び（「買わずに閉じる」なら買わない・暗幕クリックでは閉じない。モーダルは全画面暗幕
+        /// （sortingOrder 100）でスピンボタン等を覆うため別途の無効化は要らない）、CPU は買える範囲でランダムに選ぶ。
+        /// </summary>
+        private async UniTask<ItemId?> DecidePurchaseAsync(int player, CancellationToken ct)
+        {
             IReadOnlyList<ItemDefinition> lineup = ItemCatalog.RandomLineup(_itemRng, ItemShopMinItems, ItemShopMaxItems);
             if (lineup == null || lineup.Count == 0)
             {
-                return;
+                return null;
             }
 
             // 所持金の範囲でしか買えない。CPU も人間も同じ予算で判定する（マイナスにはしない）。
             int budget = _money != null ? _money.Money(player).CurrentValue : int.MaxValue;
 
-            ItemId? purchased;
             if (player == _humanPlayer && _itemShop != null)
             {
-                // 人間プレイヤーはショップモーダルで商品情報を見て選ぶ（「買わずに閉じる」なら買わない・暗幕クリックでは閉じない）。
-                // モーダルは全画面暗幕（sortingOrder 100）でスピンボタン等を覆うため、別途の無効化は要らない。
-                purchased = await _itemShop.SelectAsync(lineup, budget, ct);
+                return await _itemShop.SelectAsync(lineup, budget, ct);
             }
-            else
-            {
-                purchased = PickCpuPurchase(lineup, budget);
-            }
+            return PickCpuPurchase(lineup, budget);
+        }
 
-            if (purchased == null)
+        /// <summary>
+        /// 購入結果を適用する（全クライアントで実行）。代金を支払い、買ったアイテムを手札へ加える
+        /// （自分の席のぶんだけ <see cref="ItemModel.Gained"/> 購読が右下の手札に並べる）。
+        /// <paramref name="itemId"/> が負なら買わなかったので何もしない。
+        /// </summary>
+        private void ApplyShopResult(int player, int itemId)
+        {
+            if (itemId < 0 || _items == null)
             {
                 return;
             }
 
-            ItemDefinition item = ItemCatalog.Find(purchased.Value);
+            ItemDefinition item = ItemCatalog.Find((ItemId)itemId);
             if (item == null)
             {
                 return;
@@ -1356,17 +1395,53 @@ namespace Main.Board
             BoardCellDefinition cell = _boardDef.Cell(position);
 
             // 陣地マスは PlayLandingSequenceAsync の旗演出側で占拠を確定するため、ここには来ない。
-            // お金マスの増減額はマスごとの固定値ではなく着地のたびに n×100 のランダムで決める。
-            if (_money != null && CellEventResolver.TryGetMoneyDelta(cell.Event, MoneyCellRule.Amount(_itemRng), out int delta))
+            // お金マスかどうかはイベント種別だけで決まるので、全クライアントの判定が一致する。
+            if (_money == null || !CellEventResolver.IsMoneyEvent(cell.Event))
             {
-                _money.Add(player, delta);
-                _soundPlayer.PlaySafe(_soundStore?.MoneySE);
-                // 増減額（+n / -n）をポップ画像の底から上へ浮かび上がらせる。画像も浮遊テキストと同時に消す。
-                await _landing.ShowMoneyFloatAsync(delta, popupShown, floatSeconds, ct);
-                return popupShown;
+                return false;
             }
 
-            return false;
+            // 増減額はマスごとの固定値ではなく着地のたびに n×100 のランダム。着地した本人だけが決めて
+            // 発行し、全員が受信した額を適用する（オンラインで所持金を一致させる）。
+            if (_sync.IsLocalDecider(player))
+            {
+                if (CellEventResolver.TryGetMoneyDelta(cell.Event, MoneyCellRule.Amount(_itemRng), out int decided))
+                {
+                    _sync.Publish(GameAction.MoneyLanding(player, decided));
+                }
+            }
+
+            GameAction landing = await WaitForActionAsync(GameActionType.MoneyLanding, ct);
+            int delta = landing.MoneyDelta;
+
+            _money.Add(landing.Seat, delta);
+            _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+            // 増減額（+n / -n）をポップ画像の底から上へ浮かび上がらせる。画像も浮遊テキストと同時に消す。
+            await _landing.ShowMoneyFloatAsync(delta, popupShown, floatSeconds, ct);
+            return popupShown;
+        }
+
+        /// <summary>
+        /// 期待する種別のアクションが届くまで待つ。先にアイテム使用が割り込んできた場合は取りこぼさずに適用し
+        /// （効果が消えてしまわないように）、それ以外の想定外の種別は進行の組み立て違いなので警告して読み飛ばす
+        /// （待ち続けてハングするより、ログを残して先へ進めるほうが原因を追いやすい）。
+        /// </summary>
+        private async UniTask<GameAction> WaitForActionAsync(GameActionType expected, CancellationToken ct)
+        {
+            while (true)
+            {
+                GameAction action = await _sync.NextAsync(ct);
+                if (action.Type == expected)
+                {
+                    return action;
+                }
+                if (action.Type == GameActionType.ItemUse)
+                {
+                    await ApplyActionAsync(action, ct);
+                    continue;
+                }
+                Debug.LogWarning($"想定外のアクションを受信しました（期待: {expected} / 実際: {action.Type}）。読み飛ばします。");
+            }
         }
 
         /// <summary>
@@ -1401,11 +1476,15 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// アイテム「使用する」の効果ハンドラ。アイテム種別で分岐する。
-        /// 陣地獲得（<see cref="ItemId.StealTerritory"/>）はマス選択→占拠の演出を起こし、確定時に消費する。
-        /// ミニゲーム（<see cref="ItemId.MiniGame"/>）は遊ぶミニゲームを選ばせて起動し、勝てば所持金報酬を与える。
-        /// お金よこどり（<see cref="ItemId.StealMoney"/>）は相手の所持金の一部を奪って自分に足す。
-        /// 効果ハンドラを持たないアイテムは従来どおり即消費する。効果はターンを消費しない（使用後もルーレットを回せる）。
+        /// アイテム「使用する」の効果ハンドラ。ここでは効果の**パラメータを決めて発行するだけ**で、
+        /// 消費（<see cref="ItemModel.Use"/>）も効果の適用も行わない（適用は <see cref="ApplyActionAsync"/>）。
+        /// 決定と適用を分けることで、オンラインでも全クライアントが同じ効果を同じ順に反映できる。
+        ///
+        /// 陣地獲得（<see cref="ItemId.StealTerritory"/>）は奪うマスを選ばせ、
+        /// ミニゲーム（<see cref="ItemId.MiniGame"/>）は遊んで所持金報酬を確定し、
+        /// お金よこどり（<see cref="ItemId.StealMoney"/>）は席ごとの奪取額を抽選する。
+        /// いずれもキャンセル・対象なしのときは発行しない＝消費しない。
+        /// 効果はターンを消費しない（使用後もルーレットを回せる）。
         /// </summary>
         private void HandleItemUse(ItemId item)
         {
@@ -1414,35 +1493,103 @@ namespace Main.Board
                 return;
             }
 
-            if (item == ItemId.StealTerritory)
+            switch (item)
             {
-                RunTerritoryStealAsync(_destroyCt).Forget();
+                case ItemId.StealTerritory:
+                    DecideTerritoryStealAsync(_destroyCt).Forget();
+                    return;
+                case ItemId.MiniGame:
+                    DecideMiniGameAsync(_destroyCt).Forget();
+                    return;
+                case ItemId.StealMoney:
+                    DecideMoneySteal();
+                    return;
+                default:
+                    // 勝利（InstantWin）のように決めることが無いアイテムは、そのまま発行して適用へ回す。
+                    // 発行から適用（受信）までの間に続けて使われないよう、ここでも効果中にしておく。
+                    BeginItemEffect();
+                    _sync.Publish(GameAction.ItemUse(_humanPlayer, (int)item));
+                    return;
+            }
+        }
+
+        /// <summary>
+        /// 受信したアクションを適用する（全クライアントで実行）。現状はアイテム使用のみを扱う
+        /// （スピン・着地は <see cref="Turn.GameFlowController"/> と着地演出側が扱う）。
+        /// アイテムの消費はここで行うので、キャンセルされた使用（＝発行されなかったもの）は消費されない。
+        /// </summary>
+        public async UniTask ApplyActionAsync(GameAction action, CancellationToken ct)
+        {
+            if (action.Type != GameActionType.ItemUse || _items == null)
+            {
                 return;
             }
 
-            if (item == ItemId.MiniGame)
+            int itemId = action.UsedItemId;
+            if (itemId < 0 || ItemCatalog.Find((ItemId)itemId) == null)
             {
-                RunMiniGameAsync(_destroyCt).Forget();
                 return;
             }
 
-            if (item == ItemId.StealMoney)
-            {
-                RunMoneyStealAsync(_destroyCt).Forget();
-                return;
-            }
+            int seat = action.Seat;
+            ItemId item = (ItemId)itemId;
 
-            if (item == ItemId.InstantWin)
+            BeginItemEffect();
+            try
             {
-                // 消費して即座に自分の勝ちを確定する。Winner 購読が勝者表示・「ホームに戻る」・
-                // 花火エフェクト（人間の勝利）まで自動で走らせる。SetWinner は確定済みなら上書きしない。
-                _items.Use(_humanPlayer, item); // 手札からの減算は Used 購読側
-                _model.SetWinner(_humanPlayer);
-                return;
-            }
+                _items.Use(seat, item); // 手札からの減算は Used 購読側（表示するのは自分の席のぶんだけ）
 
-            // ここに来るのは効果ハンドラを持たないアイテム（現状なし）。将来の未実装アイテムは消費のみ。
-            _items.Use(_humanPlayer, item);
+                switch (item)
+                {
+                    case ItemId.StealTerritory:
+                        await ApplyTerritoryStealAsync(seat, action.EffectArgAt(0, -1), ct);
+                        break;
+                    case ItemId.StealMoney:
+                        await ApplyMoneyStealAsync(seat, action, ct);
+                        break;
+                    case ItemId.MiniGame:
+                        await ApplyMoneyRewardAsync(seat, action.EffectArgAt(0), ct);
+                        break;
+                    case ItemId.InstantWin:
+                        // 即座に使用者の勝ちを確定する。Winner 購読が勝者表示・「ホームに戻る」・
+                        // 決着エフェクトまで自動で走らせる。SetWinner は確定済みなら上書きしない。
+                        _model.SetWinner(seat);
+                        break;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // シーン破棄によるキャンセルは正常終了として扱う。
+            }
+            finally
+            {
+                EndItemEffect();
+            }
+        }
+
+        /// <summary>アイテム効果の開始。実行中はスピンを無効化する（効果はターン非消費なので後で戻す）。</summary>
+        private void BeginItemEffect()
+        {
+            _itemEffectRunning = true;
+            if (_roulette != null)
+            {
+                _roulette.SetInteractable(false);
+            }
+        }
+
+        /// <summary>
+        /// アイテム効果の終了。自分の手番かつルーレット未回転（Idle）のままならスピンを再び押せるように戻す
+        /// （他プレイヤーの効果を見ていただけのクライアントでは条件を満たさないので何も起きない）。
+        /// </summary>
+        private void EndItemEffect()
+        {
+            _itemEffectRunning = false;
+            if (_roulette != null && !_model.IsFinished
+                && _turn.CurrentPlayer.CurrentValue == _humanPlayer
+                && _rouletteModel.State.CurrentValue == RouletteState.Idle)
+            {
+                _roulette.SetInteractable(true);
+            }
         }
 
         /// <summary>
@@ -1451,22 +1598,24 @@ namespace Main.Board
         private const int MiniGameRewardMoney = 500;
 
         /// <summary>
-        /// ミニゲームアイテムの効果。遊ぶミニゲームを選ばせ（キャンセルなら消費せず終了）、
-        /// 選んだミニゲームを <see cref="MiniGameLauncher"/> で起動する。勝てば所持金報酬を与える。
-        /// 選択・プレイの間はスピンボタンを無効化する（使用後は自分の手番のまま通常のルーレットを回せる）。
+        /// アイテム効果による所持金の増減を見せる浮遊テキストの表示時間（秒）。
         /// </summary>
-        private async UniTaskVoid RunMiniGameAsync(CancellationToken ct)
+        private const float ItemMoneyFloatSeconds = 1.5f;
+
+        /// <summary>
+        /// ミニゲームアイテムの決定。遊ぶミニゲームを選ばせて起動し、勝敗から所持金報酬を確定して発行する
+        /// （キャンセルなら発行しない＝消費しない）。ミニゲーム自体はローカル完結で、他プレイヤーへは
+        /// 結果（報酬額）だけを配る。選択・プレイの間はスピンボタンを無効化する。
+        /// </summary>
+        private async UniTaskVoid DecideMiniGameAsync(CancellationToken ct)
         {
             if (_miniGameSelect == null || _launcher == null)
             {
                 return;
             }
 
-            _itemEffectRunning = true;
-            if (_roulette != null)
-            {
-                _roulette.SetInteractable(false);
-            }
+            BeginItemEffect();
+            bool published = false;
             try
             {
                 // 「使用する」を押したアイテム詳細モーダルが Close で sortingOrder を元へ戻すのは
@@ -1481,10 +1630,8 @@ namespace Main.Board
                     return; // キャンセル・破棄：消費しない
                 }
 
-                _items.Use(_humanPlayer, ItemId.MiniGame); // 手札からの減算は Used 購読側
-
-                // ミニゲームの参加者（既定 2 人）にプレイヤー（=人間の選択キャラ）と CPU の盤面キャラを渡す。
-                // これでミニゲーム側は YOU/CPU でなく実際のキャラで走者・カードを表示する。相手は次の参加者（最初の CPU）。
+                // ミニゲームの参加者（既定 2 人）にプレイヤー（=自分の選択キャラ）と相手の盤面キャラを渡す。
+                // これでミニゲーム側は YOU/CPU でなく実際のキャラで走者・カードを表示する。相手は次の参加者。
                 int opponent = _pieceCount > 1 ? (_humanPlayer + 1) % _pieceCount : _humanPlayer;
                 CharacterId[] miniGameCharacters =
                 {
@@ -1497,13 +1644,10 @@ namespace Main.Board
                     return;
                 }
 
-                // 勝てば所持金報酬。増額を中央の浮遊テキストで見せる（負けは報酬なし）。
-                if (DetermineMiniGameWin(result))
-                {
-                    _money.Add(_humanPlayer, MiniGameRewardMoney);
-                    _soundPlayer.PlaySafe(_soundStore?.MoneySE);
-                    await _landing.ShowMoneyFloatAsync(MiniGameRewardMoney, false, 1.5f, ct);
-                }
+                // 勝てば所持金報酬（負けは 0）。消費と報酬の反映は受信側（ApplyActionAsync）が行う。
+                int reward = DetermineMiniGameWin(result) ? MiniGameRewardMoney : 0;
+                _sync.Publish(GameAction.ItemUse(_humanPlayer, (int)ItemId.MiniGame, reward));
+                published = true;
             }
             catch (OperationCanceledException)
             {
@@ -1511,13 +1655,10 @@ namespace Main.Board
             }
             finally
             {
-                _itemEffectRunning = false;
-                // プレイを終えても自分の手番かつ Idle のままなので、スピンを再び押せるように戻す。
-                if (_roulette != null && !_model.IsFinished
-                    && _turn.CurrentPlayer.CurrentValue == _humanPlayer
-                    && _rouletteModel.State.CurrentValue == RouletteState.Idle)
+                // 発行できたなら、続けて走る適用側（ApplyActionAsync）が効果の終了まで面倒を見る。
+                if (!published)
                 {
-                    _roulette.SetInteractable(true);
+                    EndItemEffect();
                 }
             }
         }
@@ -1533,33 +1674,28 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// お金よこどりの効果。自分以外の参加者（1 対 1 では CPU）それぞれの所持金の一部を
-        /// <see cref="MoneyStealRule"/> でランダムに奪い、その合計を自分に足す。奪える額が無い
-        /// （相手がいない・全員の所持金が 0 以下）ときは消費せず何もしない。増額は中央の浮遊テキストで見せる。
-        /// 相手の所持金は UI 非表示なので相手側の演出は無い。効果はターン非消費で、演出の間はスピンを無効化する。
+        /// お金よこどりの決定。自分以外の参加者それぞれから奪う額を <see cref="MoneyStealRule"/> で抽選し、
+        /// 席ごとの奪取額を効果パラメータとして発行する（席 index がそのままパラメータの並び順）。
+        /// 奪える額が無い（相手がいない・全員の所持金が 0 以下）ときは発行しない＝消費しない。
         /// </summary>
-        private async UniTaskVoid RunMoneyStealAsync(CancellationToken ct)
+        private void DecideMoneySteal()
         {
             if (_money == null)
             {
                 return;
             }
 
-            // 奪える相手（自分以外で所持金が正）ごとの奪取額を先に集計する。合計 0 なら消費しない。
-            List<(int Player, int Amount)> steals = new();
+            int[] amounts = new int[_money.PlayerCount];
             int total = 0;
-            for (int player = 0; player < _money.PlayerCount; player++)
+            for (int player = 0; player < amounts.Length; player++)
             {
                 if (player == _humanPlayer)
                 {
                     continue;
                 }
                 int amount = MoneyStealRule.Amount(_money.Money(player).CurrentValue, _itemRng);
-                if (amount > 0)
-                {
-                    steals.Add((player, amount));
-                    total += amount;
-                }
+                amounts[player] = amount;
+                total += amount;
             }
 
             if (total <= 0)
@@ -1568,48 +1704,17 @@ namespace Main.Board
                 return;
             }
 
-            _itemEffectRunning = true;
-            if (_roulette != null)
-            {
-                _roulette.SetInteractable(false);
-            }
-            try
-            {
-                _items.Use(_humanPlayer, ItemId.StealMoney); // 手札からの減算は Used 購読側
-
-                // 相手から引いて自分に足す（合計は保存される）。
-                foreach ((int player, int amount) in steals)
-                {
-                    _money.Add(player, -amount);
-                }
-                _money.Add(_humanPlayer, total);
-
-                _soundPlayer.PlaySafe(_soundStore?.MoneySE);
-                await _landing.ShowMoneyFloatAsync(total, false, 1.5f, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                // シーン破棄によるキャンセルは正常終了として扱う。
-            }
-            finally
-            {
-                _itemEffectRunning = false;
-                // 演出を終えても自分の手番かつ Idle のままなので、スピンを再び押せるように戻す。
-                if (_roulette != null && !_model.IsFinished
-                    && _turn.CurrentPlayer.CurrentValue == _humanPlayer
-                    && _rouletteModel.State.CurrentValue == RouletteState.Idle)
-                {
-                    _roulette.SetInteractable(true);
-                }
-            }
+            // 適用（送金と演出）は受信側が行う。発行できたので、効果の終了は適用側に任せる。
+            BeginItemEffect();
+            _sync.Publish(GameAction.ItemUse(_humanPlayer, (int)ItemId.StealMoney, amounts));
         }
 
         /// <summary>
-        /// 陣地獲得の効果。自分以外が持つ陣地マス（未占拠＋相手占拠）から 1 つをプレイヤーに選ばせ、
-        /// 選んだマスを占拠する。対象が無ければ消費せず何もしない。キャンセル・シーン破棄でも消費しない。
-        /// 選択・演出の間はスピンボタンを無効化する（使用後は自分の手番のまま通常のルーレットを回せる）。
+        /// 陣地獲得の決定。自分以外が持つ陣地マス（未占拠＋相手占拠）から 1 つを選ばせ、選んだマスを発行する。
+        /// 対象が無い・キャンセル・シーン破棄のときは発行しない＝消費しない。
+        /// 選択の間はスピンボタンを無効化する（使用後は自分の手番のまま通常のルーレットを回せる）。
         /// </summary>
-        private async UniTaskVoid RunTerritoryStealAsync(CancellationToken ct)
+        private async UniTaskVoid DecideTerritoryStealAsync(CancellationToken ct)
         {
             if (_territory == null || _cells == null)
             {
@@ -1623,11 +1728,8 @@ namespace Main.Board
                 return;
             }
 
-            _itemEffectRunning = true;
-            if (_roulette != null)
-            {
-                _roulette.SetInteractable(false);
-            }
+            BeginItemEffect();
+            bool published = false;
             try
             {
                 int chosen = await SelectTerritoryCellAsync(eligible, ct);
@@ -1635,13 +1737,8 @@ namespace Main.Board
                 {
                     return; // キャンセル・破棄：消費しない
                 }
-
-                _items.Use(_humanPlayer, ItemId.StealTerritory); // 手札からの減算は Used 購読側
-
-                // 着地時と同じ旗演出→占拠確定（上書きで奪う）→必要数なら勝者。
-                Sprite flag = _flagIcons != null && _humanPlayer < _flagIcons.Length ? _flagIcons[_humanPlayer] : null;
-                VisualElement targetCell = chosen < _cells.Length ? _cells[chosen] : null;
-                await _landing.PlayTerritoryFlagSequenceAsync(flag, targetCell, () => ApplyTerritoryLanding(_humanPlayer, chosen), ct);
+                _sync.Publish(GameAction.ItemUse(_humanPlayer, (int)ItemId.StealTerritory, chosen));
+                published = true;
             }
             catch (OperationCanceledException)
             {
@@ -1649,15 +1746,79 @@ namespace Main.Board
             }
             finally
             {
-                _itemEffectRunning = false;
-                // 選択・演出を終えても自分の手番かつ Idle のままなので、スピンを再び押せるように戻す。
-                if (_roulette != null && !_model.IsFinished
-                    && _turn.CurrentPlayer.CurrentValue == _humanPlayer
-                    && _rouletteModel.State.CurrentValue == RouletteState.Idle)
+                if (!published)
                 {
-                    _roulette.SetInteractable(true);
+                    EndItemEffect();
                 }
             }
+        }
+
+        /// <summary>
+        /// 陣地獲得の適用。着地時と同じ旗演出 → 占拠確定（上書きで奪う）→ 必要数なら勝者。
+        /// </summary>
+        private async UniTask ApplyTerritoryStealAsync(int player, int cellIndex, CancellationToken ct)
+        {
+            if (_territory == null || _cells == null || cellIndex < 0 || cellIndex >= _cells.Length)
+            {
+                return;
+            }
+
+            Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
+            await _landing.PlayTerritoryFlagSequenceAsync(
+                flag, _cells[cellIndex], () => ApplyTerritoryLanding(player, cellIndex), ct);
+        }
+
+        /// <summary>
+        /// お金よこどりの適用。席ごとの奪取額（<paramref name="action"/> の効果パラメータ）を相手から引き、
+        /// 合計を使用者に足す（合計は保存される）。増額は中央の浮遊テキストで見せる。
+        /// </summary>
+        private async UniTask ApplyMoneyStealAsync(int player, GameAction action, CancellationToken ct)
+        {
+            if (_money == null)
+            {
+                return;
+            }
+
+            int total = 0;
+            int seats = Mathf.Min(_money.PlayerCount, action.EffectArgCount);
+            for (int seat = 0; seat < seats; seat++)
+            {
+                int amount = action.EffectArgAt(seat);
+                if (seat == player || amount <= 0)
+                {
+                    continue;
+                }
+                _money.Add(seat, -amount);
+                total += amount;
+            }
+
+            if (total <= 0)
+            {
+                return;
+            }
+
+            _money.Add(player, total);
+            _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+            await ShowItemMoneyFloatAsync(total, ct);
+        }
+
+        /// <summary>ミニゲーム報酬の適用。<paramref name="reward"/> が 0（負け）なら何もしない。</summary>
+        private async UniTask ApplyMoneyRewardAsync(int player, int reward, CancellationToken ct)
+        {
+            if (_money == null || reward <= 0)
+            {
+                return;
+            }
+
+            _money.Add(player, reward);
+            _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+            await ShowItemMoneyFloatAsync(reward, ct);
+        }
+
+        /// <summary>アイテム効果による所持金の増減を中央の浮遊テキストで見せる（マス画像は出さない）。</summary>
+        private UniTask ShowItemMoneyFloatAsync(int delta, CancellationToken ct)
+        {
+            return _landing.ShowMoneyFloatAsync(delta, false, ItemMoneyFloatSeconds, ct);
         }
 
         /// <summary>
