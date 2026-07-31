@@ -36,6 +36,9 @@ namespace OnlineCharacterSelect.Sync
         // UI へ公開するロック表（キャラ→所有者Id）。
         private readonly ReactiveProperty<IReadOnlyDictionary<CharacterId, string>> _locks =
             new(new Dictionary<CharacterId, string>());
+        // ロビーに到着してポーリングを始めた人数（＝自分のプロパティを 1 度でも書いた人数）。
+        // シーン遷移とカード絵のロードで到着に差が出るため、全員そろうまで選択させない判定に使う。
+        private readonly ReactiveProperty<int> _presentCount = new(0);
         // 開始が確定したら true（ロースターは _roster へ保存済み）。
         private readonly ReactiveProperty<bool> _started = new(false);
 
@@ -67,6 +70,18 @@ namespace OnlineCharacterSelect.Sync
         /// <summary>ロック表（キャラ→所有者Id）。UI のグレーアウトに使う。</summary>
         public ReadOnlyReactiveProperty<IReadOnlyDictionary<CharacterId, string>> Locks => _locks;
 
+        /// <summary>ロビーに到着した人数（自分のプロパティを 1 度でも書いた人数）。</summary>
+        public ReadOnlyReactiveProperty<int> PresentCount => _presentCount;
+
+        /// <summary>そろうべき人数（ルーム定員）。未接続なら 0。</summary>
+        public int ExpectedCount => Session?.MaxPlayers ?? 0;
+
+        /// <summary>
+        /// 全員がロビーに到着したか。到着前は誰のロックも集計されないため、
+        /// 先に選んだ人がロックを得られないまま待ち続けることになる。そろうまで選択させない。
+        /// </summary>
+        public bool AllPresent => ExpectedCount > 0 && _presentCount.CurrentValue >= ExpectedCount;
+
         /// <summary>開始が確定したか。</summary>
         public ReadOnlyReactiveProperty<bool> Started => _started;
 
@@ -84,10 +99,13 @@ namespace OnlineCharacterSelect.Sync
                    && owner == MyPlayerId;
         }
 
-        /// <summary>希望キャラを選ぶ（まだ決定はしない）。他人にロックされたキャラは選べない。</summary>
+        /// <summary>
+        /// 希望キャラを選ぶ（まだ決定はしない）。他人にロックされたキャラは選べない。
+        /// 全員がロビーに到着するまでは選べない（<see cref="AllPresent"/>）。
+        /// </summary>
         public void Select(CharacterId character)
         {
-            if (IsLockedByOther(character))
+            if (!AllPresent || IsLockedByOther(character))
             {
                 return;
             }
@@ -98,7 +116,7 @@ namespace OnlineCharacterSelect.Sync
         /// <summary>現在の希望キャラで「決定」する（他人にロックされていなければ）。</summary>
         public void Confirm()
         {
-            if (!_localSelection.HasValue || IsLockedByOther(_localSelection.Value))
+            if (!AllPresent || !_localSelection.HasValue || IsLockedByOther(_localSelection.Value))
             {
                 return;
             }
@@ -144,6 +162,7 @@ namespace OnlineCharacterSelect.Sync
                     // (4) 共有された状態を読んで UI・開始へ反映する。
                     // UGS の await 後は非メインスレッドになり得るため、Reactive/UI 更新前にメインスレッドへ戻す。
                     await UniTask.SwitchToMainThread(ct);
+                    _presentCount.Value = CountPresent(session);
                     ApplySharedState(session);
 
                     await UniTask.Delay(PollInterval, cancellationToken: ct);
@@ -175,6 +194,23 @@ namespace OnlineCharacterSelect.Sync
             _writtenSelection = _localSelection;
             _writtenReady = _localReady;
             _hasWritten = true;
+        }
+
+        /// <summary>
+        /// ロビーに到着した人数を数える。到着した人は最初のポーリングで自分の希望キャラ（未選択なら -1）を
+        /// 書くので、<see cref="CharKey"/> を持っているかどうかで「ロビーのループが動き出したか」が分かる。
+        /// </summary>
+        private static int CountPresent(ISession session)
+        {
+            int present = 0;
+            foreach (IReadOnlyPlayer player in session.Players)
+            {
+                if (player.Properties != null && player.Properties.ContainsKey(CharKey))
+                {
+                    present++;
+                }
+            }
+            return present;
         }
 
         private static IReadOnlyList<PlayerChoice> ReadChoices(ISession session)
@@ -327,6 +363,7 @@ namespace OnlineCharacterSelect.Sync
         public void Dispose()
         {
             _locks.Dispose();
+            _presentCount.Dispose();
             _started.Dispose();
         }
 

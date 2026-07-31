@@ -103,6 +103,15 @@ namespace OnlineCharacterSelect.Presenter
                 })
                 .AddTo(_disposables);
 
+            // 到着人数の変化で「全員そろうまで選べない」表示を更新する。
+            _sync.PresentCount
+                .Subscribe(_ =>
+                {
+                    RefreshCards();
+                    UpdateStatus();
+                })
+                .AddTo(_disposables);
+
             // 割り当て確定で Main へ遷移する。
             _sync.Started
                 .Where(started => started)
@@ -170,7 +179,8 @@ namespace OnlineCharacterSelect.Presenter
 
         private void OnCardClicked(CharacterId id)
         {
-            if (_transiting || _sync.IsLockedByOther(id))
+            // 全員がロビーに到着するまでは選ばせない（先に選んでもロックを集計してもらえないため）。
+            if (_transiting || !_sync.AllPresent || _sync.IsLockedByOther(id))
             {
                 return;
             }
@@ -254,6 +264,8 @@ namespace OnlineCharacterSelect.Presenter
         private void RefreshCards()
         {
             CharacterId? selection = _sync.CurrentSelection;
+            // 全員そろうまではロックを集計してもらえないので、カードも決定も触らせない。
+            bool allPresent = _sync.AllPresent;
 
             // 自分の選択が他人にロックされていたら選択解除する。
             if (selection.HasValue && _sync.IsLockedByOther(selection.Value))
@@ -275,16 +287,24 @@ namespace OnlineCharacterSelect.Presenter
                 card.EnableInClassList("ocs-card--locked", lockedByOther);
                 card.EnableInClassList("ocs-card--selected", isSelected && !isMine);
                 card.EnableInClassList("ocs-card--mine", isMine);
-                card.SetEnabled(!lockedByOther);
+                card.SetEnabled(allPresent && !lockedByOther);
                 _lockBadges[id].style.display = lockedByOther ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
-            bool canConfirm = selection.HasValue && !_sync.IsLockedByOther(selection.Value);
+            bool canConfirm = allPresent && selection.HasValue && !_sync.IsLockedByOther(selection.Value);
             _confirmButton.SetEnabled(canConfirm && !_sync.IsReady);
         }
 
         private void UpdateStatus()
         {
+            // 全員そろうまでは選べないので、何人待ちかを出す（ロビーへの到着はカード絵のロードぶん差が出る）。
+            if (!_sync.AllPresent)
+            {
+                _statusLabel.text =
+                    $"他のプレイヤーの参加を待っています...（{_sync.PresentCount.CurrentValue}/{_sync.ExpectedCount}人）";
+                return;
+            }
+
             // 「決定」済みで自分の選択が他人に取られていなければ、集計往復を待たず確定表示にする。
             bool ownsOptimistic = _sync.IsReady
                                   && _sync.CurrentSelection.HasValue
