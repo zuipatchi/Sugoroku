@@ -4,6 +4,7 @@ using System.Threading;
 using Common.GameSession;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
@@ -117,11 +118,37 @@ namespace Matching
             }
         }
 
+        /// <summary>
+        /// <see cref="UnityTransport"/> のドライバ種別を Relay のプロトコルに合わせる。
+        ///
+        /// SDK は <c>RelayProtocol.Default</c>（WebGL は WSS＝WebSocket・それ以外は DTLS＝UDP）で
+        /// Relay を確保するが、<see cref="UnityTransport"/> は <c>Use WebSockets</c> のチェック状態で
+        /// ドライバを作る。両者が食い違うと接続時に
+        /// <c>ArgumentException: Mismatched Relay configuration and network interface</c> で落ちるため、
+        /// SDK と同じ条件（<c>UNITY_WEBGL</c>）で毎回そろえる。
+        /// インスペクタの設定に依存せず、ビルドターゲットを切り替えても壊れない。
+        /// </summary>
+        private static void AlignTransportToRelayProtocol()
+        {
+            NetworkManager nm = NetworkManager.Singleton;
+            UnityTransport transport = nm != null ? nm.GetComponent<UnityTransport>() : null;
+            if (transport == null)
+            {
+                return;
+            }
+#if UNITY_WEBGL
+            transport.UseWebSockets = true;
+#else
+            transport.UseWebSockets = false;
+#endif
+        }
+
         public async UniTask<IHostSession> CreateRoomAsync(
             string roomName, int maxPlayers, string boardId, CancellationToken ct = default)
         {
             await _gameSessionModel.LeaveCurrentSessionAsync();
             DisableNgoSceneManagement();
+            AlignTransportToRelayProtocol();
 
             // Relay（UGS の中継サーバー）を経由して接続する＝NAT 越しでも繋がる。
             // これを付けると SDK が Relay の割り当てから NGO の StartHost / StartClient まで面倒を見るので、
@@ -150,6 +177,7 @@ namespace Matching
         {
             await _gameSessionModel.LeaveCurrentSessionAsync();
             DisableNgoSceneManagement();
+            AlignTransportToRelayProtocol();
 
             ISession session = await MultiplayerService.Instance
                 .JoinSessionByIdAsync(sessionId)

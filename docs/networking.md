@@ -16,6 +16,7 @@ Unity 6 + NGO (Netcode for GameObjects) + UGS Multiplayer Services + MPM (Multip
 | 6 | 相手待ちは `AvailableSlots` ポーリングで判定（`PlayerJoined` 完了は使わない・N人部屋対応） | `MatchingService.WaitForPlayerAsync` | ✅ |
 | 7 | MPM でフォーカスを失った画面の BGM・時間が止まる | `ProjectSettings` の `runInBackground` | ✅ |
 | 8 | 遅延ハンドラ登録によるメッセージロスト（恒久対策） | `OnlineGameSync` / `ActionStream` | ✅ |
+| 9 | Relay のプロトコルと `UnityTransport` のドライバが食い違う（ビルドターゲット切替で発生） | `MatchingService.AlignTransportToRelayProtocol` | ✅ |
 
 ---
 
@@ -378,6 +379,35 @@ NGO を **Relay**（UGS の中継サーバー）経由にすることで NAT 越
 Unity Dashboard で **Relay サービスをプロジェクトに追加**しておくこと（Lobby だけでは足りない）。未追加だと `CreateSessionAsync` が `SessionException` を投げ、`MatchingFlow` が `MatchingState.Error` にしてログへ出す。
 
 ダッシュボードのサービス一覧で Relay が「設定中」に居れば追加済みで、そのまま使える（「アクティブ」/「非アクティブ」は**過去 30 日に実際に使ったか**の区分なので、初めて Relay 経由で繋ぐまでは「設定中」のままで正常）。
+
+### 落とし穴：Relay のプロトコルと `UnityTransport` のドライバが食い違う
+
+**症状**（ルーム作成が `SessionException: [Error: NetworkManagerStartFailed]` で失敗する）:
+
+```
+Relay server data indicates usage of WebSockets, but "Use WebSockets" checkbox isn't checked under "Unity Transport" component.
+Relay is configured to use WebSockets, but NetworkDriver uses UDP.
+ArgumentException: Mismatched Relay configuration and network interface.
+SessionException: [Error: NetworkManagerStartFailed] [Message: Failed to start NetworkManager: Object reference not set to an instance of an object]
+```
+
+**原因**: SDK は `RelayProtocol.Default` で Relay を確保するが、これは **`#if UNITY_WEBGL` で分岐**していて **WebGL は WSS（WebSocket）・それ以外は DTLS（UDP）**になる。一方 `UnityTransport` は `Use WebSockets` チェックボックスの状態でドライバを作る。**ビルドターゲットを WebGL に切り替えるとプロトコルだけが WSS に変わり、チェックボックスは UDP のまま**なので食い違う（逆にチェックだけ入れると今度は Standalone で壊れる）。
+
+**対処**: インスペクタの設定に頼らず、セッション作成・参加の直前に SDK と同じ条件でそろえる（`MatchingService.AlignTransportToRelayProtocol`）。
+
+```csharp
+UnityTransport transport = NetworkManager.Singleton?.GetComponent<UnityTransport>();
+if (transport == null) { return; }
+#if UNITY_WEBGL
+transport.UseWebSockets = true;   // RelayProtocol.Default == WSS
+#else
+transport.UseWebSockets = false;  // RelayProtocol.Default == DTLS
+#endif
+```
+
+> `UNITY_WEBGL` はエディタでも**アクティブなビルドターゲット**で定義が決まるので、エディタ再生（MPM 含む）でもこの分岐で一致する。
+
+なお WebGL ターゲットでは `Could not do Qos region selection. Will use default.`（QoS SDK が WebGL 非対応）の警告も出るが、これは**リージョン選択が既定にフォールバックするだけの警告**で接続は失敗しない。オンラインの動作確認は Windows / Mac ターゲットで行うのが確実。
 
 ### 参加側は何も足さなくてよい
 
