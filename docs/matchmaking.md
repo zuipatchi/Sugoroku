@@ -21,7 +21,7 @@ Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使っ�
 
 1. `dashboard.unity3d.com` でプロジェクトを作成し **Lobby** と **Relay** の両サービスをプロジェクトに追加する（Relay が未追加だと `CreateSessionAsync` が `SessionException` で落ちる。ダッシュボードのサービス一覧で Relay が「設定中」に居れば追加済み＝そのまま使える。「アクティブ」の判定は過去 30 日に実際に使ったかどうかなので、初回接続までは「設定中」のままでよい）
 2. **Edit → Project Settings → Services** でプロジェクト ID を紐付け
-3. ⚠️ WebGL 非対応（QoS フェーズ未サポート）。Windows / Mac ビルドを使用すること
+3. ⚠️ 動作確認は Windows / Mac ビルドで行う（WebGL は QoS がサポート外で Relay のリージョン選択が既定へフォールバックする。接続自体は WSS で成立するが未検証。プロトコルと `UnityTransport` の整合は `MatchingService.AlignTransportToRelayProtocol` が自動でとる＝[networking.md](networking.md)「Relay 経由の接続」）
 
 ---
 
@@ -190,10 +190,19 @@ Assets/Scripts/
     MatchingFlow.cs             # フロー制御（認証・自動更新・マッチ・待機）
     MatchingModel.cs
     MatchingPresenter.cs
-    MatchingService.cs
+    MatchingService.cs          # UGS Session API（WithRelayNetwork / 転送設定の整合）
     MatchingState.cs
+  OnlineCharacterSelect/        # 満室後のキャラ選択ロビー（被り防止）
+    Injector/
+      OnlineCharacterSelectLifetimeScope.cs
+    Presenter/
+      OnlineCharacterSelectPresenter.cs
+    Sync/
+      CharacterLobbySync.cs     # UGS プロパティでの同期・到着人数・開始判定
+      CharacterClaimResolver.cs # 先着ロック・開始条件・席順の純粋ロジック
 Assets/Scenes/
   Matching.unity
+  OnlineCharacterSelect.unity
 ```
 
 ---

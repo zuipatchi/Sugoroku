@@ -24,7 +24,7 @@
 - Live2D Cubism SDK（`Assets/Live2D/`、Git 管理対象）
 
 ## プラットフォーム
-- オンライン対戦は Windows / Mac ビルド（WebGL は UGS の QoS フェーズ未サポートのため非対応。[docs/matchmaking.md](docs/matchmaking.md)）
+- オンライン対戦の動作確認は Windows / Mac ビルドで行う（WebGL は UGS の QoS がサポート外で Relay のリージョン選択が既定へフォールバックする＝警告は出るが接続自体は WSS で成立する。ただし未検証。[docs/networking.md](docs/networking.md)「Relay 経由の接続」）
 - タイトル動画は WebGL / Standalone 両対応の StreamingAssets 方式（[docs/architecture.md](docs/architecture.md)「例外: 動画は StreamingAssets」）
 
 ## 日本語フォント

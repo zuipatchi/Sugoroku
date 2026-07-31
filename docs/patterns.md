@@ -343,6 +343,15 @@ public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken c
 - **同時に待つのは 1 箇所だけにする**。`ActionStream.NextAsync` は 2 箇所から待つと `InvalidOperationException` を投げる（進行の組み立て違いを早期に検出するため）。所有権は「手番待ち＝`GameFlowController`」→「着地待ち＝`BoardPresenter`」と受け渡す。
 - **想定外のアクションが来ても止まらないようにする**。期待と違う種別が届いたら、取りこぼすと困るもの（アイテム使用）は適用し、それ以外は警告ログを残して読み飛ばす。ハングよりログのほうが原因を追える。
 - **切断は「進行の打ち切り」として扱う**。`NetworkManager.OnClientDisconnectCallback` を監視し、内部 `CancellationTokenSource` を `Cancel` して待機中の `NextAsync` を解く（各 `async` ループの `catch (OperationCanceledException)` がそのまま受け止める）。**ゲスト同士には切断が伝わらない**（NGO はクライアント同士を繋がない）ので、ホストが退出通知（`GameAction.Leave`）を残り全員へ配る。
+- **接続のライフサイクルはシーンではなくセッションに預ける**。Relay を使うと NGO の起動・停止は UGS セッション（`WithRelayNetwork()` / `ISession.LeaveAsync`）が握るので、`NetworkManager` は `Common` に常駐させ、アプリから `StartHost` / `Shutdown` を呼ばない。代わりに**ゲームを抜けるとき必ずセッションを離脱する**責務が生まれる（忘れるとルームに残り続ける）。詳細は [networking.md](networking.md)「Relay 経由の接続」。
+
+### 参加者が非同期に集まる画面は「全員そろってから」操作させる
+
+シーン遷移やアセットロードの時間差で、**同じ画面に全員が同時に到着するとは限らない**。到着前の相手を巻き込む操作（キャラの取り合いなど）を許すと、集計してくれる相手がいないまま待ちに入って進行が止まる。
+
+- **「到着した」の判定は、画面が出たことではなく同期ループが動き出したこと**にする。オンラインのキャラ選択ロビーでは「自分のプレイヤープロパティを 1 度でも書いたか」で数える（`CharacterLobbySync.CountPresent`）。画面表示だけを条件にすると、まだ通信していない相手を到着扱いしてしまう。
+- **ロジック側と UI 側の両方で塞ぐ**。`CharacterLobbySync.Select` / `Confirm` が `AllPresent` を見て弾き、Presenter もカードと確定ボタンを `SetEnabled(false)` にする。UI だけだと別経路（テスト・将来の入力）から抜けられる。
+- **待っていることを画面に出す**（「他のプレイヤーの参加を待っています...（2/4人）」）。無言で操作を受け付けないと、固まったのか待ちなのか区別できない。
 
 ### 新しいアクションを足す手順
 
