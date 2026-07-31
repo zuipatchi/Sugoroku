@@ -375,7 +375,9 @@ NGO を **Relay**（UGS の中継サーバー）経由にすることで NAT 越
 
 ### 事前セットアップ
 
-Unity Dashboard で **Relay サービスを有効化**しておくこと（Lobby だけでは足りない）。無効のままだと `CreateSessionAsync` が例外を投げ、`MatchingFlow` が `MatchingState.Error` にしてログへ出す。
+Unity Dashboard で **Relay サービスをプロジェクトに追加**しておくこと（Lobby だけでは足りない）。未追加だと `CreateSessionAsync` が `SessionException` を投げ、`MatchingFlow` が `MatchingState.Error` にしてログへ出す。
+
+ダッシュボードのサービス一覧で Relay が「設定中」に居れば追加済みで、そのまま使える（「アクティブ」/「非アクティブ」は**過去 30 日に実際に使ったか**の区分なので、初めて Relay 経由で繋ぐまでは「設定中」のままで正常）。
 
 ### 参加側は何も足さなくてよい
 

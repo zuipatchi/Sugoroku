@@ -19,7 +19,7 @@ Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使っ�
 
 ## 事前セットアップ（必須）
 
-1. `dashboard.unity3d.com` でプロジェクトを作成し **Lobby** と **Relay** の両サービスを有効化（Relay が無効だと `CreateSessionAsync` が例外になる）
+1. `dashboard.unity3d.com` でプロジェクトを作成し **Lobby** と **Relay** の両サービスをプロジェクトに追加する（Relay が未追加だと `CreateSessionAsync` が `SessionException` で落ちる。ダッシュボードのサービス一覧で Relay が「設定中」に居れば追加済み＝そのまま使える。「アクティブ」の判定は過去 30 日に実際に使ったかどうかなので、初回接続までは「設定中」のままでよい）
 2. **Edit → Project Settings → Services** でプロジェクト ID を紐付け
 3. ⚠️ WebGL 非対応（QoS フェーズ未サポート）。Windows / Mac ビルドを使用すること
 
