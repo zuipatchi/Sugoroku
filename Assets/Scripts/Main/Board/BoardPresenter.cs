@@ -99,6 +99,9 @@ namespace Main.Board
         private PlayerNameplateView _nameplateView;
         // 進行の決定を配るアクションストリーム。着地の乱数・アイテム効果は「決めた人が発行 → 全員が受信して適用」。
         private OnlineGameSync _sync;
+        // ホームへ戻るときにオンラインセッションを離脱する（NGO の停止も UGS 側が一緒に行う）ために持つ。
+        private GameSessionModel _gameSession;
+        private OnlineRosterSessionModel _onlineRoster;
         // 手札を右下に出す人間プレイヤーの index（参加者リストから解決）。
         private int _humanPlayer;
         // 人間プレイヤーの勝利時にパーティクル Prefab（花火）を前面再生する。初回勝利確定時に遅延生成する。
@@ -207,6 +210,8 @@ namespace Main.Board
         {
             _model = model;
             _sync = sync;
+            _gameSession = gameSession;
+            _onlineRoster = onlineRoster;
             _territory = territory;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
@@ -954,7 +959,20 @@ namespace Main.Board
             }
             _returningHome = true;
             _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
-            _sceneTransitioner.Transit(Scenes.Home).Forget();
+            ReturnHomeAsync().Forget();
+        }
+
+        /// <summary>
+        /// オンラインセッションを離脱してから Home シーンへ戻る。離脱しないとルームに残ったままになり、
+        /// 残ったプレイヤーからは在席して見えるうえ、次のマッチングにも引きずる。
+        /// NGO の停止は <c>ISession.LeaveAsync</c> が一緒に行う（こちらで <c>Shutdown</c> は呼ばない）。
+        /// 一人用モードはセッションを持たないので離脱は即座に返る。
+        /// </summary>
+        private async UniTaskVoid ReturnHomeAsync()
+        {
+            _onlineRoster.Clear();
+            await _gameSession.LeaveCurrentSessionAsync();
+            await _sceneTransitioner.Transit(Scenes.Home);
         }
 
         /// <summary>

@@ -19,7 +19,7 @@ Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使っ�
 
 ## 事前セットアップ（必須）
 
-1. `dashboard.unity3d.com` でプロジェクトを作成し Lobby サービスを有効化
+1. `dashboard.unity3d.com` でプロジェクトを作成し **Lobby** と **Relay** の両サービスを有効化（Relay が無効だと `CreateSessionAsync` が例外になる）
 2. **Edit → Project Settings → Services** でプロジェクト ID を紐付け
 3. ⚠️ WebGL 非対応（QoS フェーズ未サポート）。Windows / Mac ビルドを使用すること
 
@@ -33,7 +33,7 @@ Title → Home →（オンラインプレイ）→ Matching → OnlineCharacter
 
 - `Matching` は Home の「オンラインプレイ」ボタンから遷移する（「一人用モード」は `Matching` を経由せず `CharacterSelect`→`MapSelect`→`Main` へ進む）
 - `Matching` シーンでルーム選択・接続を完了させ、満室になったら `OnlineCharacterSelect`（キャラ選択ロビー・被り防止）を経て `Main` へ遷移する（ロビーの詳細は CLAUDE.md／[architecture.md](architecture.md)）
-- `Common` シーンは常駐（既存の構成を維持）
+- `Common` シーンは常駐（既存の構成を維持）。**`NetworkManager` は `Common` に置く**（セッション作成時に存在している必要があるため。詳細は [networking.md](networking.md)「Relay 経由の接続」）
 
 ---
 
@@ -47,7 +47,8 @@ Title → Home →（オンラインプレイ）→ Matching → OnlineCharacter
 2a. ルームを作成（ホスト）
    → 人数ステッパーで定員 2〜4 を選ぶ
    → マップを選ぶ（「変更」で MapSelect 風の全画面マップ選択オーバーレイ〔共通の `MapPickerView`〕。既定はカタログ先頭）
-   → CreateSessionAsync(Name="Room", MaxPlayers=選んだ人数)。選んだマップは `BoardSessionModel` に保持
+   → CreateSessionAsync(Name="Room", MaxPlayers=選んだ人数, WithRelayNetwork())。選んだマップは `BoardSessionModel` に保持
+   ※ この時点で SDK が Relay を割り当てて NGO も StartHost する（NGO の起動/停止は以降セッションが握る）
    → 定員が埋まるまで相手待ち（120秒タイムアウト・待機中は「◯/◯人」をライブ表示）
    → 全員揃った（AvailableSlots==0）→ OnlineCharacterSelect（キャラ選択ロビー）→ 全員決定で Main へ
    ※ 選んだマップはキャラ選択ロビーの共有プロパティ（`lobbyState.board`）でゲストへ同期し、全員同じ盤面で Main に入る
@@ -55,6 +56,7 @@ Title → Home →（オンラインプレイ）→ Matching → OnlineCharacter
 
 2b. ルームに手動参加
    → 一覧のルーム（「Room 1/4」＋「マップ：〇〇」）をタップ → JoinSessionByIdAsync(sessionId)
+   ※ ホストが公開した join code で SDK が自動的に Relay へ参加し NGO も StartClient する（参加側にオプションは不要）
    ※ ルーム作成時にホストが選んだマップ識別子を公開セッションプロパティ（キー `board`）に載せるので、
      参加前でも一覧でマップ名を確認できる（`MatchingService.BoardPropertyKey`・`LobbyInfo.BoardId`）
    → 参加側も定員が埋まるまで相手待ち（ホストと同じ WaitForPlayerAsync・「◯/◯人」表示）
@@ -200,5 +202,5 @@ Assets/Scenes/
 
 - [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）
 - [x] ゲーム進行（手番・出目・コマ移動・お金・アイテム・勝敗）の同期＝`OnlineGameSync` のアクションストリーム → [networking.md](networking.md)「ゲーム進行の同期」
-- [ ] Relay 経由の接続（現状の NGO 接続は同一マシン内＝MPM 限定）→ [networking.md](networking.md)「既知の制限」
+- [x] Relay 経由の接続（`SessionOptions.WithRelayNetwork()`・`NetworkManager` は Common 常駐・NGO の起動/停止は UGS セッションが握る）→ [networking.md](networking.md)「Relay 経由の接続」
 - [x] オフライン時のフォールバック

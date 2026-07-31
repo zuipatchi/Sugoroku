@@ -15,7 +15,7 @@
 - Common シーンを常駐させたアディティブシーン管理・フェード画面遷移演出 → [architecture.md](architecture.md)「シーン構成」
 - オプションモーダル（音量設定など）→ [architecture.md](architecture.md)「オプションモーダル」
 - オンラインマッチングの土台（ホストが定員2〜4人＋対戦マップを選んでルームを作成・ルーム一覧から手動参加）→ [matchmaking.md](matchmaking.md)
-- NGO によるネットワーク同期の土台（セッション接続・メッセージ送受信のハマりポイントと定石）→ [networking.md](networking.md)
+- NGO によるネットワーク同期の土台（Relay 経由の接続・メッセージ送受信・ハマりポイントと定石）→ [networking.md](networking.md)
 
 ## ゲーム固有機能（プロジェクトごとに追記）
 
@@ -46,5 +46,4 @@
 - ミニゲームのネットワーク同期（現状はローカル完結。ホスト権威での開始合図・全員のスコア集約による順位判定は未実装。勝者判定は暫定的にローカルのしきい値で代用）
 - ミニゲームの起動トリガー（動作確認用の MiniGameTest シーンと、**ミニゲームアイテム**〔手札から「ミニゲーム」を使用〕から起動できる。盤面の特殊マス〔`BoardCellEvent.MiniGame`〕や手番との正式なゲーム内連携は未実装）
 - 盤面マスのイベント発動（お金アップ/ダウン・陣地・アイテム取得は着地で発動する。進む/戻る/休み/ミニゲームは `BoardDefinition` で編集・盤面に記号表示できるが、止まったときに実際に発動させる処理は未実装。発動には `GameFlowController` / `TurnModel` への組み込みが必要）
-- オンライン対戦の実インターネット接続（ゲーム進行の同期は `OnlineGameSync` のアクションストリームで実装済みだが、NGO が Relay を経由していないため接続は同一マシン内〔エディタの MPM〕でしか成立しない。Relay 配線には `NetworkManager` の Common 常駐化・`WithRelayNetwork()`・手動 `StartHost`/`StartClient` の撤去が必要）→ [networking.md](networking.md)「既知の制限」
 - 4種類目以降のミニゲーム（最大5種類を想定。現状はタップ連打・2Dレース・被っちゃやーよの3種。`MiniGameId`／`MiniGameCatalog` への追加と対応 UXML・進行ロジックの実装で増やす。MiniGameTest シーンにボタンが自動で並ぶ）

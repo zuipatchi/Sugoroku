@@ -24,28 +24,39 @@ namespace Common.GameSession
             Mode = GameMode.Online;
         }
 
-        /// <summary>一人用モードを選択する。オンラインセッションは持たない。</summary>
+        /// <summary>
+        /// 一人用モードを選択する。オンラインセッションは持たない。
+        /// セッションが残っていれば離脱する（NGO の接続はセッションが握っているので、
+        /// 放置すると一人用で遊んでいる間も Relay に繋がったままになる）。
+        /// </summary>
         public void SetSinglePlayer()
         {
+            ISession leaving = Session;
             Session = null;
             Mode = GameMode.SinglePlayer;
+            leaving?.LeaveAsync().AsUniTask().Forget(e => Debug.LogWarning($"Session 退出失敗: {e.Message}"));
         }
 
+        /// <summary>
+        /// 現在のセッションを離脱する（NGO の接続も一緒に閉じられる）。
+        /// 参照は待つ前に手放すので、離脱中に呼び直されても二重に離脱しない。
+        /// </summary>
         public async UniTask LeaveCurrentSessionAsync()
         {
-            if (Session == null)
+            ISession leaving = Session;
+            if (leaving == null)
             {
                 return;
             }
+            Session = null;
             try
             {
-                await Session.LeaveAsync().AsUniTask();
+                await leaving.LeaveAsync().AsUniTask();
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"Session 退出失敗: {e.Message}");
             }
-            Session = null;
         }
 
         public void Dispose()

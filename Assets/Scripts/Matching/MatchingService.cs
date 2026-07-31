@@ -103,6 +103,11 @@ namespace Matching
             return string.Empty;
         }
 
+        /// <summary>
+        /// NGO のシーン同期を切る（networking.md 1）。有効なままだとホストのシーン操作がクライアントへ
+        /// 同期され、Common シーンごと破壊される。Common シーンの NetworkManager は既定で無効にしてあるが、
+        /// 設定が戻されても事故らないようセッション作成・参加の直前に必ず落とす。
+        /// </summary>
         private static void DisableNgoSceneManagement()
         {
             NetworkManager nm = NetworkManager.Singleton;
@@ -118,11 +123,14 @@ namespace Matching
             await _gameSessionModel.LeaveCurrentSessionAsync();
             DisableNgoSceneManagement();
 
+            // Relay（UGS の中継サーバー）を経由して接続する＝NAT 越しでも繋がる。
+            // これを付けると SDK が Relay の割り当てから NGO の StartHost / StartClient まで面倒を見るので、
+            // こちらで NetworkManager を起動してはいけない（詳細は docs/networking.md「Relay 経由の接続」）。
             SessionOptions options = new SessionOptions
             {
                 Name = roomName,
                 MaxPlayers = maxPlayers
-            };
+            }.WithRelayNetwork();
             // ルーム一覧を閲覧するゲストにもマップ名を見せるため、選んだマップ識別子を公開プロパティに載せる。
             if (!string.IsNullOrEmpty(boardId))
             {

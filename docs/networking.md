@@ -348,15 +348,38 @@ Main シーンの盤面進行を全クライアントで一致させる仕組み
 
 `NetworkManager.OnClientDisconnectCallback` を `OnlineGameSync` が監視する。ゲスト同士には切断が伝わらない（NGO はクライアント同士を繋がない）ため、**ホストが `Leave` を残りの全員へ配る**。受け取ると `SessionLost` が立ち、待機中の `NextAsync` がキャンセルされて進行が止まり、`BoardPresenter` が「相手が退出しました」と「ホームに戻る」を出す。
 
-### 既知の制限：実インターネット越しには繋がらない
+---
 
-`MatchingService.CreateRoomAsync` は `SessionOptions` に **`WithRelayNetwork()` を付けていない**ため、NGO は Relay を経由しない。`NetworkSessionStartup` が素の `UnityTransport`（既定 `127.0.0.1`）で `StartHost()` / `StartClient()` するので、**現状の NGO 接続は同一マシン内（MPM）でしか成立しない**。
+## Relay 経由の接続（NGO のライフサイクルは UGS セッションが握る）
 
-UGS セッション自体（ルーム一覧・マッチング・キャラ選択ロビー）はクラウド経由なので離れた場所からでも動く。実インターネットで対戦するには別途これらが必要:
+NGO を **Relay**（UGS の中継サーバー）経由にすることで NAT 越しに繋がる。ポイントは「**NGO の起動・停止を自分でやらない**」こと。
 
-1. `NetworkManager` を Main シーンから Common シーンへ移して常駐させる（セッション作成時に存在している必要がある）
-2. `CreateSessionAsync` / `JoinSessionByIdAsync` に Relay を要求する（`WithRelayNetwork()`）
-3. `NetworkSessionStartup` の手動 `StartHost()` / `StartClient()` を撤去する（SDK 側が起動するため）
+### 仕組み
+
+`SessionOptions.WithRelayNetwork()` を付けてセッションを作ると、SDK（`GameObjectsNetcodeNetworkHandler`）が次を肩代わりする。
+
+| | ホスト | ゲスト |
+|---|---|---|
+| セッション作成/参加時 | Relay の割り当て → `UnityTransport.SetRelayServerData` → **`StartHost()`** | ホストが公開した join code で Relay に参加 → **`StartClient()`** |
+| `ISession.LeaveAsync()` 時 | **`NetworkManager.Shutdown()`** | 同左 |
+
+つまり **NGO の接続は「Matching シーンでセッションを作った/参加した瞬間」に確立し、「セッションを離脱した瞬間」に閉じる**。Main シーンの寿命とは無関係になる。
+
+### 守るべきルール
+
+- **`NetworkManager` は `Common` シーンに常駐させる**。`WithRelayNetwork()` は `NetworkManager.Singleton` が無いと `SessionException` で落ちるが、セッションを作るのは Matching シーンなので Main に置いていては間に合わない。**ルートオブジェクトに置く**こと（NGO は親を持つ `NetworkManager` を許さない）。
+- **自分で `StartHost()` / `StartClient()` を呼ばない**。SDK が起動済みの状態でもう一度呼ぶと接続が壊れる。`NetworkSessionStartup` は `CustomMessagingManager != null` と `IsListening`（ホスト）/ `IsConnectedClient`（ゲスト）が揃うのを**待つだけ**にする。
+- **自分で `NetworkManager.Shutdown()` を呼ばない**。SDK も `"Do not call NetworkManager.Shutdown() when using a session. Use ISession.LeaveAsync instead."` と警告する。停止したいときは `ISession.LeaveAsync()`（＝`GameSessionModel.LeaveCurrentSessionAsync()`）を呼ぶ。
+- **ゲームを抜けるときは必ずセッションを離脱する**。NGO の寿命がシーンから切り離されたので、離脱を忘れると「Main を出たのにルームに残っていて、一人用で遊んでいる間も Relay に繋がったまま」になる。本プロジェクトでは `BoardPresenter.ReturnHomeAsync`（ホームに戻る）と `GameSessionModel.SetSinglePlayer`（一人用モード選択）で離脱している。
+- **`EnableSceneManagement` は切ったままにする**（セクション 1）。`NetworkManager` が常駐すると `MatchingService.DisableNgoSceneManagement()` が実際に効くようになるが、Common シーンのアセット側でも既定を `false` にしてある。
+
+### 事前セットアップ
+
+Unity Dashboard で **Relay サービスを有効化**しておくこと（Lobby だけでは足りない）。無効のままだと `CreateSessionAsync` が例外を投げ、`MatchingFlow` が `MatchingState.Error` にしてログへ出す。
+
+### 参加側は何も足さなくてよい
+
+`WithRelayNetwork()` は**作成側の `SessionOptions` にだけ**付ける。ゲストはセッションのネットワークメタデータ（join code）を読んで自動で Relay に参加するので、`JoinSessionByIdAsync` はそのままでよい。
 
 ---
 
