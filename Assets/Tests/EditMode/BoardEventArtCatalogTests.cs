@@ -5,6 +5,8 @@ namespace Tests.EditMode
 {
     public class BoardEventArtCatalogTests
     {
+        [TestCase(BoardCellEvent.Forward, "Board/Forward")]
+        [TestCase(BoardCellEvent.Back, "Board/Back")]
         [TestCase(BoardCellEvent.MoneyUp, "Board/MoneyUp")]
         [TestCase(BoardCellEvent.MoneyDown, "Board/MoneyDown")]
         [TestCase(BoardCellEvent.Territory, "Board/Territory")]
@@ -15,9 +17,6 @@ namespace Tests.EditMode
         }
 
         [TestCase(BoardCellEvent.None)]
-        [TestCase(BoardCellEvent.Forward)]
-        [TestCase(BoardCellEvent.Back)]
-        [TestCase(BoardCellEvent.Rest)]
         [TestCase(BoardCellEvent.MiniGame)]
         public void Addressは画像の無いイベントで空文字を返す(BoardCellEvent cellEvent)
         {

@@ -623,8 +623,6 @@ namespace Main.Board
                     return $"▲{definition.Amount}";
                 case BoardCellEvent.Back:
                     return $"▼{definition.Amount}";
-                case BoardCellEvent.Rest:
-                    return "休";
                 case BoardCellEvent.MiniGame:
                     return "MG";
                 case BoardCellEvent.MoneyUp:
@@ -1181,10 +1179,20 @@ namespace Main.Board
         }
 
         /// <summary>
+        /// 1 手番で連鎖できる「進む／戻る」マスの上限。進む→進む…と繋がる盤面でも必ず止まるようにする
+        /// （全クライアントで同じ定数なので、上限で打ち切っても結果はずれない）。
+        /// </summary>
+        private const int MaxChainedMoves = 8;
+
+        /// <summary>
         /// プレイヤー <paramref name="player"/> のコマを <paramref name="steps"/> マス進める。
         /// ルーレットの出目とミニゲームのボーナスの両方から呼ばれる共通の移動演出。
         /// 移動中・ゲーム終了後や 0 以下の歩数は無視する。
         /// <paramref name="externalCt"/> は呼び出し元のキャンセル（Destroy 等）を連結するためのもの。
+        ///
+        /// **止まったマスが「進む／戻る」なら、そこから続けて動く**（<see cref="MaxChainedMoves"/> 回まで）。
+        /// 連鎖先のマスでも着地イベントは通常どおり発動するので、進んだ先が陣地マスなら占拠まで走る。
+        /// 動くマス数は盤面データなので全クライアントで一致する＝オンラインでも配らずに同じ連鎖が起きる。
         /// </summary>
         public async UniTask AdvanceAsync(int player, int steps, CancellationToken externalCt = default)
         {
@@ -1201,43 +1209,23 @@ namespace Main.Board
             using CancellationTokenSource linked =
                 CancellationTokenSource.CreateLinkedTokenSource(_destroyCt, externalCt);
             CancellationToken ct = linked.Token;
-            _model.BeginMove();
 
-            // 移動を始めたらズームを既定へ戻し、動かすコマを画面中央に据える（以後ステップごとに追従）。
-            FocusCameraOnPlayer(player, resetZoom: true);
-
-            // 移動を始めたら走行 SE をループで流す。コマが止まった時点で止める（着地演出中は鳴らさない）。
-            // キャンセル時は finally で確実に止める。
-            _soundPlayer.PlayLoopSafe(_soundStore?.RunSE);
-
-            // 周回勝利は廃止したので、出目ぶんそのまま進む（スタート＝ゴールを通過してループし続ける）。
             try
             {
-                for (int i = 0; i < steps; i++)
+                int next = steps;
+                for (int hop = 0; ; hop++)
                 {
-                    await UniTask.Delay(TimeSpan.FromSeconds(_stepInterval), cancellationToken: ct);
-                    if (this == null)
+                    if (!await MoveAndLandAsync(player, next, ct))
+                    {
+                        return; // 破棄された（連鎖も打ち切る）
+                    }
+                    // 決着したらそこで終わり。上限に達したら連鎖を断つ（進む→進むの循環対策）。
+                    if (_model.IsFinished || hop >= MaxChainedMoves
+                        || !TryGetChainedSteps(player, out next))
                     {
                         return;
                     }
-
-                    int next = BoardMath.Advance(_model.Position(player).CurrentValue, 1, _cellCount);
-                    _model.SetPosition(player, next); // Position 購読がコマの描画を更新する
-
-                    // コマが新しいマスに着いたのを見せてから、少し間を置いてカメラをそのマスへパン追従させる
-                    // （移動とパンを同フレームで行うとコマが中央に貼りついて "動いてから追う" 感じにならないため）。
-                    if (_panFollowDelay > 0f)
-                    {
-                        await UniTask.Delay(TimeSpan.FromSeconds(_panFollowDelay), cancellationToken: ct);
-                    }
-                    FocusCameraOnPlayer(player, resetZoom: false);
                 }
-
-                _model.EndMove();
-                // コマが止まった時点で走行 SE を止める（着地演出＝お金の浮遊テキスト等の間は鳴らさない）。
-                _soundPlayer.StopLoopSafe();
-                // 止まったマスの画像表示＋着地イベント（お金の浮遊テキスト等）の演出。
-                await PlayLandingSequenceAsync(player, ct);
             }
             catch (OperationCanceledException)
             {
@@ -1246,6 +1234,75 @@ namespace Main.Board
             {
                 _soundPlayer.StopLoopSafe();
             }
+        }
+
+        /// <summary>
+        /// 1 区間ぶんの移動（<paramref name="steps"/> が負なら戻る）と、止まったマスの着地演出。
+        /// 破棄されたら false を返して呼び出し元の連鎖を止める。
+        /// </summary>
+        private async UniTask<bool> MoveAndLandAsync(int player, int steps, CancellationToken ct)
+        {
+            _model.BeginMove();
+
+            // 移動を始めたらズームを既定へ戻し、動かすコマを画面中央に据える（以後ステップごとに追従）。
+            FocusCameraOnPlayer(player, resetZoom: true);
+
+            // 移動を始めたら走行 SE をループで流す。コマが止まった時点で止める（着地演出中は鳴らさない）。
+            // キャンセル時は呼び出し元の finally で確実に止める。
+            _soundPlayer.PlayLoopSafe(_soundStore?.RunSE);
+
+            // 周回勝利は廃止したので、出目ぶんそのまま進む（スタート＝ゴールを通過してループし続ける）。
+            // 戻るマスも同じループを逆向きにたどるだけ（スタートを跨いだら盤面の末尾へ回り込む）。
+            int direction = steps >= 0 ? 1 : -1;
+            int count = Mathf.Abs(steps);
+            for (int i = 0; i < count; i++)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(_stepInterval), cancellationToken: ct);
+                if (this == null)
+                {
+                    return false;
+                }
+
+                int next = BoardMath.Advance(_model.Position(player).CurrentValue, direction, _cellCount);
+                _model.SetPosition(player, next); // Position 購読がコマの描画を更新する
+
+                // コマが新しいマスに着いたのを見せてから、少し間を置いてカメラをそのマスへパン追従させる
+                // （移動とパンを同フレームで行うとコマが中央に貼りついて "動いてから追う" 感じにならないため）。
+                if (_panFollowDelay > 0f)
+                {
+                    await UniTask.Delay(TimeSpan.FromSeconds(_panFollowDelay), cancellationToken: ct);
+                }
+                FocusCameraOnPlayer(player, resetZoom: false);
+            }
+
+            _model.EndMove();
+            // コマが止まった時点で走行 SE を止める（着地演出＝お金の浮遊テキスト等の間は鳴らさない）。
+            _soundPlayer.StopLoopSafe();
+            // 止まったマスの画像表示＋着地イベント（お金の浮遊テキスト等）の演出。
+            await PlayLandingSequenceAsync(player, ct);
+            return true;
+        }
+
+        /// <summary>
+        /// いま止まっているマスが「進む／戻る」なら、続けて動くマス数（戻るは負）を
+        /// <paramref name="steps"/> に入れて true を返す。それ以外は false。
+        /// </summary>
+        private bool TryGetChainedSteps(int player, out int steps)
+        {
+            steps = 0;
+            if (_boardDef == null)
+            {
+                return false;
+            }
+
+            int position = _model.Position(player).CurrentValue;
+            if (position < 0 || position >= _boardDef.CellCount)
+            {
+                return false;
+            }
+
+            BoardCellDefinition cell = _boardDef.Cell(position);
+            return CellEventResolver.TryGetMoveSteps(cell.Event, cell.Amount, out steps) && steps != 0;
         }
 
         /// <summary>
@@ -1546,8 +1603,9 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// コマが止まったマスのイベントを発動する。お金イベント（増減）と陣地マス（占拠）を扱い、
-        /// 進む／戻る／休み／ミニゲームは従来どおり表示のみで未発動。
+        /// コマが止まったマスのイベントを発動する。お金イベント（増減）と陣地マス（占拠）、
+        /// 進む／戻るマス（動くマス数の浮遊テキスト）を扱い、ミニゲームは従来どおり表示のみで未発動。
+        /// 進む／戻るの再移動そのものは <see cref="AdvanceAsync"/> の連鎖が担う。
         /// お金の変化量判定は <see cref="CellEventResolver"/>・加算は <see cref="MoneyModel"/>、
         /// 陣地の占拠・勝利判定（総数÷プレイヤー数の切り上げ）は <see cref="TerritoryModel"/> が担う。
         /// お金マスで画像ポップアップ（<paramref name="popupShown"/>）を浮遊テキストと同時に消した場合は true を返す。
@@ -1566,6 +1624,14 @@ namespace Main.Board
             }
 
             BoardCellDefinition cell = _boardDef.Cell(position);
+
+            // 進む／戻るマスは、続けて動くマス数（+n / -n）をお金と同じ浮遊テキストで見せてから連鎖へ入る。
+            // マス数は盤面データそのものなので全クライアントで一致する＝お金と違って発行・受信は要らない。
+            if (CellEventResolver.TryGetMoveSteps(cell.Event, cell.Amount, out int moveSteps) && moveSteps != 0)
+            {
+                await _landing.ShowMoveFloatAsync(moveSteps, popupShown, floatSeconds, ct);
+                return popupShown;
+            }
 
             // 陣地マスは PlayLandingSequenceAsync の旗演出側で占拠を確定するため、ここには来ない。
             // お金マスかどうかはイベント種別だけで決まるので、全クライアントの判定が一致する。

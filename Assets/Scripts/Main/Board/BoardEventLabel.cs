@@ -17,8 +17,6 @@ namespace Main.Board
                     return "進む";
                 case BoardCellEvent.Back:
                     return "戻る";
-                case BoardCellEvent.Rest:
-                    return "休み";
                 case BoardCellEvent.MiniGame:
                     return "ミニゲーム";
                 case BoardCellEvent.MoneyUp:

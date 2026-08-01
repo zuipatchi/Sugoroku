@@ -36,7 +36,7 @@ namespace Main.Board
         /// <summary>このマスに割り当てられたイベント。</summary>
         public BoardCellEvent Event => _event;
 
-        /// <summary>イベントの数値パラメータ（進む／戻るマス数・休みターン数）。</summary>
+        /// <summary>イベントの数値パラメータ（進む／戻るマス数）。</summary>
         public int Amount => _amount;
 
         /// <summary>イベントが <see cref="BoardCellEvent.MiniGame"/> のとき起動するミニゲーム。</summary>

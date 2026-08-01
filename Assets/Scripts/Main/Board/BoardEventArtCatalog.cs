@@ -5,7 +5,7 @@ namespace Main.Board
     /// マスの見た目（イベント種別ごとの画像）はマップに依らず共通なので、盤面データ
     /// （<see cref="BoardDefinition"/>）ごとに持たせず、ここ 1 か所を唯一のソースにする。
     /// 画像アドレスは <c>Board/&lt;イベント名&gt;</c> 規約で、対応するスプライトを Addressables に登録して用意する。
-    /// 画像が無いイベント（None／進む／戻る／休み／ミニゲーム）は空文字を返し、呼び出し側は記号表示にフォールバックする。
+    /// 画像が無いイベント（None／ミニゲーム）は空文字を返し、呼び出し側は記号表示にフォールバックする。
     /// <see cref="CharacterCatalog"/> / <see cref="Item.ItemCatalog"/> と同じ静的カタログ方式。
     /// </summary>
     public static class BoardEventArtCatalog
@@ -24,6 +24,10 @@ namespace Main.Board
         {
             switch (cellEvent)
             {
+                case BoardCellEvent.Forward:
+                    return "Board/Forward";
+                case BoardCellEvent.Back:
+                    return "Board/Back";
                 case BoardCellEvent.MoneyUp:
                     return "Board/MoneyUp";
                 case BoardCellEvent.MoneyDown:

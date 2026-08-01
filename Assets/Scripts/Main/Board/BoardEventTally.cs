@@ -19,7 +19,6 @@ namespace Main.Board
             BoardCellEvent.MoneyDown,
             BoardCellEvent.Forward,
             BoardCellEvent.Back,
-            BoardCellEvent.Rest,
         };
 
         /// <summary>

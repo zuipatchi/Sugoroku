@@ -64,7 +64,6 @@ namespace Main.EditorTools
 
             if (cell.Event == BoardCellEvent.Forward
                 || cell.Event == BoardCellEvent.Back
-                || cell.Event == BoardCellEvent.Rest
                 || cell.Event == BoardCellEvent.MoneyUp
                 || cell.Event == BoardCellEvent.MoneyDown)
             {

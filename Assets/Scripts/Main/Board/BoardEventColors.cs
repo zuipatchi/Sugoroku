@@ -19,8 +19,6 @@ namespace Main.Board
                     return new Color(0.24f, 0.62f, 0.5f);
                 case BoardCellEvent.Back:
                     return new Color(0.82f, 0.52f, 0.22f);
-                case BoardCellEvent.Rest:
-                    return new Color(0.5f, 0.5f, 0.52f);
                 case BoardCellEvent.MiniGame:
                     return new Color(0.56f, 0.36f, 0.72f);
                 case BoardCellEvent.MoneyUp:

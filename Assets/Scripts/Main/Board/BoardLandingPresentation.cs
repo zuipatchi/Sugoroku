@@ -8,8 +8,9 @@ namespace Main.Board
 {
     /// <summary>
     /// 着地演出のビュー。画面中央のマス画像ポップアップ（表示・フェードアウト）、
-    /// お金マスの増減額の浮遊テキスト、陣地マスの旗トゥイーン（中央表示→マスへ縮小移動）を担う。
-    /// UI 要素（CellPopup / FlagPopup / MoneyFloat）の表示制御だけを持ち、
+    /// 浮遊テキスト（お金マスの増減額・進む／戻るマスの移動マス数）、
+    /// 陣地マスの旗トゥイーン（中央表示→マスへ縮小移動）を担う。
+    /// UI 要素（CellPopup / FlagPopup / MoneyFloat＝浮遊テキストはお金と移動で共用）の表示制御だけを持ち、
     /// ゲームロジック（お金加算・占拠確定・勝者判定）と「どの演出をいつ呼ぶか」の統括は
     /// <see cref="BoardPresenter"/> 側に残す。
     /// </summary>
@@ -62,14 +63,35 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// お金マスの増減額を画面中央から上へ浮かび上がらせながらフェードアウトさせる演出。
-        /// <paramref name="delta"/> が正なら「+ n」を緑、負なら「- n」を赤で表示する。0 なら何もしない。
+        /// お金マスの増減額を浮遊テキストで見せる演出。
+        /// <paramref name="delta"/> が正なら「+ $n」を緑、負なら「- $n」を赤で表示する。0 なら何もしない。
+        /// </summary>
+        public UniTask ShowMoneyFloatAsync(int delta, bool hidePopup, float duration, CancellationToken ct)
+        {
+            string text = delta > 0 ? $"+ ${delta}" : $"- ${-delta}";
+            return ShowFloatTextAsync(text, delta, hidePopup, duration, ct);
+        }
+
+        /// <summary>
+        /// 進む／戻るマスの移動マス数を、お金と同じ浮遊テキストで見せる演出。
+        /// <paramref name="steps"/> が正なら「+ n マス」を緑、負なら「- n マス」を赤で表示する。0 なら何もしない。
+        /// </summary>
+        public UniTask ShowMoveFloatAsync(int steps, bool hidePopup, float duration, CancellationToken ct)
+        {
+            string text = steps > 0 ? $"+ {steps}マス" : $"- {-steps}マス";
+            return ShowFloatTextAsync(text, steps, hidePopup, duration, ct);
+        }
+
+        /// <summary>
+        /// 浮遊テキストの共通演出。<paramref name="text"/> を画面中央から上へ浮かび上がらせながらフェードアウトさせる。
+        /// <paramref name="amount"/> は色分け（正＝緑／負＝赤）と「0 なら何もしない」の判定にだけ使う。
         /// <paramref name="hidePopup"/> が true なら、表示中のマス画像ポップアップを
         /// 浮遊テキストが消えるのと同じタイミングでフェードアウトさせる。
         /// </summary>
-        public async UniTask ShowMoneyFloatAsync(int delta, bool hidePopup, float duration, CancellationToken ct)
+        private async UniTask ShowFloatTextAsync(
+            string text, int amount, bool hidePopup, float duration, CancellationToken ct)
         {
-            if (_moneyFloat == null || delta == 0)
+            if (_moneyFloat == null || amount == 0)
             {
                 // 浮遊テキストが出せない場合でも、保持していた画像は消す。
                 if (hidePopup)
@@ -79,8 +101,8 @@ namespace Main.Board
                 return;
             }
 
-            bool up = delta > 0;
-            _moneyFloat.text = up ? $"+ ${delta}" : $"- ${-delta}";
+            bool up = amount > 0;
+            _moneyFloat.text = text;
             _moneyFloat.EnableInClassList("money-float--up", up);
             _moneyFloat.EnableInClassList("money-float--down", !up);
             _moneyFloat.style.display = DisplayStyle.Flex;

@@ -4,7 +4,11 @@ namespace Main.Board
     /// すごろくのマスに割り当てるイベントの種類。盤面データ（<see cref="BoardDefinition"/>）が
     /// 保持し、盤面エディタで編集する。お金イベント（<see cref="MoneyUp"/> / <see cref="MoneyDown"/>）は
     /// 着地時に所持金を増減し、陣地マス（<see cref="Territory"/>）は着地時に占拠して勝敗を決める。
-    /// それ以外（コマ移動・休み・ミニゲーム起動）は今は表示のみで将来対応する。
+    /// コマ移動（<see cref="Forward"/> / <see cref="Back"/>）は着地時にそのマス数ぶん続けて動く（連鎖する）。
+    /// ミニゲーム起動（<see cref="MiniGame"/>）は今は表示のみで将来対応する。
+    ///
+    /// 値は <see cref="BoardDefinition"/> アセットに int で保存されるので、**既存の値は変えない**
+    /// （3 は廃止した「休み」の欠番。詰めると保存済みの盤面のイベントがずれる）。
     /// </summary>
     public enum BoardCellEvent
     {
@@ -17,8 +21,7 @@ namespace Main.Board
         /// <summary>止まると N マス戻る。</summary>
         Back = 2,
 
-        /// <summary>止まると N ターン休み。</summary>
-        Rest = 3,
+        // 3 は廃止した「休み」の欠番（既存アセットとの互換のため詰めない）。
 
         /// <summary>止まるとミニゲームが発生する。</summary>
         MiniGame = 4,

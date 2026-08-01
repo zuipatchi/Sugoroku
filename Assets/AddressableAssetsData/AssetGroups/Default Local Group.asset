@@ -20,11 +20,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 083348c8dc4336d458a79f88addd7d62
-    m_Address: Board/MoneyDown
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 09d2091b47f5f484ea8dfdd2cc8a9925
     m_Address: Sound/SE/Decision
     m_ReadOnly: 0
@@ -44,6 +39,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0f5aab72c70624d4ab5b0d93ecd894ae
     m_Address: Image/Icon/CoinIcon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 106adda08e4da874f97a649949639d92
+    m_Address: Board/MoneyDown
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -75,6 +75,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1d07a708547a05e44a5b82221a7c8ba4
     m_Address: Character/Character8/Card
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 209e73113cfe97f418fca7bba69dc411
+    m_Address: Board/Forward
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -257,6 +262,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8a44f4f59a3f4cc43b9bafc5d7ff972e
     m_Address: Image/HomeBackGround
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8a8e05753a36eeb4190e8e43cdaff530
+    m_Address: Board/Back
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
