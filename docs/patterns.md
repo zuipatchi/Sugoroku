@@ -364,6 +364,29 @@ SpinDecision decision = await decided;
 
 ---
 
+## 15. 新しいマスイベントを追加する
+
+盤面のマスに割り当てるイベント（`BoardCellEvent`）は、色・ラベル・画像・記号・内訳がそれぞれ別のファイルに散っている。**1 つ足す／消すときの触る場所はこの 6 か所**。
+
+1. [BoardCellEvent.cs](../Assets/Scripts/Main/Board/BoardCellEvent.cs) に種別を 1 つ足す（**値は末尾に追加し、既存の値は絶対に動かさない**。`BoardDefinition` アセットに int で保存されているので、詰めると保存済み盤面のイベントが全部ずれる。廃止するときも値は欠番のまま残す）
+2. [BoardEventColors.cs](../Assets/Scripts/Main/Board/BoardEventColors.cs) に色を足す（盤面エディタのグリッド・凡例と、マップ選択のサムネイル・内訳が同じ配色を共有する）
+3. [BoardEventLabel.cs](../Assets/Scripts/Main/Board/BoardEventLabel.cs) に日本語名を足す（凡例・内訳チップの文言）
+4. [BoardEventTally.cs](../Assets/Scripts/Main/Board/BoardEventTally.cs) の `DisplayOrder` に足す（マップ選択の内訳に出す順。入れないと内訳に出ない）
+5. マス画像を使うなら [BoardEventArtCatalog.cs](../Assets/Scripts/Main/Board/BoardEventArtCatalog.cs) にアドレスを足し、画像を `Assets/AddressableAssets/Image/Board/` に置いて **Addressable アドレスを `Board/<イベント名>`**（＝enum 名）に設定する。画像を用意しないイベントは空文字のままで、`BoardPresenter.EventMarker` の記号表示にフォールバックする
+6. 数値パラメータ（`Amount`）を使うなら [BoardCellInspector.cs](../Assets/Scripts/Main/Editor/BoardCellInspector.cs) の入力欄の対象に足す
+
+盤面エディタの凡例は `Enum.GetValues` で自動生成されるので、1〜3 を足せば勝手に並ぶ。
+
+### 着地時の効果を実装する
+
+着地の分岐は `BoardPresenter.PlayLandingSequenceAsync`（マス種別ごとの演出）と `ApplyLandingEventAsync`（Model 更新）にある。**判定は `CellEventResolver` の純粋関数に置いて EditMode テストで固める**（`TryGetMoneyDelta`／`TryGetMoveSteps`）。
+
+- **盤面データから導ける効果はオンラインで配らない**（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）。進む／戻るのマス数は `Amount` そのもの、着地マスは全員が同じ盤面から分かるので、`GameAction` を増やさずに全クライアントが同じ結果になる。**乱数やモーダル操作を含む効果だけ**が「決定（1 人）＋発行」と「適用（全員）」に分かれる（お金マスの増減額・アイテムショップ）
+- **効果がコマを動かすなら連鎖の上限を決める**。進む／戻るは `AdvanceAsync` が「移動 → 着地 → また移動」を繰り返し、`MaxChainedMoves`（8 回）で打ち切る。上限は定数なので全クライアントで一致し、打ち切っても結果はずれない
+- 演出は使い回す。「+ n マス」の浮遊テキストはお金の増減額と同じ `ShowFloatTextAsync`（[BoardLandingPresentation.cs](../Assets/Scripts/Main/Board/BoardLandingPresentation.cs)）で、文言と色分けの元になる値だけを差し替えている
+
+---
+
 ## 共通ルール（抜粋）
 
 - `var` は使わない。型を明示する
