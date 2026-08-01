@@ -224,7 +224,7 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 6. 起動は `MiniGameLauncher.PlayAsync(MiniGameId.<種別>, ct)`（参加者数に依存するゲームは第3引数 `playerCount` も渡す＝省略時は本番既定の 2）。結果は `MiniGameResult.Score` で受け取る（意味はゲームごと。**勝敗系は勝ち1/負け0で報告し `DetermineMiniGameWin` が `Score==1` で判定**する。タップ連打＝連打数1位で1、2Dレース＝先着で1、被っちゃやーよ＝獲得で1）。動作確認は `MiniGameTest` シーン（[MiniGameTestPresenter.cs](../Assets/Scripts/MiniGame/Test/MiniGameTestPresenter.cs)）をエディタで直接開いて Play する（人数ステッパーで参加者数を選べる）
 7. ホストは表示前に UXML をロードするため `ISceneReady` を実装している（ロード完了まで暗幕を維持）。`Report` で結果を返すとランチャーがシーンをアンロードする
 
-> ローカル完結のため、盤面反映やゲーム内トリガー（特殊マス・手番連携）はまだ Main に組み込んでいない。全員同時プレイのスコア同期も今後の課題（[networking.md](networking.md) の永続ハンドラ方式に乗せる）。
+> **ゲーム内からの起動は 2 経路**：ミニゲームマス（`BoardCellEvent.MiniGame`・マスごとに種類を設定）への着地と、ミニゲームアイテム（遊ぶゲームをモーダルで選ぶ）。どちらも勝てば所持金報酬（+500）で、**遊ぶのは着地／使用した本人のクライアントだけ**・他プレイヤーへは結果（報酬額）だけを配る（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）。全員が同時にプレイしてスコアを突き合わせる同期は今後の課題。
 
 **Main のカタログ（`ItemCatalog` 等）を再利用するとき**は `MiniGame` asmdef に `Main` 参照を足す（被っちゃやーよがアイテム絵の再利用で追加済み）。`Main` は `MiniGame` を参照しないので循環しない。**参加者数に依存するミニゲーム**（被っちゃやーよは提示枚数＝参加者数、2Dレースはレーン数＝参加者数）は、人数を `MiniGameSessionModel.PlayerCount` から取る。MiniGame シーンは別スコープで `GameParticipants` を直接注入できないため、起動側が `MiniGameLauncher.PlayAsync(id, ct, playerCount)` で渡した値を Common シングルトンの `MiniGameSessionModel` に載せ、各 GamePlay がそれを参照する（本番の盤面ミニゲームは既定 2、`MiniGameTest` シーンは人数ステッパーで 2〜4）。セッション未設定時のフォールバックだけ Config の定数（`OverlapGameConfig.DefaultPlayerCount`）に残す。**参加者ごとのキャラ**も同じ経路で運ぶ：`PlayAsync(id, ct, playerCount, characters)` の `characters`（index 0＝プレイヤー）が `MiniGameSessionModel.Characters` に載り、各 GamePlay が走者・カード・ラベルに YOU/CPU でなくそのキャラを使う（本番＝`BoardPresenter` が実参加者のキャラ、`MiniGameTest`＝ランダムな重複なしキャラ。未指定時は選択キャラ／YOU・CPU へフォールバック）。
 
@@ -372,7 +372,7 @@ SpinDecision decision = await decided;
 2. [BoardEventColors.cs](../Assets/Scripts/Main/Board/BoardEventColors.cs) に色を足す（盤面エディタのグリッド・凡例と、マップ選択のサムネイル・内訳が同じ配色を共有する）
 3. [BoardEventLabel.cs](../Assets/Scripts/Main/Board/BoardEventLabel.cs) に日本語名を足す（凡例・内訳チップの文言）
 4. [BoardEventTally.cs](../Assets/Scripts/Main/Board/BoardEventTally.cs) の `DisplayOrder` に足す（マップ選択の内訳に出す順。入れないと内訳に出ない）
-5. マス画像を使うなら [BoardEventArtCatalog.cs](../Assets/Scripts/Main/Board/BoardEventArtCatalog.cs) にアドレスを足し、画像を `Assets/AddressableAssets/Image/Board/` に置いて **Addressable アドレスを `Board/<イベント名>`**（＝enum 名）に設定する。画像を用意しないイベントは空文字のままで、`BoardPresenter.EventMarker` の記号表示にフォールバックする
+5. マス画像を使うなら [BoardEventArtCatalog.cs](../Assets/Scripts/Main/Board/BoardEventArtCatalog.cs) の `Address` にアドレスを足し、画像を `Assets/AddressableAssets/Image/Board/` に置いて **Addressable アドレスを `Board/<イベント名>`**（＝enum 名）に設定する。画像を用意しないイベントは空文字のままで、`BoardPresenter.EventMarker` の記号表示にフォールバックする。**マスごとのデータで絵を変えたいときは `AddressFor` に分岐を足す**（ミニゲームマスが、マスに設定されたゲームのサムネイル〔`MiniGameCatalog.ImageAddress`〕を使う例）
 6. 数値パラメータ（`Amount`）を使うなら [BoardCellInspector.cs](../Assets/Scripts/Main/Editor/BoardCellInspector.cs) の入力欄の対象に足す
 
 盤面エディタの凡例は `Enum.GetValues` で自動生成されるので、1〜3 を足せば勝手に並ぶ。
