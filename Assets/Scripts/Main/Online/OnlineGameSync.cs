@@ -26,6 +26,9 @@ namespace Main.Online
         // NGO の名前付きメッセージ名。ホストはクライアントからの発行を受けて再配信し、
         // クライアントはホストからの再配信だけを受ける（両方向で同じ名前を使ってよい）。
         private const string MessageName = "SGRK_GameAction";
+        // ミニゲームの途中経過（見た目だけの情報）を流す別経路。アクションストリームと違い
+        // 順序保証もキューも要らない（取りこぼしても次の値がすぐ来る）。
+        private const string ProgressMessageName = "SGRK_MiniGameProgress";
 
         private readonly GameSessionModel _gameSession;
         private readonly OnlineRosterSessionModel _roster;
@@ -77,6 +80,7 @@ namespace Main.Online
             }
 
             _messenger.RegisterJson(MessageName, OnMessageReceived);
+            _messenger.RegisterJson(ProgressMessageName, OnProgressReceived);
             _registered = true;
 
             NetworkManager nm = NetworkManager.Singleton;
@@ -111,6 +115,33 @@ namespace Main.Online
 
             _messenger.SendJson(MessageName, NetworkManager.ServerClientId, GameActionCodec.Encode(action));
         }
+
+        /// <summary>
+        /// ミニゲームの途中経過（席 <paramref name="seat"/> の値 <paramref name="value"/>）を全員へ流す。
+        /// **進行を進める決定ではない**ので <see cref="Publish"/> のストリームには載せない
+        /// （ミニゲーム中は誰もストリームを読めないうえ、順序も再送も要らないため）。
+        /// </summary>
+        public void PublishProgress(int seat, int value)
+        {
+            if (_disposed || !IsOnline)
+            {
+                return;
+            }
+
+            string json = GameActionCodec.Encode(GameAction.MiniGameScore(seat, value));
+            if (_gameSession.IsHost)
+            {
+                SendProgressToOthers(json);
+                return;
+            }
+            _messenger.SendJson(ProgressMessageName, NetworkManager.ServerClientId, json);
+        }
+
+        /// <summary>
+        /// 他プレイヤーの途中経過を受け取ったときに呼ばれる（引数は 席・値）。
+        /// ミニゲームのプレイ中だけ購読され、受け取った値は表示に使うだけ。
+        /// </summary>
+        public event Action<int, int> ProgressReceived;
 
         /// <summary>
         /// 次のアクションを取り出す。届くまで待つ（切断時はキャンセル例外で抜ける）。
@@ -170,6 +201,33 @@ namespace Main.Online
             }
         }
 
+        // 途中経過の受信。ホストは受け取ったものを残りの全員へそのまま中継する（ゲスト同士は繋がっていないため）。
+        private void OnProgressReceived(ulong senderId, string json)
+        {
+            if (_disposed || !GameActionCodec.TryDecode(json, out GameAction action))
+            {
+                return;
+            }
+
+            if (_gameSession.IsHost)
+            {
+                SendProgressToOthers(json, senderId);
+            }
+            ProgressReceived?.Invoke(action.Seat, action.MiniGameValue);
+        }
+
+        // 自分以外へ途中経過を送る。落ちても表示が一瞬遅れるだけなので、失敗は黙って捨てる。
+        private void SendProgressToOthers(string json, ulong? exclude = null)
+        {
+            try
+            {
+                _messenger.SendJsonToOthers(ProgressMessageName, json, exclude);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
         private void OnClientDisconnected(ulong clientId)
         {
             if (_disposed)
@@ -217,8 +275,10 @@ namespace Main.Online
             if (_registered)
             {
                 _messenger.Unregister(MessageName);
+                _messenger.Unregister(ProgressMessageName);
                 _registered = false;
             }
+            ProgressReceived = null;
 
             _abortCts.Cancel();
             _abortCts.Dispose();

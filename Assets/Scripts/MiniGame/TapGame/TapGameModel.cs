@@ -27,6 +27,8 @@ namespace MiniGame.TapGame
         private float[] _cpuTapTimer = new float[MinParticipantCount];
         private float[] _cpuInterval = new float[MinParticipantCount];
         private int _participantCount = MinParticipantCount;
+        // CPU をこのクライアントで自動連打させるか（オンライン対戦では相手が実プレイヤーなので false）。
+        private bool _simulateOpponents = true;
 
         /// <summary>現在のフェーズ。</summary>
         public ReadOnlyReactiveProperty<TapGamePhase> Phase => _phase;
@@ -80,7 +82,17 @@ namespace MiniGame.TapGame
         /// </summary>
         public void Setup(TapGameConfig config, int playerCount, int seed)
         {
+            Setup(config, playerCount, seed, true);
+        }
+
+        /// <summary>
+        /// <paramref name="simulateOpponents"/> が false のときは CPU を自動連打させない
+        /// （オンライン対戦では相手が実プレイヤーで、連打数は各自から持ち寄るため）。
+        /// </summary>
+        public void Setup(TapGameConfig config, int playerCount, int seed, bool simulateOpponents)
+        {
             _config = config;
+            _simulateOpponents = simulateOpponents;
             _random = new System.Random(seed);
             _participantCount = Mathf.Max(MinParticipantCount, playerCount);
             _tapCounts = new int[_participantCount];
@@ -140,10 +152,24 @@ namespace MiniGame.TapGame
             _tapCount.Value = _tapCounts[0];
         }
 
+        /// <summary>
+        /// 参加者 <paramref name="participant"/>（0＝自分）の連打数を外から差し込む。
+        /// オンライン対戦で他プレイヤーから届いた途中経過・最終値を反映するのに使う
+        /// （自分ぶんは <see cref="Tap"/> が数えるので上書きしない）。
+        /// </summary>
+        public void SetTapCount(int participant, int count)
+        {
+            if (participant <= 0 || participant >= _participantCount || count < 0)
+            {
+                return;
+            }
+            _tapCounts[participant] = count;
+        }
+
         /// <summary>時間を <paramref name="deltaSeconds"/> 進めて各 CPU を自動連打させる。計測中のみ。</summary>
         public void Tick(float deltaSeconds)
         {
-            if (_phase.Value != TapGamePhase.Playing || deltaSeconds <= 0f)
+            if (_phase.Value != TapGamePhase.Playing || deltaSeconds <= 0f || !_simulateOpponents)
             {
                 return;
             }

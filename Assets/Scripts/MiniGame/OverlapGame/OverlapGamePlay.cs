@@ -76,7 +76,9 @@ namespace MiniGame.OverlapGame
 
             // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけ既定へフォールバック。
             int playerCount = _session.PlayerCount > 0 ? _session.PlayerCount : OverlapGameConfig.DefaultPlayerCount;
-            _model.Setup(playerCount, NextSeed());
+            // オンライン対戦では相手が実プレイヤーなので CPU の選択は作らない。提示カードを全員で揃えるため、
+            // 種は起動側が配った共有の種（無ければその場の乱数）を使う。
+            _model.Setup(playerCount, _session.ResolveSeed(), _session.SimulateOpponents);
 
             _closeSource = new UniTaskCompletionSource();
             _closeButton.clicked += OnCloseClicked;
@@ -95,11 +97,11 @@ namespace MiniGame.OverlapGame
         /// カウントダウン → 選択待ち → オープン → 結果表示を駆動し、「結果を反映」クリックで
         /// スコア（獲得＝被らなかった=1／被った=0）を返す。フェードイン後に呼ばれる想定で Forget して走らせる。
         /// </summary>
-        public async UniTask<int> RunAsync(CancellationToken ct)
+        public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)
         {
             if (_closeSource == null)
             {
-                return 0;
+                return (0, MiniGameRanking.NoChoice);
             }
 
             SetDisplay(_countdownLabel, true);
@@ -125,7 +127,8 @@ namespace MiniGame.OverlapGame
 
             await _closeSource.Task.AttachExternalCancellation(ct);
             _model.Finish();
-            return _model.IsPlayerWin ? 1 : 0;
+            // 結果値は選んだカードの index（未選択は NoChoice）。オンラインでは誰とも被らなければ勝ち。
+            return (_model.IsPlayerWin ? 1 : 0, _model.PlayerChoiceIndex);
         }
 
         // 制限時間 ChoiceSeconds の間だけプレイヤーの選択を待つ。クリックで Model が Revealed へ進むとループを抜ける。
@@ -283,11 +286,15 @@ namespace MiniGame.OverlapGame
             bool win = _model.IsPlayerWin;
             _titleLabel.text = "結果";
             _hintLabel.text = string.Empty;
-            _resultLabel.text = win
-                ? "かぶらなかった！ゲット！"
-                : _model.IsPlayerVoteInvalid
-                    ? "時間切れ！むこうひょう…"
-                    : "かぶっちゃった…";
+            // オンライン対戦では他プレイヤーの選択がまだ届いていないので被りを断定しない
+            // （正式な勝敗は全員の選択が揃ってから盤面側が発表する）。
+            _resultLabel.text = !_session.SimulateOpponents
+                ? _model.IsPlayerVoteInvalid ? "時間切れ！むこうひょう…" : "結果はこのあと発表！"
+                : win
+                    ? "かぶらなかった！ゲット！"
+                    : _model.IsPlayerVoteInvalid
+                        ? "時間切れ！むこうひょう…"
+                        : "かぶっちゃった…";
             _resultLabel.EnableInClassList("overlap-result__label--win", win);
             _resultLabel.EnableInClassList("overlap-result__label--lose", !win);
             SetDisplay(_resultPanel, true);

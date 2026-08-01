@@ -23,6 +23,8 @@ namespace MiniGame.TapGame
     {
         private const float PlayDurationSeconds = 5f;
         private const int RevealLeadInMs = 500;
+        // オンライン対戦で自分の連打数を配る間隔（秒）。見た目だけの情報なので毎フレームは送らない。
+        private const float ProgressIntervalSeconds = 0.2f;
 
         private readonly TapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -88,7 +90,12 @@ namespace MiniGame.TapGame
 
             // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけソロ（1 人）へ。
             int playerCount = _session != null && _session.PlayerCount > 0 ? _session.PlayerCount : 1;
-            _model.Setup(playerCount, NextSeed());
+            // オンライン対戦では相手は実プレイヤーなので CPU の自動連打を止める（結果は持ち寄って決める）。
+            _model.Setup(
+                TapGameConfig.Default,
+                playerCount,
+                _session != null ? _session.ResolveSeed() : NextSeed(),
+                OpponentsSimulated);
 
             _tapButton.clicked += OnTapClicked;
             _closeButton.clicked += OnCloseClicked;
@@ -172,6 +179,28 @@ namespace MiniGame.TapGame
             }
         }
 
+        /// <summary>相手をこのクライアントでシミュレートしているか（＝一人用モード）。</summary>
+        private bool OpponentsSimulated => _session == null || _session.SimulateOpponents;
+
+        /// <summary>
+        /// 自分の連打数を配り、届いている相手の連打数をスコアボードへ反映する（オンラインのみ）。
+        /// 一人用モードでは相手をゲーム内の CPU がシミュレートしているので何もしない。
+        /// </summary>
+        private void PublishAndApplyProgress()
+        {
+            MiniGameProgressChannel progress = _session?.Progress;
+            if (progress == null)
+            {
+                return;
+            }
+
+            progress.Publish(_model.TapCount.CurrentValue);
+            for (int p = 1; p < _model.ParticipantCount; p++)
+            {
+                _model.SetTapCount(p, progress.Values[p]);
+            }
+        }
+
         // スコアボードの各連打数ラベルを現在値へ更新する（進行中に毎フレーム呼ぶ）。
         private void UpdateScoreboard()
         {
@@ -183,15 +212,16 @@ namespace MiniGame.TapGame
 
         /// <summary>
         /// カウントダウン → 計測 → 結果表示を駆動し、「結果を反映」クリックでスコア（1 位=1／それ以外=0）を返す。
-        /// 計測中は各 CPU を <see cref="TapGameModel.Tick"/> で自動連打させ、スコアボードを毎フレーム更新する。
+        /// 計測中はスコアボードを毎フレーム更新する（一人用は各 CPU を <see cref="TapGameModel.Tick"/> で
+        /// 自動連打させ、オンラインは互いの連打数を配り合って表示する）。
         /// フェードイン後に呼ばれる想定で、Forget して走らせる。
         /// </summary>
-        public async UniTask<int> RunAsync(CancellationToken ct)
+        public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)
         {
             if (_closeSource == null)
             {
                 // UI 構築に失敗している。従来どおり結果は報告せず、キャンセル（シーンアンロード）まで待機する。
-                return await UniTask.Never<int>(ct);
+                return await UniTask.Never<(int Score, int Value)>(ct);
             }
 
             _centerLabel.text = "準備…";
@@ -204,6 +234,7 @@ namespace MiniGame.TapGame
             UpdateScoreboard();
 
             float elapsed = 0f;
+            float sinceProgress = 0f;
             while (elapsed < PlayDurationSeconds)
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, ct);
@@ -211,8 +242,21 @@ namespace MiniGame.TapGame
                 elapsed += dt;
                 _model.Tick(dt);
                 _model.UpdateRemaining(PlayDurationSeconds - elapsed);
+
+                // オンライン対戦では相手をシミュレートしない代わりに、互いの連打数を配り合って
+                // スコアボードに出す（見た目だけの情報なので、間引いて送り取りこぼしは気にしない）。
+                sinceProgress += dt;
+                if (sinceProgress >= ProgressIntervalSeconds)
+                {
+                    sinceProgress = 0f;
+                    PublishAndApplyProgress();
+                }
+
                 UpdateScoreboard();
             }
+
+            // 最後の値を送り切ってから締める（間引きの都合で数回ぶん遅れていることがある）。
+            PublishAndApplyProgress();
 
             _model.Finish();
             UpdateScoreboard();
@@ -220,12 +264,17 @@ namespace MiniGame.TapGame
 
             int playerTaps = _model.TapCount.CurrentValue;
             bool win = _model.IsPlayerWin;
-            _resultLabel.text = win
-                ? $"1位！　タップ数 {playerTaps} 回"
-                : $"{PlayerRank()}位　タップ数 {playerTaps} 回";
+            // オンライン対戦では最後の数回ぶんが届いていないことがあるので順位を断定しない
+            // （正式な勝敗は全員の結果値が揃ってから盤面側が発表する）。
+            _resultLabel.text = OpponentsSimulated
+                ? win
+                    ? $"1位！　タップ数 {playerTaps} 回"
+                    : $"{PlayerRank()}位　タップ数 {playerTaps} 回"
+                : $"タップ数 {playerTaps} 回　結果はこのあと発表！";
 
             await _closeSource.Task.AttachExternalCancellation(ct);
-            return win ? 1 : 0;
+            // 結果値はタップ数。オンラインでは全員ぶんを持ち寄って最多の人が勝ちになる。
+            return (win ? 1 : 0, playerTaps);
         }
 
         // プレイヤーの順位（1 位＝自分より多い参加者が 0 人）。同数は同順で自分を上に見なす。

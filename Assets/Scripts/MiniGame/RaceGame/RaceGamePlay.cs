@@ -51,6 +51,8 @@ namespace MiniGame.RaceGame
         private UniTaskCompletionSource _closeSource;
 
         private float _pauseRemaining;
+        // 自分（走者 index 0）のゴールタイム（ミリ秒）。オンライン対戦で順位を決める結果値になる。
+        private int _playerFinishMillis = MiniGameRanking.NotFinished;
 
         public RaceGamePlay(
             RaceGameModel model,
@@ -96,7 +98,12 @@ namespace MiniGame.RaceGame
             RaceGameConfig config = RaceGameConfig.Default;
             // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけ 2 人へフォールバック。
             int playerCount = _session != null && _session.PlayerCount > 0 ? _session.PlayerCount : 2;
-            _model.Setup(config, playerCount, NextSeed());
+            // オンライン対戦では相手が実プレイヤーなので CPU は自走させない（順位はゴールタイムで決める）。
+            _model.Setup(
+                config,
+                playerCount,
+                _session != null ? _session.ResolveSeed() : NextSeed(),
+                _session == null || _session.SimulateOpponents);
 
             await BuildRunnersAsync(_model.RunnerCount, ct);
 
@@ -189,11 +196,11 @@ namespace MiniGame.RaceGame
         /// カウントダウン → レース進行 → 結果表示を駆動し、「結果を反映」クリックでスコア（勝ち=1／負け=0）を返す。
         /// フェードイン後に呼ばれる想定で、Forget して走らせる。
         /// </summary>
-        public async UniTask<int> RunAsync(CancellationToken ct)
+        public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)
         {
             if (_closeSource == null)
             {
-                return 0;
+                return (0, MiniGameRanking.NotFinished);
             }
 
             SetDisplay(_countdownLabel, true);
@@ -205,10 +212,16 @@ namespace MiniGame.RaceGame
             SetDisplay(_meterPanel, true);
             _tapButton.SetEnabled(true);
 
+            // 自分がゴールした時刻（レース開始からの経過ミリ秒）。オンラインの順位付けに使う結果値で、
+            // ゴールできずに決着したときは NotFinished のまま残る。
+            _playerFinishMillis = MiniGameRanking.NotFinished;
+            float raceElapsed = 0f;
+
             while (_model.Phase.CurrentValue == RaceGamePhase.Racing)
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, ct);
                 float dt = Time.deltaTime;
+                raceElapsed += dt;
 
                 if (_pauseRemaining > 0f)
                 {
@@ -225,6 +238,12 @@ namespace MiniGame.RaceGame
 
                 _model.Tick(dt);
 
+                // 自分がゴールラインに達した瞬間のタイムを 1 度だけ控える。
+                if (_playerFinishMillis == MiniGameRanking.NotFinished && _model.Progress(0) >= 1f)
+                {
+                    _playerFinishMillis = Mathf.RoundToInt(raceElapsed * 1000f);
+                }
+
                 UpdateMeterMarker();
                 PlaceAllRunners();
             }
@@ -238,7 +257,8 @@ namespace MiniGame.RaceGame
             _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
 
             await _closeSource.Task.AttachExternalCancellation(ct);
-            return _model.IsPlayerWin ? 1 : 0;
+            // 結果値はゴールまでのミリ秒（未ゴールは NotFinished）。オンラインでは最短の人が勝ち。
+            return (_model.IsPlayerWin ? 1 : 0, _playerFinishMillis);
         }
 
         public void Dispose()
@@ -292,7 +312,11 @@ namespace MiniGame.RaceGame
         private void RevealResult()
         {
             _titleLabel.text = "結果";
-            _resultLabel.text = _model.IsPlayerWin ? "YOU WIN!" : "YOU LOSE…";
+            // オンライン対戦では相手の走りが見えないので、ここでは勝敗を断定しない
+            // （正式な勝敗は全員のゴールタイムが揃ってから盤面側が発表する）。
+            _resultLabel.text = _session != null && !_session.SimulateOpponents
+                ? "GOAL!"
+                : _model.IsPlayerWin ? "YOU WIN!" : "YOU LOSE…";
             SetDisplay(_resultPanel, true);
         }
 

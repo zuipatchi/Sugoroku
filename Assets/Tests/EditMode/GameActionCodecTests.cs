@@ -91,18 +91,27 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void MiniGameLandingは勝ちの報酬額と負けの0が往復する()
+        public void MiniGameLandingはゲームの内容をそろえる種が往復する()
         {
-            string won = GameActionCodec.Encode(GameAction.MiniGameLanding(1, 500));
-            string lost = GameActionCodec.Encode(GameAction.MiniGameLanding(1, 0));
+            // 種がずれると被っちゃやーよの提示カードが食い違うので、負値も含めてそのまま運べること。
+            string json = GameActionCodec.Encode(GameAction.MiniGameLanding(1, -123456));
 
-            Assert.IsTrue(GameActionCodec.TryDecode(won, out GameAction wonAction));
-            Assert.AreEqual(GameActionType.MiniGameLanding, wonAction.Type);
-            Assert.AreEqual(1, wonAction.Seat);
-            Assert.AreEqual(500, wonAction.MiniGameReward);
+            Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
+            Assert.AreEqual(GameActionType.MiniGameLanding, decoded.Type);
+            Assert.AreEqual(1, decoded.Seat);
+            Assert.AreEqual(-123456, decoded.MiniGameSeed);
+        }
 
-            Assert.IsTrue(GameActionCodec.TryDecode(lost, out GameAction lostAction));
-            Assert.AreEqual(0, lostAction.MiniGameReward);
+        [Test]
+        public void MiniGameScoreは生の結果値が往復する()
+        {
+            // 結果値はゲームごとに意味が違う（連打数・ゴールタイム・選んだカード index）。
+            string json = GameActionCodec.Encode(GameAction.MiniGameScore(2, 4821));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
+            Assert.AreEqual(GameActionType.MiniGameScore, decoded.Type);
+            Assert.AreEqual(2, decoded.Seat);
+            Assert.AreEqual(4821, decoded.MiniGameValue);
         }
 
         [Test]

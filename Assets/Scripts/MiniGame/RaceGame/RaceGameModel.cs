@@ -19,6 +19,8 @@ namespace MiniGame.RaceGame
         private readonly ReactiveProperty<RaceGamePhase> _phase = new(RaceGamePhase.Ready);
 
         private RaceGameConfig _config = RaceGameConfig.Default;
+        // CPU をこのクライアントで自走させるか（オンライン対戦では相手が実プレイヤーなので false）。
+        private bool _simulateOpponents = true;
         private System.Random _random;
         // 走者ごとの進捗（index 0 = プレイヤー、1〜 = CPU）。
         private float[] _progress = new float[MinRunnerCount];
@@ -68,7 +70,17 @@ namespace MiniGame.RaceGame
         /// </summary>
         public void Setup(RaceGameConfig config, int playerCount, int seed)
         {
+            Setup(config, playerCount, seed, true);
+        }
+
+        /// <summary>
+        /// <paramref name="simulateOpponents"/> が false のときは CPU を自走させない
+        /// （オンライン対戦では相手が実プレイヤーで、ゴールタイムは各自から持ち寄るため）。
+        /// </summary>
+        public void Setup(RaceGameConfig config, int playerCount, int seed, bool simulateOpponents)
+        {
             _config = config;
+            _simulateOpponents = simulateOpponents;
             _random = new System.Random(seed);
             _runnerCount = Mathf.Max(MinRunnerCount, playerCount);
             _progress = new float[_runnerCount];
@@ -143,12 +155,14 @@ namespace MiniGame.RaceGame
                 return;
             }
 
-            for (int runner = 0; runner < _runnerCount; runner++)
+            // オンライン対戦では自分以外の走者は動かさない（進捗は持ち寄らず、ゴールタイムだけで順位を決める）。
+            int advanceCount = _simulateOpponents ? _runnerCount : 1;
+            for (int runner = 0; runner < advanceCount; runner++)
             {
                 _progress[runner] += _config.BaseSpeed * deltaSeconds;
             }
 
-            for (int runner = 1; runner < _runnerCount; runner++)
+            for (int runner = 1; runner < advanceCount; runner++)
             {
                 _cpuTapTimer[runner] -= deltaSeconds;
                 while (_cpuTapTimer[runner] <= 0f)

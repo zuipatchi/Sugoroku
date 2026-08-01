@@ -33,12 +33,20 @@ namespace Common.MiniGame
         /// 実行中の呼び出しは <c>default</c> を返す。人数を省略した場合は本番の既定（<see cref="DefaultPlayerCount"/>）で回す。
         /// <paramref name="characters"/> に参加者（index 0＝プレイヤー）のキャラを渡すと、走者・カードの表示や
         /// 名前ラベルにそのキャラを使う（省略時は各ゲームが従来の解決＝選択キャラ／YOU・CPU にフォールバック）。
+        ///
+        /// オンライン対戦では <paramref name="simulateOpponents"/> に false を渡して相手のシミュレートを止め、
+        /// <paramref name="seed"/> に全クライアント共通の種を渡してゲームの内容（被っちゃやーよのカード構成など）を
+        /// 揃える。勝敗は結果値（<see cref="MiniGameResult.Value"/>）を持ち寄って呼び出し側が決める。
+        /// <paramref name="progress"/> を渡すと、プレイ中の途中経過（連打数など）も配り合う。
         /// </summary>
         public async UniTask<MiniGameResult> PlayAsync(
             MiniGameId game,
             CancellationToken ct,
             int playerCount = DefaultPlayerCount,
-            IReadOnlyList<CharacterId> characters = null)
+            IReadOnlyList<CharacterId> characters = null,
+            bool simulateOpponents = true,
+            int seed = 0,
+            MiniGameProgressChannel progress = null)
         {
             if (_running)
             {
@@ -47,7 +55,7 @@ namespace Common.MiniGame
             _running = true;
             try
             {
-                _session.Begin(game, playerCount, characters);
+                _session.Begin(game, playerCount, characters, simulateOpponents, seed, progress);
 
                 await _transition.CoverAsync();
 

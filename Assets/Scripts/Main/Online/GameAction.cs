@@ -71,8 +71,11 @@ namespace Main.Online
         /// <summary>使ったアイテム（<see cref="GameActionType.ItemUse"/>）。</summary>
         public int UsedItemId => ArgAt(0, -1);
 
-        /// <summary>ミニゲームマスの報酬額（<see cref="GameActionType.MiniGameLanding"/>）。負けたら 0。</summary>
-        public int MiniGameReward => ArgAt(0);
+        /// <summary>ミニゲームの内容を組み立てる種（<see cref="GameActionType.MiniGameLanding"/>）。</summary>
+        public int MiniGameSeed => ArgAt(0);
+
+        /// <summary>ミニゲームの生の結果値（<see cref="GameActionType.MiniGameScore"/>）。</summary>
+        public int MiniGameValue => ArgAt(0);
 
         /// <summary>待機表示の理由（<see cref="GameActionType.Busy"/>）。<see cref="BusyReason"/> の値。</summary>
         public int BusyReasonId => ArgAt(0);
@@ -116,7 +119,7 @@ namespace Main.Online
         /// <summary>
         /// アイテム使用（<paramref name="itemId"/> と効果パラメータ <paramref name="effectArgs"/>）。
         /// 効果パラメータの意味はアイテムごとに決まる（陣地獲得＝対象マス index、
-        /// お金よこどり＝席ごとの奪取額、ミニゲーム＝所持金報酬）。
+        /// お金よこどり＝席ごとの奪取額、ミニゲーム＝遊ぶゲーム＋内容を組み立てる種）。
         /// </summary>
         public static GameAction ItemUse(int seat, int itemId, params int[] effectArgs)
         {
@@ -130,10 +133,16 @@ namespace Main.Online
             return new GameAction(GameActionType.ItemUse, seat, args);
         }
 
-        /// <summary>ミニゲームマスの着地結果（<paramref name="reward"/> は負けたら 0）。</summary>
-        public static GameAction MiniGameLanding(int seat, int reward)
+        /// <summary>ミニゲームマスへの着地（<paramref name="seed"/> でゲームの内容を全員そろえる）。</summary>
+        public static GameAction MiniGameLanding(int seat, int seed)
         {
-            return new GameAction(GameActionType.MiniGameLanding, seat, new[] { reward });
+            return new GameAction(GameActionType.MiniGameLanding, seat, new[] { seed });
+        }
+
+        /// <summary>ミニゲームの自分の結果値（<paramref name="value"/> の意味はゲームごと）。</summary>
+        public static GameAction MiniGameScore(int seat, int value)
+        {
+            return new GameAction(GameActionType.MiniGameScore, seat, new[] { value });
         }
 
         /// <summary>

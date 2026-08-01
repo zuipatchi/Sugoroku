@@ -50,6 +50,16 @@ namespace MiniGame.OverlapGame
         /// </summary>
         public void Setup(int playerCount, int seed)
         {
+            Setup(playerCount, seed, true);
+        }
+
+        /// <summary>
+        /// <paramref name="simulateOpponents"/> が false のときは CPU の選択を作らない
+        /// （オンライン対戦では相手が実プレイヤーで、選んだカードは各自から持ち寄るため）。
+        /// 提示アイテムは <paramref name="seed"/> だけで決まるので、同じ種を渡せば全クライアントで一致する。
+        /// </summary>
+        public void Setup(int playerCount, int seed, bool simulateOpponents)
+        {
             System.Random random = new(seed);
             _playerCount = Mathf.Max(1, playerCount);
 
@@ -61,7 +71,7 @@ namespace MiniGame.OverlapGame
             // CPU（プレイヤー以外の参加者）ぶんの選択を先に確定する。
             // 各 CPU は提示アイテムから一様ランダムに選ぶ（互いに・プレイヤーと被りうる）。
             _cpuChoices.Clear();
-            int cpuCount = _playerCount - 1;
+            int cpuCount = simulateOpponents ? _playerCount - 1 : 0;
             if (_offered.Count > 0)
             {
                 for (int i = 0; i < cpuCount; i++)

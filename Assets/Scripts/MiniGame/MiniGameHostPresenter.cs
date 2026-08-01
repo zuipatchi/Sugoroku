@@ -95,13 +95,16 @@ namespace MiniGame
             ReportAsync(_tap.RunAsync, _destroyCt).Forget();
         }
 
-        private async UniTaskVoid ReportAsync(Func<CancellationToken, UniTask<int>> runAsync, CancellationToken ct)
+        // 各ゲームの RunAsync は「勝敗（1/0）」と「生の結果値」を返す。前者は一人用の報酬判定、
+        // 後者はオンライン対戦で全員ぶんを突き合わせて順位を決めるのに使う。
+        private async UniTaskVoid ReportAsync(
+            Func<CancellationToken, UniTask<(int Score, int Value)>> runAsync, CancellationToken ct)
         {
             try
             {
-                int score = await runAsync(ct);
+                (int score, int value) = await runAsync(ct);
                 // 結果を起動側（Main）へ返す。これを受けて MiniGameLauncher がシーンをアンロードする。
-                _session.Report(score);
+                _session.Report(score, value);
             }
             catch (OperationCanceledException)
             {

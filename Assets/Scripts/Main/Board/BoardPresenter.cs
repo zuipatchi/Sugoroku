@@ -141,6 +141,8 @@ namespace Main.Board
         private BusyReason _busyReason = BusyReason.None;
         // 表示中の待機文言（同じ内容なら張り替えず「.」のアニメを続ける）。
         private string _waitingMessage;
+        // オンラインのミニゲームで、他のプレイヤーの結果値が揃うのを待っているか。
+        private bool _waitingMiniGameScores;
         // 勝敗確定後に出す「ホームに戻る」ボタンとその帯（既定は USS で非表示）。
         private VisualElement _gameOverActions;
         private Button _homeReturnButton;
@@ -846,10 +848,23 @@ namespace Main.Board
 
             // 自分（人間プレイヤー）の手番は「あなたの番」、それ以外はキャラ名で「〔キャラ名〕の番」。
             string who = player == _humanPlayer ? "あなた" : CharacterNameOf(player);
-            _turnBannerLabel.text = $"{who}の番";
             _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
+            ShowBannerText($"{who}の番");
+        }
 
-            // 手番が続けて変わったときは前回のトゥイーンを打ち切って出し直す。
+        /// <summary>
+        /// アナウンス帯に <paramref name="text"/> を出して少し見せてから隠す。
+        /// 手番の告知のほか、ミニゲームの勝者発表のような一時的な知らせにも使う。
+        /// </summary>
+        private void ShowBannerText(string text)
+        {
+            if (_turnBanner == null || _turnBannerLabel == null)
+            {
+                return;
+            }
+
+            _turnBannerLabel.text = text;
+            // 続けて出し直すときは前回のトゥイーンを打ち切る。
             _turnBannerCts?.Cancel();
             _turnBannerCts?.Dispose();
             _turnBannerCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyCt);
@@ -934,6 +949,12 @@ namespace Main.Board
         /// <summary>いま出すべき待機文言（待つ必要がなければ null）。</summary>
         private string ResolveWaitingMessage()
         {
+            // オンラインのミニゲームは全員が同時に遊ぶので、待つ相手は 1 人に定まらない。
+            if (_waitingMiniGameScores)
+            {
+                return "他のプレイヤーの結果を待っています";
+            }
+
             if (_busyReason != BusyReason.None)
             {
                 string what = _busyReason switch
@@ -1408,45 +1429,219 @@ namespace Main.Board
         /// </summary>
         private async UniTask PlayMiniGameCellSequenceAsync(int player, MiniGameId game, CancellationToken ct)
         {
+            // ゲームの内容（被っちゃやーよのカード構成など）を全員でそろえるため、着地した人が種を配る。
+            // 遊ぶゲームの種類はマスのデータから全員が導けるので配らない。
             if (_sync.IsLocalDecider(player))
             {
-                // ランチャーが無い（注入に失敗した）ときも報酬 0 として必ず発行する。
-                // ここで黙って抜けると、結果を待っている他のクライアントが進めなくなる。
-                int reward = _launcher == null ? 0 : await DecideMiniGameCellAsync(player, game, ct);
-                _sync.Publish(GameAction.MiniGameLanding(player, reward));
-            }
-            else
-            {
-                // 相手がミニゲームを遊んでいる間、こちらの画面は何も動かないので誰を待っているのかを出す
-                // （着地したマスは全クライアントで一致しているので、Busy を配らなくても導ける）。
-                SetBusy(player, BusyReason.MiniGame);
+                _sync.Publish(GameAction.MiniGameLanding(player, NextMiniGameSeed()));
             }
 
-            GameAction result = await WaitForActionAsync(GameActionType.MiniGameLanding, ct);
-            SetBusy(player, BusyReason.None);
-            await ApplyMoneyRewardAsync(result.Seat, result.MiniGameReward, ct);
+            GameAction start = await WaitForActionAsync(GameActionType.MiniGameLanding, ct);
+            await RunMiniGameAsync(start.Seat, game, start.MiniGameSeed, ct);
         }
 
         /// <summary>
-        /// ミニゲームマスの報酬額を決める（負けたら 0）。自分のコマなら実際にミニゲームを起動して遊び、
-        /// CPU のコマなら遊ばせるものが無いので勝敗を抽選する（乱数を引くのは決める人だけなので結果は 1 つに定まる）。
+        /// ミニゲームを遊んで報酬を配る。オンラインと一人用で遊び方が違う。
+        ///
+        /// **オンライン**: 参加者全員が同じ内容（<paramref name="seed"/>）のミニゲームを同時に遊ぶ。
+        /// 相手はこのクライアントでシミュレートせず、各自が自分の結果値を <see cref="GameActionType.MiniGameScore"/> で
+        /// 配る。全員ぶんが揃ったら <see cref="MiniGameRanking.Resolve"/> で勝者を決めるので、
+        /// 誰かが判定役にならなくても全クライアントが同じ結論に至る。
+        ///
+        /// **一人用**: 遊ぶのは <paramref name="starter"/> が人間のときだけで、相手はゲーム内の CPU が務める。
+        /// CPU のコマが着地したときは遊ばせるものが無いので勝敗を抽選する。
         /// </summary>
-        private async UniTask<int> DecideMiniGameCellAsync(int player, MiniGameId game, CancellationToken ct)
+        private async UniTask RunMiniGameAsync(int starter, MiniGameId game, int seed, CancellationToken ct)
         {
-            if (player != _humanPlayer)
+            if (_money == null)
             {
-                return _itemRng.Next(2) == 0 ? MiniGameRewardMoney : 0;
+                return;
             }
 
-            // ミニゲームの参加者（既定 2 人）に自分と次の参加者の盤面キャラを渡す（アイテムから遊ぶときと同じ）。
-            int opponent = _pieceCount > 1 ? (player + 1) % _pieceCount : player;
-            CharacterId[] characters =
+            if (!_sync.IsOnline)
             {
-                _characterPicker.ResolveCharacter(player),
-                _characterPicker.ResolveCharacter(opponent),
-            };
-            MiniGameResult result = await _launcher.PlayAsync(game, ct, characters: characters);
+                int reward = starter == _humanPlayer && _launcher != null
+                    ? await PlayLocalMiniGameAsync(game, ct)
+                    : (_itemRng.Next(2) == 0 ? MiniGameRewardMoney : 0);
+                await ApplyMoneyRewardAsync(starter, reward, ct);
+                return;
+            }
+
+            // 参加者の並びは「自分が先頭」。ミニゲーム側は index 0 を自分として扱うので、
+            // キャラも結果値もこの並びに合わせて渡す。
+            int[] order = MiniGameSeatOrder();
+            CharacterId[] characters = MiniGameCharacters(order);
+
+            // プレイ中の途中経過（連打数など）を配り合う経路。受け取った値は席からミニゲーム内の
+            // 参加者 index へ直して書き込む（ミニゲーム側は index 0 を自分として描くため）。
+            MiniGameProgressChannel progress = new(
+                order.Length, value => _sync.PublishProgress(_humanPlayer, value));
+            void OnProgress(int seat, int value) => progress.Apply(ParticipantOf(order, seat), value);
+            _sync.ProgressReceived += OnProgress;
+
+            // ランチャーが無い（注入に失敗した）ときも「最悪の結果」を必ず配る。ここで黙って抜けると
+            // 全員の結果値を待っている他のクライアントが進めなくなる。
+            int myValue = MiniGameRanking.WorstValue(game);
+            try
+            {
+                if (_launcher != null)
+                {
+                    MiniGameResult result = await _launcher.PlayAsync(
+                        game, ct, order.Length, characters, simulateOpponents: false, seed, progress);
+                    myValue = result.Value;
+                }
+            }
+            finally
+            {
+                _sync.ProgressReceived -= OnProgress;
+            }
+            _sync.Publish(GameAction.MiniGameScore(_humanPlayer, myValue));
+
+            int[] valuesBySeat = await CollectMiniGameScoresAsync(ct);
+            int[] values = new int[order.Length];
+            for (int i = 0; i < order.Length; i++)
+            {
+                values[i] = valuesBySeat[order[i]];
+            }
+
+            await ApplyMiniGameWinnersAsync(game, order, values, ct);
+        }
+
+        /// <summary>
+        /// 一人用モードでミニゲームを遊んで報酬額を返す（負けたら 0）。相手はゲーム内の CPU が務めるので、
+        /// 参加者ぶんの盤面キャラをそのまま渡して勝敗はゲームの判定（<see cref="DetermineMiniGameWin"/>）に任せる。
+        /// </summary>
+        private async UniTask<int> PlayLocalMiniGameAsync(MiniGameId game, CancellationToken ct)
+        {
+            int[] order = MiniGameSeatOrder();
+            MiniGameResult result = await _launcher.PlayAsync(
+                game, ct, order.Length, MiniGameCharacters(order));
             return DetermineMiniGameWin(result) ? MiniGameRewardMoney : 0;
+        }
+
+        /// <summary>
+        /// ミニゲームの参加者の並び（先頭が自分＝人間プレイヤー、以降は席順）。
+        /// ミニゲーム側は index 0 を「自分」として描くので、この並びでキャラ・結果値を渡す。
+        /// </summary>
+        private int[] MiniGameSeatOrder()
+        {
+            int[] order = new int[_pieceCount];
+            order[0] = _humanPlayer;
+            int next = 1;
+            for (int seat = 0; seat < _pieceCount; seat++)
+            {
+                if (seat != _humanPlayer)
+                {
+                    order[next++] = seat;
+                }
+            }
+            return order;
+        }
+
+        /// <summary>参加者の並び <paramref name="order"/> に対応する盤面キャラ（走者・カードの表示に使う）。</summary>
+        private CharacterId[] MiniGameCharacters(IReadOnlyList<int> order)
+        {
+            CharacterId[] characters = new CharacterId[order.Count];
+            for (int i = 0; i < order.Count; i++)
+            {
+                characters[i] = _characterPicker.ResolveCharacter(order[i]);
+            }
+            return characters;
+        }
+
+        /// <summary>
+        /// 席 <paramref name="seat"/> が <paramref name="order"/> の何番目の参加者かを返す（見つからなければ -1）。
+        /// ミニゲーム側は index 0 を自分として描くので、受信した席をこの並びへ直してから使う。
+        /// </summary>
+        private static int ParticipantOf(IReadOnlyList<int> order, int seat)
+        {
+            for (int i = 0; i < order.Count; i++)
+            {
+                if (order[i] == seat)
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// 全参加者の結果値が揃うまで <see cref="GameActionType.MiniGameScore"/> を集める（戻り値の index＝席）。
+        /// 同じ席から二重に届いた場合は先着を採る。集めている間は「他のプレイヤーの結果を待っています」を出す。
+        /// </summary>
+        private async UniTask<int[]> CollectMiniGameScoresAsync(CancellationToken ct)
+        {
+            int[] bySeat = new int[_pieceCount];
+            bool[] received = new bool[_pieceCount];
+            int remaining = _pieceCount;
+
+            _waitingMiniGameScores = true;
+            RefreshWaitingBanner();
+            try
+            {
+                while (remaining > 0)
+                {
+                    GameAction action = await WaitForActionAsync(GameActionType.MiniGameScore, ct);
+                    int seat = action.Seat;
+                    if (seat < 0 || seat >= _pieceCount || received[seat])
+                    {
+                        continue;
+                    }
+                    received[seat] = true;
+                    bySeat[seat] = action.MiniGameValue;
+                    remaining--;
+                }
+            }
+            finally
+            {
+                _waitingMiniGameScores = false;
+                RefreshWaitingBanner();
+            }
+            return bySeat;
+        }
+
+        /// <summary>
+        /// 集めた結果値から勝者を決めて報酬を配り、誰が勝ったかを帯で知らせる。
+        /// 判定は純粋関数（<see cref="MiniGameRanking.Resolve"/>）なので全クライアントで同じ結果になる。
+        /// </summary>
+        private async UniTask ApplyMiniGameWinnersAsync(
+            MiniGameId game, IReadOnlyList<int> order, IReadOnlyList<int> values, CancellationToken ct)
+        {
+            bool[] wins = MiniGameRanking.Resolve(game, values);
+            List<string> winnerNames = new();
+            bool iWon = false;
+
+            for (int i = 0; i < wins.Length; i++)
+            {
+                if (!wins[i])
+                {
+                    continue;
+                }
+                int seat = order[i];
+                _money.Add(seat, MiniGameRewardMoney);
+                winnerNames.Add(CharacterNameOf(seat));
+                iWon |= seat == _humanPlayer;
+            }
+
+            ShowBannerText(winnerNames.Count == 0
+                ? "ミニゲーム 勝者なし"
+                : $"ミニゲーム {string.Join("・", winnerNames)} の勝ち！");
+
+            if (winnerNames.Count > 0)
+            {
+                _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+            }
+            if (iWon)
+            {
+                await ShowItemMoneyFloatAsync(MiniGameRewardMoney, ct);
+            }
+        }
+
+        /// <summary>ミニゲームの内容を組み立てる種を引く（0 は「種なし」の意味なので避ける）。</summary>
+        private int NextMiniGameSeed()
+        {
+            int seed = _itemRng.Next(1, int.MaxValue);
+            return seed;
         }
 
         /// <summary>
@@ -1859,7 +2054,10 @@ namespace Main.Board
                         await ApplyMoneyStealAsync(seat, action, ct);
                         break;
                     case ItemId.MiniGame:
-                        await ApplyMoneyRewardAsync(seat, action.EffectArgAt(0), ct);
+                        // 効果パラメータは「遊ぶゲーム」と「内容を組み立てる種」。オンラインは全員が
+                        // 同じ内容を同時に遊び、一人用は使用者だけが CPU 相手に遊ぶ。
+                        await RunMiniGameAsync(
+                            seat, (MiniGameId)action.EffectArgAt(0), action.EffectArgAt(1), ct);
                         break;
                     case ItemId.InstantWin:
                         // 即座に使用者の勝ちを確定する。Winner 購読が勝者表示・「ホームに戻る」・
@@ -1948,23 +2146,10 @@ namespace Main.Board
                     return; // キャンセル・破棄：消費しない
                 }
 
-                // ミニゲームの参加者（既定 2 人）にプレイヤー（=自分の選択キャラ）と相手の盤面キャラを渡す。
-                // これでミニゲーム側は YOU/CPU でなく実際のキャラで走者・カードを表示する。相手は次の参加者。
-                int opponent = _pieceCount > 1 ? (_humanPlayer + 1) % _pieceCount : _humanPlayer;
-                CharacterId[] miniGameCharacters =
-                {
-                    _characterPicker.ResolveCharacter(_humanPlayer),
-                    _characterPicker.ResolveCharacter(opponent),
-                };
-                MiniGameResult result = await _launcher.PlayAsync(chosen.Value, ct, characters: miniGameCharacters);
-                if (this == null)
-                {
-                    return;
-                }
-
-                // 勝てば所持金報酬（負けは 0）。消費と報酬の反映は受信側（ApplyActionAsync）が行う。
-                int reward = DetermineMiniGameWin(result) ? MiniGameRewardMoney : 0;
-                _sync.Publish(GameAction.ItemUse(_humanPlayer, (int)ItemId.MiniGame, reward));
+                // 決めるのは「どのゲームを」「どの内容で」だけ。プレイと報酬の反映は受信側
+                // （ApplyActionAsync → RunMiniGameAsync）が行うので、オンラインでは全員が同時に遊べる。
+                _sync.Publish(GameAction.ItemUse(
+                    _humanPlayer, (int)ItemId.MiniGame, (int)chosen.Value, NextMiniGameSeed()));
                 published = true;
             }
             catch (OperationCanceledException)
