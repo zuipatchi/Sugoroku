@@ -91,6 +91,21 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void MiniGameLandingは勝ちの報酬額と負けの0が往復する()
+        {
+            string won = GameActionCodec.Encode(GameAction.MiniGameLanding(1, 500));
+            string lost = GameActionCodec.Encode(GameAction.MiniGameLanding(1, 0));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(won, out GameAction wonAction));
+            Assert.AreEqual(GameActionType.MiniGameLanding, wonAction.Type);
+            Assert.AreEqual(1, wonAction.Seat);
+            Assert.AreEqual(500, wonAction.MiniGameReward);
+
+            Assert.IsTrue(GameActionCodec.TryDecode(lost, out GameAction lostAction));
+            Assert.AreEqual(0, lostAction.MiniGameReward);
+        }
+
+        [Test]
         public void Busyは待機理由と解除の両方が往復する()
         {
             // 他プレイヤーの操作待ち表示のお知らせ。None は「待機表示の解除」を意味する。

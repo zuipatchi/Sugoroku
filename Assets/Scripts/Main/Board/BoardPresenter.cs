@@ -1369,6 +1369,14 @@ namespace Main.Board
                 return;
             }
 
+            // ミニゲームマスは、そのマスに設定されたミニゲームを遊んで勝てば所持金報酬をもらう。
+            if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
+                && _boardDef.Cell(position).Event == BoardCellEvent.MiniGame)
+            {
+                await PlayMiniGameCellSequenceAsync(player, _boardDef.Cell(position).MiniGame, ct);
+                return;
+            }
+
             // 止まったマスの画像を中央に出す（消さずに保持）。
             Sprite cellIcon = _cellIcons != null && position >= 0 && position < _cellIcons.Length
                 ? _cellIcons[position]
@@ -1390,6 +1398,55 @@ namespace Main.Board
                 await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, CellPopupHoldSeconds - PreHoldSeconds)), cancellationToken: ct);
                 await _landing.HideCellPopupAsync(ct);
             }
+        }
+
+        /// <summary>
+        /// ミニゲームマスの演出。そのマスに設定されたミニゲーム（<paramref name="game"/>＝盤面エディタで選ぶ）を
+        /// 着地した本人のクライアントだけが遊び（<see cref="DecideMiniGameCellAsync"/>）、勝敗から決まる報酬額を発行する。
+        /// 適用（所持金への加算と浮遊テキスト）は全クライアントが受信して行うので、オンラインでも所持金が食い違わない。
+        /// ミニゲームアイテムと違って**遊ぶゲームは選べない**（マスごとに決まっている）。
+        /// </summary>
+        private async UniTask PlayMiniGameCellSequenceAsync(int player, MiniGameId game, CancellationToken ct)
+        {
+            if (_sync.IsLocalDecider(player))
+            {
+                // ランチャーが無い（注入に失敗した）ときも報酬 0 として必ず発行する。
+                // ここで黙って抜けると、結果を待っている他のクライアントが進めなくなる。
+                int reward = _launcher == null ? 0 : await DecideMiniGameCellAsync(player, game, ct);
+                _sync.Publish(GameAction.MiniGameLanding(player, reward));
+            }
+            else
+            {
+                // 相手がミニゲームを遊んでいる間、こちらの画面は何も動かないので誰を待っているのかを出す
+                // （着地したマスは全クライアントで一致しているので、Busy を配らなくても導ける）。
+                SetBusy(player, BusyReason.MiniGame);
+            }
+
+            GameAction result = await WaitForActionAsync(GameActionType.MiniGameLanding, ct);
+            SetBusy(player, BusyReason.None);
+            await ApplyMoneyRewardAsync(result.Seat, result.MiniGameReward, ct);
+        }
+
+        /// <summary>
+        /// ミニゲームマスの報酬額を決める（負けたら 0）。自分のコマなら実際にミニゲームを起動して遊び、
+        /// CPU のコマなら遊ばせるものが無いので勝敗を抽選する（乱数を引くのは決める人だけなので結果は 1 つに定まる）。
+        /// </summary>
+        private async UniTask<int> DecideMiniGameCellAsync(int player, MiniGameId game, CancellationToken ct)
+        {
+            if (player != _humanPlayer)
+            {
+                return _itemRng.Next(2) == 0 ? MiniGameRewardMoney : 0;
+            }
+
+            // ミニゲームの参加者（既定 2 人）に自分と次の参加者の盤面キャラを渡す（アイテムから遊ぶときと同じ）。
+            int opponent = _pieceCount > 1 ? (player + 1) % _pieceCount : player;
+            CharacterId[] characters =
+            {
+                _characterPicker.ResolveCharacter(player),
+                _characterPicker.ResolveCharacter(opponent),
+            };
+            MiniGameResult result = await _launcher.PlayAsync(game, ct, characters: characters);
+            return DetermineMiniGameWin(result) ? MiniGameRewardMoney : 0;
         }
 
         /// <summary>

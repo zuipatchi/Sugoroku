@@ -11,7 +11,7 @@ namespace Main.EditorTools
     /// すごろく盤面（<see cref="BoardDefinition"/>）をビジュアルに編集するエディタウィンドウ。
     /// 方眼をクリックして経路順にマスを置き（クリック順が経路。0＝スタート＝ゴール）、
     /// 選択したマスのイベント・数値・色を右パネルで編集する。
-    /// マスの画像はイベント種別ごとに全マップ共通（<see cref="BoardEventArtCatalog"/>）なので、盤面ごとの設定は無い。
+    /// マスの画像は全マップ共通の <see cref="BoardEventArtCatalog"/> が解決する（イベント種別ごと。ミニゲームマスだけはマスに設定したゲームのサムネイル）ので、盤面ごとの設定は無い。
     /// メニュー「Window > Sugoroku > Board Editor」で開く。
     /// 方眼グリッドの描画は <see cref="BoardEditorGridView"/>、右パネルの編集 UI は
     /// <see cref="BoardCellInspector"/> に委譲し、本体はツールバーとアセット操作・状態の統括を担う。

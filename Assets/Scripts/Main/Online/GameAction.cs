@@ -71,6 +71,9 @@ namespace Main.Online
         /// <summary>使ったアイテム（<see cref="GameActionType.ItemUse"/>）。</summary>
         public int UsedItemId => ArgAt(0, -1);
 
+        /// <summary>ミニゲームマスの報酬額（<see cref="GameActionType.MiniGameLanding"/>）。負けたら 0。</summary>
+        public int MiniGameReward => ArgAt(0);
+
         /// <summary>待機表示の理由（<see cref="GameActionType.Busy"/>）。<see cref="BusyReason"/> の値。</summary>
         public int BusyReasonId => ArgAt(0);
 
@@ -125,6 +128,12 @@ namespace Main.Online
                 args[i + 1] = effectArgs[i];
             }
             return new GameAction(GameActionType.ItemUse, seat, args);
+        }
+
+        /// <summary>ミニゲームマスの着地結果（<paramref name="reward"/> は負けたら 0）。</summary>
+        public static GameAction MiniGameLanding(int seat, int reward)
+        {
+            return new GameAction(GameActionType.MiniGameLanding, seat, new[] { reward });
         }
 
         /// <summary>
