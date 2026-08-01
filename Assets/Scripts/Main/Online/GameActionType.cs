@@ -32,5 +32,12 @@ namespace Main.Online
         /// （相手が回している間こちらの画面が止まって見えるのを防ぐ）。
         /// </summary>
         SpinStart = 5,
+
+        /// <summary>
+        /// 待機表示の切り替え。引数 0 = <see cref="BusyReason"/>（<see cref="BusyReason.None"/> なら解除）。
+        /// 盤面を進める決定ではなく「いま自分の手元で時間のかかる操作をしている」というお知らせで、
+        /// モーダルやミニゲームを開く前に配って、他のクライアントに待機表示を出してもらう。
+        /// </summary>
+        Busy = 6,
     }
 }

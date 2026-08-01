@@ -71,6 +71,9 @@ namespace Main.Online
         /// <summary>使ったアイテム（<see cref="GameActionType.ItemUse"/>）。</summary>
         public int UsedItemId => ArgAt(0, -1);
 
+        /// <summary>待機表示の理由（<see cref="GameActionType.Busy"/>）。<see cref="BusyReason"/> の値。</summary>
+        public int BusyReasonId => ArgAt(0);
+
         /// <summary>アイテム効果のパラメータ数（<see cref="GameActionType.ItemUse"/>）。</summary>
         public int EffectArgCount => ArgCount > 0 ? ArgCount - 1 : 0;
 
@@ -122,6 +125,15 @@ namespace Main.Online
                 args[i + 1] = effectArgs[i];
             }
             return new GameAction(GameActionType.ItemUse, seat, args);
+        }
+
+        /// <summary>
+        /// 待機表示の切り替え（<paramref name="reason"/> が <see cref="BusyReason.None"/> なら解除）。
+        /// 盤面は進めないので、受信側は表示を切り替えて次のアクションを待ち続ける。
+        /// </summary>
+        public static GameAction Busy(int seat, BusyReason reason)
+        {
+            return new GameAction(GameActionType.Busy, seat, new[] { (int)reason });
         }
 
         /// <summary>退出通知。</summary>

@@ -126,9 +126,21 @@ namespace Main.Board
         // 手番が移るたびに「〔キャラ名〕の番」を一瞬見せるアナウンス帯とその文言ラベル。
         private VisualElement _turnBanner;
         private Label _turnBannerLabel;
-        // 手番アナウンスの購読を 1 度だけ張るためのフラグと、表示→非表示のトゥイーン用トークン。
-        private bool _turnBannerSetup;
+        // 帯（手番アナウンス・待機表示）の購読を 1 度だけ張るためのフラグと、表示→非表示のトゥイーン用トークン。
+        private bool _bannersSetup;
         private CancellationTokenSource _turnBannerCts;
+        // 他プレイヤーの操作（買い物・ミニゲーム・陣地選択）を待っている間だけ出す待機表示と、
+        // その文言ラベル・末尾の「.」ラベル（「.」だけ別ラベルにしてピルの幅を一定に保つ）。
+        private VisualElement _waitingBanner;
+        private Label _waitingBannerLabel;
+        private Label _waitingBannerDots;
+        // 待機表示の「…」を動かすトゥイーン用トークン（表示のたびに張り替える）。
+        private CancellationTokenSource _waitingBannerCts;
+        // いま待たせている席とその理由（Busy で配られたもの）。None なら「相手の手番のルーレット待ち」だけを見る。
+        private int _busySeat = -1;
+        private BusyReason _busyReason = BusyReason.None;
+        // 表示中の待機文言（同じ内容なら張り替えず「.」のアニメを続ける）。
+        private string _waitingMessage;
         // 勝敗確定後に出す「ホームに戻る」ボタンとその帯（既定は USS で非表示）。
         private VisualElement _gameOverActions;
         private Button _homeReturnButton;
@@ -289,6 +301,8 @@ namespace Main.Board
                 }
                 _clearLabel.text = WinnerText(winner);
                 _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
+                // 決着したらもう誰の操作も待たないので待機表示を消す。
+                SetBusy(-1, BusyReason.None);
                 // 勝敗が決まったら「ホームに戻る」ボタンを出す。
                 ShowGameOverActions();
                 // 自分（人間プレイヤー）の勝敗でパーティクル Prefab を前面で再生する（合成シェーダーは共通）。
@@ -331,6 +345,8 @@ namespace Main.Board
                 {
                     _clearLabel.text = "相手が退出しました";
                 }
+                // 退出した相手の操作を待っていた場合、待機表示は用済みなので消す。
+                SetBusy(-1, BusyReason.None);
                 ShowGameOverActions();
             }));
 
@@ -343,7 +359,7 @@ namespace Main.Board
             BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
             SetupTerritoriesIfReady();
-            SetupTurnBannerIfReady();
+            SetupBannersIfReady();
         }
 
         private void Awake()
@@ -361,7 +377,7 @@ namespace Main.Board
             BuildPlayerHeaderIfReady();
             StartLoadingPieceIconsIfReady();
             SetupTerritoriesIfReady();
-            SetupTurnBannerIfReady();
+            SetupBannersIfReady();
         }
 
         private void OnDestroy()
@@ -371,6 +387,8 @@ namespace Main.Board
             _zoomController?.Dispose();
             _turnBannerCts?.Cancel();
             _turnBannerCts?.Dispose();
+            _waitingBannerCts?.Cancel();
+            _waitingBannerCts?.Dispose();
 
             // フォールバックで生成した盤面データ（アセットではない）は明示的に破棄する。
             if (_ownsBoardDef && _boardDef != null)
@@ -447,7 +465,7 @@ namespace Main.Board
             _boardArea = root.Q<VisualElement>("BoardArea");
             _playerHeader = root.Q<VisualElement>("PlayerHeader");
             _clearLabel = root.Q<Label>("ClearLabel");
-            // 手番アナウンス帯（「〔キャラ名〕の番」）。表示制御は SetupTurnBannerIfReady で購読する。
+            // 手番アナウンス帯（「〔キャラ名〕の番」）。表示制御は SetupBannersIfReady で購読する。
             _turnBanner = root.Q<VisualElement>("TurnBanner");
             _turnBannerLabel = root.Q<Label>("TurnBannerLabel");
             // 勝敗確定後に出す「ホームに戻る」ボタン。既定は USS で非表示。
@@ -494,6 +512,11 @@ namespace Main.Board
                     (def, token) => LoadItemSpriteAsync(def, token),
                     _destroyCt);
             }
+
+            // 他プレイヤーの操作を待っている間だけ出す待機表示。既定は USS で非表示。
+            _waitingBanner = root.Q<VisualElement>("WaitingBanner");
+            _waitingBannerLabel = root.Q<Label>("WaitingBannerLabel");
+            _waitingBannerDots = root.Q<Label>("WaitingBannerDots");
 
             // 陣地獲得アイテムのマス選択ガイド（バナー＋キャンセル）。既定は USS で非表示。
             _territorySelectBanner = root.Q<VisualElement>("TerritorySelectBanner");
@@ -794,17 +817,25 @@ namespace Main.Board
 
         /// <summary>
         /// 手番の変化を購読し、手番が移るたびに「〔キャラ名〕の番」のアナウンス帯を出す。
+        /// あわせて、他プレイヤーの操作を待っている間の待機表示も手番・ルーレット状態の変化で更新する。
         /// 購読は 1 度だけ張り、以降は <see cref="TurnModel.CurrentPlayer"/> の変化で自動表示する
         /// （購読時に現在の手番でも即発火するので、初手番のアナウンスも出る）。
         /// </summary>
-        private void SetupTurnBannerIfReady()
+        private void SetupBannersIfReady()
         {
-            if (_turnBannerSetup || !_cellsBuilt || _turn == null || _turnBanner == null)
+            if (_bannersSetup || !_cellsBuilt || _turn == null || _rouletteModel == null || _turnBanner == null)
             {
                 return;
             }
-            _turnBannerSetup = true;
-            _disposables.Add(_turn.CurrentPlayer.Subscribe(ShowTurnBanner));
+            _bannersSetup = true;
+            _disposables.Add(_turn.CurrentPlayer.Subscribe(player =>
+            {
+                ShowTurnBanner(player);
+                // 手番が移ったら「誰を待っているか」も変わる（自分の手番なら消える）。
+                RefreshWaitingBanner();
+            }));
+            // 相手がルーレットを回し始めたら円盤が動いて待っているのが分かるので、待機表示は消す。
+            _disposables.Add(_rouletteModel.State.Subscribe(_ => RefreshWaitingBanner()));
         }
 
         /// <summary>手番プレイヤーのキャラ名でアナウンス帯を出し、少し見せてから隠す。</summary>
@@ -816,9 +847,7 @@ namespace Main.Board
             }
 
             // 自分（人間プレイヤー）の手番は「あなたの番」、それ以外はキャラ名で「〔キャラ名〕の番」。
-            string who = player == _humanPlayer
-                ? "あなた"
-                : CharacterCatalog.Find(_characterPicker.ResolveCharacter(player)).DisplayName;
+            string who = player == _humanPlayer ? "あなた" : CharacterNameOf(player);
             _turnBannerLabel.text = $"{who}の番";
             _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
 
@@ -841,6 +870,125 @@ namespace Main.Board
             catch (OperationCanceledException)
             {
                 // 次の手番アナウンスに差し替えられた（=打ち切り）。--visible はそのまま新しい表示へ引き継ぐ。
+            }
+        }
+
+        /// <summary>席 <paramref name="player"/> に割り当てられたキャラの表示名（手番アナウンス・待機表示で使う）。</summary>
+        private string CharacterNameOf(int player)
+        {
+            return CharacterCatalog.Find(_characterPicker.ResolveCharacter(player)).DisplayName;
+        }
+
+        /// <summary>待機表示の USS クラス（表示中だけ付ける）。</summary>
+        private const string WaitingBannerVisibleClass = "waiting-banner--visible";
+
+        /// <summary>待機表示の末尾に付ける「.」の最大数（0〜この数を繰り返して待っている感を出す）。</summary>
+        private const int WaitingDotMax = 3;
+
+        /// <summary>待機表示の「.」を 1 つ増やす間隔（秒）。</summary>
+        private const float WaitingDotIntervalSeconds = 0.45f;
+
+        /// <summary>
+        /// 他プレイヤーの操作（買い物・ミニゲーム・陣地選択）の開始／終了を受け取る。
+        /// その席の決定を自分が行う場合（＝自分の操作。一人用モードは全席が該当）は待たされる側ではないので無視する。
+        /// </summary>
+        private void SetBusy(int seat, BusyReason reason)
+        {
+            bool waited = reason != BusyReason.None && !_sync.IsLocalDecider(seat);
+            _busySeat = waited ? seat : -1;
+            _busyReason = waited ? reason : BusyReason.None;
+            RefreshWaitingBanner();
+        }
+
+        /// <summary>
+        /// 待機表示をいまの状態に合わせ直す。優先度は
+        /// (1) 他プレイヤーが時間のかかる操作中（<see cref="SetBusy"/> で受けたもの）、
+        /// (2) 他プレイヤーの手番でまだルーレットが回っていない（＝こちらは待つだけ）、
+        /// (3) どちらでもなければ非表示。
+        /// </summary>
+        private void RefreshWaitingBanner()
+        {
+            if (_waitingBanner == null || _waitingBannerLabel == null || _waitingBannerDots == null)
+            {
+                return;
+            }
+
+            string message = ResolveWaitingMessage();
+            if (message == null)
+            {
+                HideWaitingBanner();
+                return;
+            }
+            if (message == _waitingMessage)
+            {
+                return; // 同じ内容なら張り替えず「.」のアニメを続ける。
+            }
+
+            _waitingMessage = message;
+            _waitingBannerLabel.text = message;
+            _waitingBanner.AddToClassList(WaitingBannerVisibleClass);
+            _waitingBannerCts?.Cancel();
+            _waitingBannerCts?.Dispose();
+            _waitingBannerCts = CancellationTokenSource.CreateLinkedTokenSource(_destroyCt);
+            AnimateWaitingDotsAsync(_waitingBannerCts.Token).Forget();
+        }
+
+        /// <summary>いま出すべき待機文言（待つ必要がなければ null）。</summary>
+        private string ResolveWaitingMessage()
+        {
+            if (_busyReason != BusyReason.None)
+            {
+                string what = _busyReason switch
+                {
+                    BusyReason.ItemShop => "買い物中",
+                    BusyReason.MiniGame => "ミニゲーム中",
+                    BusyReason.TerritorySelect => "陣地を選んでいます",
+                    _ => "考え中",
+                };
+                return $"{CharacterNameOf(_busySeat)}が{what}";
+            }
+
+            // 円盤は回している間しか出ないので、相手が回し始めるまでは画面が動かず待たされていることが伝わらない。
+            // 決着後・相手の退出後はもう誰も待たない。アイテム効果の演出中は画面が動いているので出さない。
+            if (_turn == null || _rouletteModel == null || _itemEffectRunning
+                || _model.IsFinished || _sync.SessionLost.CurrentValue)
+            {
+                return null;
+            }
+            int current = _turn.CurrentPlayer.CurrentValue;
+            if (_sync.IsLocalDecider(current) || _rouletteModel.State.CurrentValue != RouletteState.Idle)
+            {
+                return null;
+            }
+            return $"{CharacterNameOf(current)}のルーレット待ち";
+        }
+
+        /// <summary>待機表示を消す（待っていた操作の結果が届いた・待つ必要がなくなった）。</summary>
+        private void HideWaitingBanner()
+        {
+            _waitingMessage = null;
+            _waitingBannerCts?.Cancel();
+            _waitingBannerCts?.Dispose();
+            _waitingBannerCts = null;
+            _waitingBanner?.RemoveFromClassList(WaitingBannerVisibleClass);
+        }
+
+        // 待機文言の末尾の「.」を増やし続けて、止まっているのではなく待っていることを見せる。
+        private async UniTaskVoid AnimateWaitingDotsAsync(CancellationToken ct)
+        {
+            try
+            {
+                int dots = 0;
+                while (true)
+                {
+                    _waitingBannerDots.text = new string('.', dots);
+                    dots = (dots + 1) % (WaitingDotMax + 1);
+                    await UniTask.Delay(TimeSpan.FromSeconds(WaitingDotIntervalSeconds), cancellationToken: ct);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 待機表示を消した・別の待機に差し替えた（=打ち切り）。
             }
         }
 
@@ -1207,8 +1355,15 @@ namespace Main.Board
                 ItemId? purchased = await DecidePurchaseAsync(player, ct);
                 _sync.Publish(GameAction.ShopResult(player, purchased.HasValue ? (int)purchased.Value : -1));
             }
+            else
+            {
+                // 買い物の間こちらの画面は何も動かないので、誰を待っているのかを出しておく。
+                // 「誰がどのマスに着地したか」は全クライアントで一致しているので、Busy を配らなくても導ける。
+                SetBusy(player, BusyReason.ItemShop);
+            }
 
             GameAction result = await WaitForActionAsync(GameActionType.ShopResult, ct);
+            SetBusy(player, BusyReason.None);
             ApplyShopResult(result.Seat, result.ShopItemId);
         }
 
@@ -1440,8 +1595,9 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 期待する種別のアクションが届くまで待つ。先にアイテム使用が割り込んできた場合は取りこぼさずに適用し
-        /// （効果が消えてしまわないように）、それ以外の想定外の種別は進行の組み立て違いなので警告して読み飛ばす
+        /// 期待する種別のアクションが届くまで待つ。先にアイテム使用・待機表示が割り込んできた場合は
+        /// 取りこぼさずに適用し（効果や表示が消えてしまわないように）、
+        /// それ以外の想定外の種別は進行の組み立て違いなので警告して読み飛ばす
         /// （待ち続けてハングするより、ログを残して先へ進めるほうが原因を追いやすい）。
         /// </summary>
         private async UniTask<GameAction> WaitForActionAsync(GameActionType expected, CancellationToken ct)
@@ -1453,7 +1609,7 @@ namespace Main.Board
                 {
                     return action;
                 }
-                if (action.Type == GameActionType.ItemUse)
+                if (action.Type == GameActionType.ItemUse || action.Type == GameActionType.Busy)
                 {
                     await ApplyActionAsync(action, ct);
                     continue;
@@ -1532,12 +1688,26 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 受信したアクションを適用する（全クライアントで実行）。現状はアイテム使用のみを扱う
+        /// 受信したアクションを適用する（全クライアントで実行）。アイテム使用と待機表示を扱う
         /// （スピン・着地は <see cref="Turn.GameFlowController"/> と着地演出側が扱う）。
         /// アイテムの消費はここで行うので、キャンセルされた使用（＝発行されなかったもの）は消費されない。
+        ///
+        /// 待機表示（<see cref="GameActionType.Busy"/>）は盤面を進めないお知らせなので、表示を切り替えて即座に返る。
+        /// それ以外のアクションが届いたときは「待っていた操作が済んだ」ということなので待機表示を消す
+        /// （キャンセルされて結果が発行されない場合だけ、決めた人が <see cref="BusyReason.None"/> を配って消す）。
         /// </summary>
         public async UniTask ApplyActionAsync(GameAction action, CancellationToken ct)
         {
+            if (action.Type == GameActionType.Busy)
+            {
+                SetBusy(action.Seat, (BusyReason)action.BusyReasonId);
+                return;
+            }
+
+            // Busy 以外が届いた＝待たせていた操作が済んだ。この後の BeginItemEffect までは同期処理なので
+            // （効果の演出中は待機表示を出さない）、ここで出し直しても描画は挟まらずちらつかない。
+            SetBusy(action.Seat, BusyReason.None);
+
             if (action.Type != GameActionType.ItemUse || _items == null)
             {
                 return;
@@ -1589,6 +1759,8 @@ namespace Main.Board
         private void BeginItemEffect()
         {
             _itemEffectRunning = true;
+            // 効果の演出中は画面が動いているので待機表示は要らない。
+            RefreshWaitingBanner();
             if (_roulette != null)
             {
                 _roulette.SetInteractable(false);
@@ -1602,6 +1774,8 @@ namespace Main.Board
         private void EndItemEffect()
         {
             _itemEffectRunning = false;
+            // 効果が終わってもまだ相手の手番なら、待機表示（ルーレット待ち）へ戻す。
+            RefreshWaitingBanner();
             if (_roulette != null && !_model.IsFinished
                 && _turn.CurrentPlayer.CurrentValue == _humanPlayer
                 && _rouletteModel.State.CurrentValue == RouletteState.Idle)
@@ -1633,6 +1807,9 @@ namespace Main.Board
             }
 
             BeginItemEffect();
+            // 選択とプレイの間、他のクライアントの画面は何も動かないので待機表示を出してもらう
+            // （キャンセルされたら下の finally で解除を配る。成功したら ItemUse の受信が表示を消す）。
+            _sync.Publish(GameAction.Busy(_humanPlayer, BusyReason.MiniGame));
             bool published = false;
             try
             {
@@ -1676,6 +1853,7 @@ namespace Main.Board
                 // 発行できたなら、続けて走る適用側（ApplyActionAsync）が効果の終了まで面倒を見る。
                 if (!published)
                 {
+                    _sync.Publish(GameAction.Busy(_humanPlayer, BusyReason.None));
                     EndItemEffect();
                 }
             }
@@ -1747,6 +1925,9 @@ namespace Main.Board
             }
 
             BeginItemEffect();
+            // マスを選んでいる間、他のクライアントの画面は何も動かないので待機表示を出してもらう
+            // （キャンセルされたら下の finally で解除を配る。成功したら ItemUse の受信が表示を消す）。
+            _sync.Publish(GameAction.Busy(_humanPlayer, BusyReason.TerritorySelect));
             bool published = false;
             try
             {
@@ -1766,6 +1947,7 @@ namespace Main.Board
             {
                 if (!published)
                 {
+                    _sync.Publish(GameAction.Busy(_humanPlayer, BusyReason.None));
                     EndItemEffect();
                 }
             }

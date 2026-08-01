@@ -125,9 +125,9 @@ namespace Main.Turn
         /// スピンのアクションが届くまで待つ。先に届いたアクションは捌いて待ち続ける。
         /// - 回し始めの合図（<see cref="GameActionType.SpinStart"/>）: 自分で回していない側は円盤を回し始める
         ///   （自分で回している側は既に回っているので読み飛ばす）。
-        /// - アイテム使用など: 適用する（アイテムは自分の手番かつルーレット未回転のときだけ使えるので、
-        ///   必ずスピンより前に流れてくる）。適用の結果として決着したら（「勝利」アイテム）、
-        ///   来ないスピンを待たないよう null を返す。
+        /// - アイテム使用・待機表示（<see cref="GameActionType.Busy"/>）など: <see cref="BoardPresenter.ApplyActionAsync"/>
+        ///   へ流す（アイテムは自分の手番かつルーレット未回転のときだけ使えるので、必ずスピンより前に流れてくる）。
+        ///   適用の結果として決着したら（「勝利」アイテム）、来ないスピンを待たないよう null を返す。
         /// </summary>
         private async UniTask<GameAction?> WaitForSpinAsync(bool decidedHere, CancellationToken ct)
         {

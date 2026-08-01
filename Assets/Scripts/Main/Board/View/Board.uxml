@@ -48,6 +48,16 @@
             <ui:Label text="占領するマスを選んでください" name="TerritorySelectLabel" class="territory-select__label" picking-mode="Ignore" />
             <ui:Button text="キャンセル" name="TerritorySelectCancel" class="territory-select__cancel" />
         </ui:VisualElement>
+        <!-- 他プレイヤーの操作（買い物・ミニゲーム・陣地選択）を待っている間だけ出す待機表示。
+             既定は非表示（USS）で、BoardPresenter が待ちの開始／終了で切り替える。
+             picking-mode=Ignore で盤面操作（ズーム・パン）は通す -->
+        <ui:VisualElement name="WaitingBanner" class="waiting-banner" picking-mode="Ignore">
+            <ui:VisualElement name="WaitingBannerPill" class="waiting-banner__pill" picking-mode="Ignore">
+                <ui:Label text="" name="WaitingBannerLabel" class="waiting-banner__label" picking-mode="Ignore" />
+                <!-- 「.」は固定幅の別ラベルに分けて、増減でピルの幅が変わって横に揺れないようにする -->
+                <ui:Label text="" name="WaitingBannerDots" class="waiting-banner__dots" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <!-- 手札のアイテムをクリックしたときの詳細モーダル。既定は非表示で、ItemModalPresenter が
              開閉と中身（絵・名前・効果説明）の差し替えを行う。暗幕クリックでも閉じる -->
         <ui:VisualElement name="ItemModal" class="item-modal">

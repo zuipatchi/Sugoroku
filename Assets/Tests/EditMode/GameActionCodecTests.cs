@@ -91,6 +91,22 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void Busyは待機理由と解除の両方が往復する()
+        {
+            // 他プレイヤーの操作待ち表示のお知らせ。None は「待機表示の解除」を意味する。
+            string busy = GameActionCodec.Encode(GameAction.Busy(2, BusyReason.MiniGame));
+            string cleared = GameActionCodec.Encode(GameAction.Busy(2, BusyReason.None));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(busy, out GameAction busyAction));
+            Assert.AreEqual(GameActionType.Busy, busyAction.Type);
+            Assert.AreEqual(2, busyAction.Seat);
+            Assert.AreEqual((int)BusyReason.MiniGame, busyAction.BusyReasonId);
+
+            Assert.IsTrue(GameActionCodec.TryDecode(cleared, out GameAction clearedAction));
+            Assert.AreEqual((int)BusyReason.None, clearedAction.BusyReasonId);
+        }
+
+        [Test]
         public void 壊れたJSONや未知の種別はデコードに失敗する()
         {
             Assert.IsFalse(GameActionCodec.TryDecode(null, out _));

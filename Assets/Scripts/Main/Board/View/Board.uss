@@ -1373,6 +1373,62 @@
     scale: 0.96 0.96;
 }
 
+/* 他プレイヤーの操作待ちの表示。陣地選択ガイドと同じ位置（ネームプレートの下）に出す。
+   自分が待たされている側でだけ出るので、陣地選択ガイドと同時に出ることはない。
+   既定は非表示で、BoardPresenter が --visible を付け外しする。 */
+.waiting-banner {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 84px;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.waiting-banner--visible {
+    display: flex;
+}
+
+/* 待機文言のピル（暗いガラス地＋金の細枠）。ガイド文言と同じ見た目に揃える。
+   中身は「文言」と「.」の 2 ラベルで、後者を固定幅にしてピルの幅を一定に保つ。 */
+.waiting-banner__pill {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 7px;
+    padding-right: 14px;
+    padding-bottom: 7px;
+    padding-left: 14px;
+    background-color: rgba(18, 18, 30, 0.92);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 225, 120, 0.7);
+    border-right-color: rgba(255, 225, 120, 0.7);
+    border-top-color: rgba(255, 225, 120, 0.7);
+    border-bottom-color: rgba(255, 225, 120, 0.7);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.waiting-banner__label {
+    font-size: 14px;
+    color: rgb(255, 235, 150);
+    -unity-text-align: middle-center;
+}
+
+/* 「.」の欄。最大 3 個ぶんの幅を常に確保して、増減で文言が動かないようにする。 */
+.waiting-banner__dots {
+    width: 14px;
+    font-size: 14px;
+    color: rgb(255, 235, 150);
+    -unity-text-align: middle-left;
+}
+
 /* クリア表示。リング中央に重ねる。 */
 .board-clear {
     position: absolute;
