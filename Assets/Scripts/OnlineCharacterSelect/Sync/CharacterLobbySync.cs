@@ -132,6 +132,30 @@ namespace OnlineCharacterSelect.Sync
         public void Initialize()
         {
             MyPlayerId = Session?.CurrentPlayer?.Id ?? string.Empty;
+            ApplyInitialSelection();
+        }
+
+        /// <summary>
+        /// 席順（参加順）ごとの初期キャラを自分の希望として置く（1P=のらどっく / 2P=ザニザニマン / …）。
+        /// 席ごとにずらすので初期状態では誰とも被らず、そのまま「決定」するだけでも成立する。
+        /// 全員そろう前に呼ぶため <see cref="Select"/> の受付制限（<see cref="AllPresent"/>）は通さない。
+        /// </summary>
+        private void ApplyInitialSelection()
+        {
+            ISession session = Session;
+            if (session == null || string.IsNullOrEmpty(MyPlayerId))
+            {
+                return;
+            }
+
+            List<(string playerId, DateTime joined)> players = new(session.Players.Count);
+            foreach (IReadOnlyPlayer player in session.Players)
+            {
+                players.Add((player.Id, player.Joined));
+            }
+
+            _localSelection = CharacterCatalog.DefaultFor(CharacterClaimResolver.SeatIndexOf(players, MyPlayerId));
+            _localReady = false;
         }
 
         /// <summary>成立するまで（または破棄まで）ポーリングし続ける。</summary>

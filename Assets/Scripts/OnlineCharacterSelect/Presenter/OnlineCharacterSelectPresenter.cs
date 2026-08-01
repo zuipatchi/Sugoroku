@@ -91,6 +91,12 @@ namespace OnlineCharacterSelect.Presenter
             await BuildCardsAsync(ct);
 
             _sync.Initialize();
+            // 席順ごとの初期キャラ（1P=先頭…）が選ばれた状態で始まるので、その立ち絵を表示前に読み込む。
+            if (_sync.CurrentSelection.HasValue)
+            {
+                await UpdatePortraitAsync(_sync.CurrentSelection.Value, ct);
+            }
+
             _confirmButton.clicked += OnConfirmClicked;
             _leaveButton.clicked += OnLeaveClicked;
 

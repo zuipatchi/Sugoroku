@@ -6,8 +6,8 @@ namespace Common.Character
     /// </summary>
     public sealed class CharacterSessionModel
     {
-        /// <summary>現在選択されているキャラクター。既定はカタログ先頭。</summary>
-        public CharacterId Selected { get; private set; } = CharacterCatalog.Default;
+        /// <summary>現在選択されているキャラクター。既定は 1P の初期キャラ（＝カタログ先頭）。</summary>
+        public CharacterId Selected { get; private set; } = CharacterCatalog.DefaultFor(0);
 
         public void Select(CharacterId id)
         {

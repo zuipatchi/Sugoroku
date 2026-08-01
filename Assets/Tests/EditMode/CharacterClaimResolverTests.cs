@@ -215,5 +215,59 @@ namespace Tests.EditMode
             Assert.AreEqual("a", roster[0].PlayerId);
             Assert.AreEqual("b", roster[1].PlayerId);
         }
+
+        [Test]
+        public void SeatIndexOfは参加順の席indexを返す()
+        {
+            DateTime t0 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            List<(string, DateTime)> players = new()
+            {
+                ("late", t0.AddSeconds(30)),
+                ("host", t0),
+                ("mid", t0.AddSeconds(10)),
+            };
+
+            Assert.AreEqual(0, CharacterClaimResolver.SeatIndexOf(players, "host"));
+            Assert.AreEqual(1, CharacterClaimResolver.SeatIndexOf(players, "mid"));
+            Assert.AreEqual(2, CharacterClaimResolver.SeatIndexOf(players, "late"));
+        }
+
+        [Test]
+        public void SeatIndexOfは同時刻ならPlayerId昇順で決定的に並ぶ()
+        {
+            DateTime t = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            List<(string, DateTime)> players = new() { ("b", t), ("a", t) };
+
+            Assert.AreEqual(0, CharacterClaimResolver.SeatIndexOf(players, "a"));
+            Assert.AreEqual(1, CharacterClaimResolver.SeatIndexOf(players, "b"));
+        }
+
+        [Test]
+        public void SeatIndexOfは未参加のプレイヤーなら0を返す()
+        {
+            DateTime t = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            List<(string, DateTime)> players = new() { ("a", t) };
+
+            Assert.AreEqual(0, CharacterClaimResolver.SeatIndexOf(players, "unknown"));
+        }
+
+        [Test]
+        public void 席順ごとの初期キャラは全員ぶんが被らずロックされる()
+        {
+            // ロビー到着時の希望＝席順ごとの初期キャラ。誰も操作しなくても 4 人が別キャラでロックできる。
+            List<PlayerChoice> choices = new();
+            for (int seat = 0; seat < 4; seat++)
+            {
+                choices.Add(Choice($"p{seat}", CharacterCatalog.DefaultFor(seat)));
+            }
+
+            IReadOnlyDictionary<CharacterId, string> locks = CharacterClaimResolver.ResolveLocks(NoLocks(), choices);
+
+            Assert.AreEqual(4, locks.Count);
+            for (int seat = 0; seat < 4; seat++)
+            {
+                Assert.AreEqual($"p{seat}", locks[CharacterCatalog.DefaultFor(seat)]);
+            }
+        }
     }
 }

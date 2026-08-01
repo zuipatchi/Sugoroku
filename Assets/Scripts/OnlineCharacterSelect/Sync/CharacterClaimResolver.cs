@@ -128,11 +128,7 @@ namespace OnlineCharacterSelect.Sync
             IReadOnlyList<(string playerId, DateTime joined, CharacterId character)> players)
         {
             List<(string playerId, DateTime joined, CharacterId character)> sorted = new(players);
-            sorted.Sort((a, b) =>
-            {
-                int byJoined = a.joined.CompareTo(b.joined);
-                return byJoined != 0 ? byJoined : string.CompareOrdinal(a.playerId, b.playerId);
-            });
+            sorted.Sort((a, b) => CompareJoin((a.playerId, a.joined), (b.playerId, b.joined)));
 
             List<RosterSeat> roster = new(sorted.Count);
             foreach ((string playerId, DateTime _, CharacterId character) in sorted)
@@ -140,6 +136,32 @@ namespace OnlineCharacterSelect.Sync
                 roster.Add(new RosterSeat(playerId, character));
             }
             return roster;
+        }
+
+        /// <summary>
+        /// <paramref name="playerId"/> の席 index を返す。並びは <see cref="BuildRoster"/> と同じ
+        /// 参加順（<c>joined</c> 昇順・同時刻は PlayerId 昇順）なので、ロビーでの初期キャラ（席順ごと）と
+        /// 確定後のロースターの席が一致する。見つからなければ 0。
+        /// </summary>
+        public static int SeatIndexOf(IReadOnlyList<(string playerId, DateTime joined)> players, string playerId)
+        {
+            List<(string playerId, DateTime joined)> sorted = new(players);
+            sorted.Sort(CompareJoin);
+
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                if (sorted[i].playerId == playerId)
+                {
+                    return i;
+                }
+            }
+            return 0;
+        }
+
+        private static int CompareJoin((string playerId, DateTime joined) a, (string playerId, DateTime joined) b)
+        {
+            int byJoined = a.joined.CompareTo(b.joined);
+            return byJoined != 0 ? byJoined : string.CompareOrdinal(a.playerId, b.playerId);
         }
     }
 

@@ -57,8 +57,23 @@ namespace Common.Character
             new CharacterDefinition(CharacterId.Character8, "タロー", "Character/Character8/Card", "Character/Character8/Icon", "Character/Character8/Portrait", "Image/HorseRun", "Character/Character8/Flag"),
         };
 
-        /// <summary>既定（先頭）のキャラクター。</summary>
-        public static CharacterId Default => All[0].Id;
+        /// <summary>
+        /// 席順（1P=0, 2P=1, …）ごとの初期キャラ。表示順にそのまま対応させる
+        /// （1P=のらどっく / 2P=ザニザニマン / 3P=D.O.M / 4P=アリマ）ので、席が違えば初期キャラも被らない。
+        /// 範囲外の席はカタログ内へクランプする。
+        /// </summary>
+        public static CharacterId DefaultFor(int seat)
+        {
+            if (seat < 0)
+            {
+                return All[0].Id;
+            }
+            if (seat >= All.Count)
+            {
+                return All[All.Count - 1].Id;
+            }
+            return All[seat].Id;
+        }
 
         public static CharacterDefinition Find(CharacterId id)
         {
