@@ -53,8 +53,14 @@ namespace Main.Online
             return copy;
         }
 
-        /// <summary>ルーレットが止まったセクター index（<see cref="GameActionType.Spin"/>）。</summary>
+        /// <summary>ルーレットが止まるセクター index（<see cref="GameActionType.Spin"/>）。</summary>
         public int Sector => ArgAt(0, -1);
+
+        /// <summary>
+        /// ルーレットの減速時間（ミリ秒・<see cref="GameActionType.Spin"/>）。
+        /// 受信側も同じ時間で減速させて、全員の円盤がほぼ同時に止まるようにする。
+        /// </summary>
+        public int StopMillis => ArgAt(1);
 
         /// <summary>お金マスの増減額（<see cref="GameActionType.MoneyLanding"/>）。</summary>
         public int MoneyDelta => ArgAt(0);
@@ -74,10 +80,19 @@ namespace Main.Online
             return ArgAt(index + 1, fallback);
         }
 
-        /// <summary>ルーレットの停止（<paramref name="sector"/> = 止まったセクター index）。</summary>
-        public static GameAction Spin(int seat, int sector)
+        /// <summary>
+        /// ルーレットの停止位置の確定（<paramref name="sector"/> = 止まるセクター index、
+        /// <paramref name="stopMillis"/> = 減速時間）。押下を離した時点で発行するので円盤はまだ回っている。
+        /// </summary>
+        public static GameAction Spin(int seat, int sector, int stopMillis = 0)
         {
-            return new GameAction(GameActionType.Spin, seat, new[] { sector });
+            return new GameAction(GameActionType.Spin, seat, new[] { sector, stopMillis });
+        }
+
+        /// <summary>ルーレットを回し始めた合図（受信側も自分の円盤を回し始める）。</summary>
+        public static GameAction SpinStart(int seat)
+        {
+            return new GameAction(GameActionType.SpinStart, seat, EmptyArgs);
         }
 
         /// <summary>お金マスの着地（<paramref name="delta"/> = 符号付きの増減額）。</summary>

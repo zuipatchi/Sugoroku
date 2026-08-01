@@ -252,19 +252,19 @@ button.RegisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
 
 「ルーレットが止まったらコマを進める → 移動が終わったらボタンを戻す → 次の手番へ」のような**順序のある進行**を、各 Presenter の R3 購読（`State.Subscribe(...)` で次を呼ぶ）に散らすと、手番・CPU・勝敗判定が絡んだ瞬間に「誰のコマを動かすか」「今は押していい番か」が追えなくなる。こうした流れは、`RegisterEntryPoint` で登録した純粋 C# サービス（`IAsyncStartable`）の **1 本の async ループ**に集約すると読みやすい（例: [GameFlowController.cs](../Assets/Scripts/Main/Turn/GameFlowController.cs)）。
 
-- **状態変化の待受は R3 の `FirstAsync` を `await` する**。`ReactiveProperty` は購読時に現在値を流すため、`Where` で目的の状態だけ通し、`FirstAsync(ct)` でその瞬間まで待つ。ボタン長押しのような「ユーザー操作の完了」も、Presenter に `UniTask<RouletteOutcome> WaitForManualSpinAsync(ct)` を生やして中で `await` すればループ側は分岐なく書ける。**待受の結果が複数値（誰が・何マス）なら小さな struct（`RouletteOutcome`）でまとめて返す**とループ側が組み立てずに済む。
+- **状態変化の待受は R3 の `FirstAsync` を `await` する**。`ReactiveProperty` は購読時に現在値を流すため、`Where` で目的の状態だけ通し、`FirstAsync(ct)` でその瞬間まで待つ。ボタン長押しのような「ユーザー操作の完了」も、Model に通知（`Observable<T>`）を生やしてループ側で `await` すれば分岐なく書ける。**待受の結果が複数値なら小さな struct（`SpinDecision`＝止まるセクター＋減速時間）でまとめて流す**とループ側が組み立てずに済む。
 
 ```csharp
-// Stopped になるまで待って、結果（進む人＋マス数）を返す（Presenter 側）
-public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken ct)
-{
-    await _model.State.Where(s => s == RouletteState.Stopped).FirstAsync(ct);
-    return new RouletteOutcome(_model.AdvancingPlayer.CurrentValue, _model.Result.CurrentValue);
-}
+// 回し始める前に待受を張ってから回す（操作が先に完了しても取りこぼさない）
+Task<SpinDecision> decided = _rouletteModel.Decided.FirstAsync(ct);
+_roulette.SetInteractable(true);
+SpinDecision decision = await decided;
 ```
 
+- **「結果が確定する瞬間」は「演出が終わる瞬間」より早いことがある**。ルーレットは離した瞬間に停止位置が決まる（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）ので、演出の完了を待たずに確定値を流したほうが、オンラインの相手を待たせずに済む。
+
 - **前回の状態が残る点に注意**。`FirstAsync` は購読時の現在値も評価するので、前手番の `Stopped` を「今回の停止」と誤検知しないよう、手番の開始時に Model を `Reset()`（`Idle` へ戻す）してから待つ。
-- **人間と CPU は同じ流れの分岐にする**。人間＝入力の完了を待つ、CPU＝同じ UI（円盤）をコードから回して（`AutoSpinAsync`）結果を待つ、と**入口だけ変えて後段（コマ前進・勝敗判定）は共通**にすると、演出コードを二重化せずに済む。
+- **人間と CPU は同じ流れの分岐にする**。人間＝入力を許可する、CPU＝同じ UI（円盤）をコードから回す（`AutoSpinAsync`）、と**入口だけ変えて後段（確定の待受・コマ前進・勝敗判定）は共通**にすると、演出コードを二重化せずに済む。
 - **キャンセルは握る**。ループの `await` はシーン破棄でキャンセルされる。`StartAsync` 全体を `try { ... } catch (OperationCanceledException) { }` で囲む（VContainer 由来のトークンなので [#4](#4-シーン表示前に非同期初期化を待つisceneready) と同じ扱い）。
 - **接続待ちを最初に置く**とオンライン/オフラインを同じループで扱える（`NetworkModel.State` が `Connected` になるまで `FirstAsync` で待ってから進行を始める。一人用は即 `Connected`）。
 - **進行そのものはアクションストリームで駆動する**（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）。ループは「手番の席を担当するクライアントだけが決めて発行 → 全員が受信したアクションを適用」の形になり、オンライン/一人用が同じコードパスになる。
@@ -338,7 +338,7 @@ public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken c
 - **決めた本人も一度ネットワークを往復させてから適用する**。これが肝で、ホストが唯一の順序付け役になるので全クライアントの適用順が必ず一致する。「自分の分だけ先に適用する」最適化をすると順序が崩れる。
 - **一人用モードも同じストリームを通す**（`Publish` が即ローカルのキューへ積まれるだけ）。オンライン用の `if` が進行コードに散らず、片方だけ壊れる事故が減る。`OnlineGameSync.IsLocalDecider(seat)` が「その席の決定を自分がするか」を吸収する（オンライン＝自席のみ／一人用＝全席）。
 - **決定と適用を必ず分ける**。乱数を引く・モーダルで選ばせる・ミニゲームを遊ぶといった「1 人しかできないこと」は決定側に置き、`Model` の更新と演出は適用側に置く。適用側は全クライアントで走るので、相手の画面にも同じ演出が出る。
-- **配るのは復元できない情報だけ**。コマ移動・陣地占拠・勝敗判定は「誰が何マス進むか」と盤面データから決定論的に導けるので送らない。ルーレットも `(進む人, 出目)` とセクターの割り当てが 1 対 1 なら（`RouletteMath.SectorFor` が逆変換）**整数 1 つ**で足りる。ペイロードは小さいほど食い違いの余地が減る。
+- **配るのは復元できない情報だけ**。コマ移動・陣地占拠・勝敗判定は「誰が何マス進むか」と盤面データから決定論的に導けるので送らない。ルーレットも `(進む人, 出目)` とセクターの割り当てが 1 対 1 なら **整数 1 つ**で足りる。ペイロードは小さいほど食い違いの余地が減る。
 - **受信は必ずキューにバッファする**（`ActionStream`）。「待つ直前にハンドラを登録」だと受信が先に来たぶんを取りこぼす（[networking.md](networking.md) 8）。接続確立時に 1 度だけ永続登録し、待機側は「キューにあれば即取得、無ければ待つ」にする。
 - **同時に待つのは 1 箇所だけにする**。`ActionStream.NextAsync` は 2 箇所から待つと `InvalidOperationException` を投げる（進行の組み立て違いを早期に検出するため）。所有権は「手番待ち＝`GameFlowController`」→「着地待ち＝`BoardPresenter`」と受け渡す。
 - **想定外のアクションが来ても止まらないようにする**。期待と違う種別が届いたら、取りこぼすと困るもの（アイテム使用）は適用し、それ以外は警告ログを残して読み飛ばす。ハングよりログのほうが原因を追える。

@@ -17,6 +17,8 @@ namespace Main.Roulette
     /// - セクター i の参加者は <see cref="ParticipantForSector"/> ＝ i を参加者数で巡回（ラウンドロビン）。
     /// - セクター i の出目（進むマス数）は <see cref="StepsForSector"/> ＝ (i ÷ 参加者数) + 1。
     ///   これにより各参加者はちょうど同じ数字セット 1〜K を 1 枚ずつ持つ（数字も全キャラ同じ）。
+    /// - この割り当ては「セクター ↔ (進む人, 出目)」が 1 対 1 なので、オンラインでは
+    ///   **停止セクターの整数 1 つ**を配れば全員が同じ結果を復元できる。
     /// </summary>
     public static class RouletteMath
     {
@@ -79,26 +81,25 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// <see cref="ParticipantForSector"/> と <see cref="StepsForSector"/> の逆変換。
-        /// 参加者 <paramref name="participantIndex"/> が出目 <paramref name="steps"/> を出すセクター index を返す。
-        /// セクターへの割り当ては 1 対 1 なので、スピン結果（進む人＋マス数）からセクターを一意に復元できる
-        /// （オンラインで停止セクターだけを送り、受信側が同じ結果を再現するために使う）。
-        /// </summary>
-        public static int SectorFor(int participantIndex, int steps, int participantCount)
-        {
-            int participants = participantCount < 1 ? 1 : participantCount;
-            int player = ((participantIndex % participants) + participants) % participants;
-            int number = steps < 1 ? 1 : steps;
-            return (number - 1) * participants + player;
-        }
-
-        /// <summary>
         /// セクター <paramref name="sectorIndex"/> の中心が針の真下に来る回転角（0 以上 360 未満）。
         /// <see cref="ResultFromRotation"/> にこの角度を渡すと <paramref name="sectorIndex"/> が返る。
         /// </summary>
         public static float RotationForSectorCenter(int sectorIndex, int count)
         {
             return Mod(-((sectorIndex + 0.5f) * SectorAngle(count)), 360f);
+        }
+
+        /// <summary>
+        /// 回転角 <paramref name="rotation"/> にいちばん近い、セクター <paramref name="sectorIndex"/> の中心の回転角。
+        /// 自然に減速したときの停止角（予測値）をセクターの真ん中へ寄せて、
+        /// 「どのセクターで止まるか」を減速に入る時点で確定させるために使う。
+        /// </summary>
+        public static float NearestRotationForSectorCenter(float rotation, int sectorIndex, int count)
+        {
+            float center = RotationForSectorCenter(sectorIndex, count);
+            // 現在角との差を [-180, 180) に畳んで、前後どちらでも近いほうの中心へ寄せる。
+            float delta = Mod(center - Mod(rotation, 360f) + 180f, 360f) - 180f;
+            return rotation + delta;
         }
 
         /// <summary>

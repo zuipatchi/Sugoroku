@@ -7,7 +7,11 @@ namespace Main.Online
     /// </summary>
     public enum GameActionType
     {
-        /// <summary>ルーレットが止まった。引数 0 = 停止セクター index。</summary>
+        /// <summary>
+        /// ルーレットの停止位置が確定した（＝手番の人が押下を離した）。
+        /// 引数 0 = 停止セクター index、引数 1 = 減速時間（ミリ秒）。
+        /// 円盤が止まる**前**に配られるので、受信側も同じタイミングで減速に入れる。
+        /// </summary>
         Spin = 0,
 
         /// <summary>お金マスへの着地。引数 0 = 所持金の増減額（符号付き）。</summary>
@@ -21,5 +25,12 @@ namespace Main.Online
 
         /// <summary>退出通知（対戦の続行が不可能になったことを伝える）。</summary>
         Leave = 4,
+
+        /// <summary>
+        /// ルーレットを回し始めた（手番の人が押した／CPU が回し出した）合図。引数なし。
+        /// 受け取ったクライアントは自分の円盤も回し始め、<see cref="Spin"/> が届くまで回し続ける
+        /// （相手が回している間こちらの画面が止まって見えるのを防ぐ）。
+        /// </summary>
+        SpinStart = 5,
     }
 }

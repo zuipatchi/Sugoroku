@@ -5,6 +5,10 @@ namespace Main.Roulette
     /// <summary>
     /// ルーレット円盤の角速度シミュレーション。長押し中の加速と、離した後の ease-out 減速・停止判定を担う。
     /// deltaTime を引数で受け取る純ロジッククラスで、UI やシーンには依存しない（UnityEngine 依存は Mathf のみ）。
+    ///
+    /// 減速は必ず「目標角ちょうどで止める」<see cref="ReleaseTo"/> で行う。止まる位置が離した瞬間に決まるので、
+    /// 円盤が止まるのを待たずに結果を確定でき、オンラインで他プレイヤーへ先に配れる
+    /// （自然に減速したときの停止角は <see cref="PredictStopRotation"/> で先に求められる）。
     /// </summary>
     public sealed class RouletteSpinPhysics
     {
@@ -14,12 +18,9 @@ namespace Main.Roulette
 
         private float _angularVelocity;
         private bool _isHolding;
-        // 離した瞬間の速度と、停止までの経過・目標時間。ease-out 減速に使う。
-        private float _decelStartVelocity;
+        // 減速の経過・目標時間と、開始角・目標角。ease-out で開始角から目標角へ寄せる。
         private float _decelElapsed;
         private float _stopDuration;
-        // 停止角を指定して減速する（ReleaseTo）ときの開始角・目標角。オンラインで他プレイヤーの
-        // 停止セクターを再現するために使う。目標角モードの間は _hasTarget が true。
         private float _startRotation;
         private float _targetRotation;
         private bool _hasTarget;
@@ -48,27 +49,20 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 押下解除。離した瞬間の速度に関わらず <paramref name="stopDuration"/> 秒かけて
-        /// ease-out で減速して止める。これによりすぐ離しても長押しから離しても止まり方の印象が揃う。
+        /// いま押下を解除して <paramref name="stopDuration"/> 秒かけて減速したら止まる角度（度）。
+        /// 減速中の速度は v0(1-u)^2（u = 経過 ÷ stopDuration）なので進む角度は v0 × stopDuration ÷ 3 に定まる
+        /// ＝ **離した瞬間に停止位置が分かる**。呼び出し側はこれをセクター中心へ寄せて
+        /// <see cref="ReleaseTo"/> の目標角にする（<see cref="RouletteMath.NearestRotationForSectorCenter"/>）。
         /// </summary>
-        public void Release(float stopDuration)
+        public float PredictStopRotation(float stopDuration)
         {
-            if (!_isHolding)
-            {
-                return;
-            }
-            _isHolding = false;
-
-            _decelStartVelocity = _angularVelocity;
-            _decelElapsed = 0f;
-            _stopDuration = stopDuration;
-            _hasTarget = false;
+            return CurrentRotation + _angularVelocity * stopDuration / 3f;
         }
 
         /// <summary>
         /// 押下解除。<paramref name="stopDuration"/> 秒かけて ease-out で減速し、
-        /// **ちょうど <paramref name="targetRotation"/> 度で止める**。
-        /// オンラインで他プレイヤーのスピン結果（停止セクター）を同じ演出で再現するために使う。
+        /// **ちょうど <paramref name="targetRotation"/> 度で止める**。離した瞬間の速度に依らず停止までの
+        /// 時間が一定なので、すぐ離しても長押しから離しても止まり方の印象が揃う。
         /// <paramref name="targetRotation"/> は現在角以上（前方＝時計回り）であること。
         /// </summary>
         public void ReleaseTo(float targetRotation, float stopDuration)
@@ -79,7 +73,6 @@ namespace Main.Roulette
             }
             _isHolding = false;
 
-            _decelStartVelocity = _angularVelocity;
             _decelElapsed = 0f;
             _stopDuration = stopDuration;
             _startRotation = CurrentRotation;
@@ -105,24 +98,13 @@ namespace Main.Roulette
                 return TickToTarget(deltaTime);
             }
 
-            if (_isHolding)
+            if (!_isHolding)
             {
-                // 押下中は加速。
-                _angularVelocity = Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * deltaTime);
-            }
-            else
-            {
-                // 離したら、離した瞬間の速度から _stopDuration 秒かけて ease-out（終盤ほど緩やか）で 0 まで落とす。
-                // 停止までの時間は速度に依存しないため、すぐ離しても長押しから離しても止まり方の印象が揃う。
-                _decelElapsed += deltaTime;
-                float u = _stopDuration > 0f ? Mathf.Clamp01(_decelElapsed / _stopDuration) : 1f;
-                _angularVelocity = _decelStartVelocity * (1f - u) * (1f - u);
-                if (u >= 1f)
-                {
-                    _angularVelocity = 0f;
-                }
+                return false;
             }
 
+            // 押下中は加速。
+            _angularVelocity = Mathf.MoveTowards(_angularVelocity, _maxSpinSpeed, _spinAcceleration * deltaTime);
             if (_angularVelocity > 0f)
             {
                 CurrentRotation += _angularVelocity * deltaTime;
@@ -132,8 +114,7 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 目標角モード（<see cref="ReleaseTo"/>）の 1 フレーム。<see cref="Release"/> と同じ効きの
-        /// ease-out（速度が (1-u)^2 で落ちる＝距離は 1-(1-u)^3）で開始角から目標角へ寄せ、
+        /// 減速の 1 フレーム。速度が (1-u)^2 で落ちる ease-out（＝距離は 1-(1-u)^3）で開始角から目標角へ寄せ、
         /// 経過が停止時間に達したら目標角ちょうどで止める。
         /// </summary>
         private bool TickToTarget(float deltaTime)

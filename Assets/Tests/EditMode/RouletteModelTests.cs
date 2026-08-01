@@ -1,5 +1,6 @@
 using Main.Roulette;
 using NUnit.Framework;
+using R3;
 
 namespace Tests.EditMode
 {
@@ -31,6 +32,28 @@ namespace Tests.EditMode
         public void BeginSpinで状態がSpinningになる()
         {
             _model.BeginSpin();
+            Assert.AreEqual(RouletteState.Spinning, _model.State.CurrentValue);
+        }
+
+        [Test]
+        public void DecideSpinは止まる前に停止位置を流し状態はSpinningのまま()
+        {
+            // 減速に入った時点で「止まるセクター」が確定する（オンラインへ回り終わる前に配るため）。
+            SpinDecision received = new(-1, 0f);
+            int count = 0;
+            using (_model.Decided.Subscribe(decision =>
+            {
+                received = decision;
+                count++;
+            }))
+            {
+                _model.BeginSpin();
+                _model.DecideSpin(new SpinDecision(5, 2.75f));
+            }
+
+            Assert.AreEqual(1, count);
+            Assert.AreEqual(5, received.Sector);
+            Assert.AreEqual(2.75f, received.StopSeconds, 0.0001f);
             Assert.AreEqual(RouletteState.Spinning, _model.State.CurrentValue);
         }
 

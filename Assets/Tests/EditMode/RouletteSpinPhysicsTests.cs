@@ -32,19 +32,27 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void Releaseは停止時間が過ぎると止まる()
+        public void PredictStopRotationは離す前に停止角を返す()
         {
             RouletteSpinPhysics physics = Create();
             physics.BeginHold();
             physics.Tick(Delta);
-            physics.Release(1f);
 
-            for (int i = 0; i < 70; i++)
+            // 減速で進む角度は「離した瞬間の速度 × 停止時間 ÷ 3」に定まる。
+            float predicted = physics.PredictStopRotation(1f);
+            Assert.Greater(predicted, physics.CurrentRotation);
+            // 停止時間が長いほど遠くまで進む。
+            Assert.Greater(physics.PredictStopRotation(2f), predicted);
+
+            // 予測角をそのまま目標にすれば、停止時間ぶん回したところでちょうどそこに止まる。
+            physics.ReleaseTo(predicted, 1f);
+            for (int i = 0; i < 65; i++)
             {
                 physics.Tick(Delta);
             }
 
             Assert.IsTrue(physics.HasStopped);
+            Assert.AreEqual(predicted, physics.CurrentRotation, 0.001f);
         }
 
         [Test]

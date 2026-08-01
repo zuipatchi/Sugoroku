@@ -16,8 +16,8 @@ using Random = UnityEngine.Random;
 namespace Main.Roulette
 {
     /// <summary>
-    /// 円盤ルーレットの UI。手番連携 API（<see cref="SetInteractable"/>／<see cref="WaitForManualSpinAsync"/>／
-    /// <see cref="AutoSpinAsync"/>／<see cref="WaitForHideAsync"/>）と R3 購読・UI 要素の組み立てを担い、
+    /// 円盤ルーレットの UI。手番連携 API（<see cref="SetInteractable"/>／<see cref="AutoSpinAsync"/>／
+    /// <see cref="BeginRemoteSpin"/>／<see cref="PlaySpinToAsync"/>／<see cref="WaitForHideAsync"/>）と R3 購読・UI 要素の組み立てを担い、
     /// 円盤描画は <see cref="RouletteWheelRenderer"/>、回転の角速度シミュレーションは <see cref="RouletteSpinPhysics"/>、
     /// キャラアイコンのロードは <see cref="RouletteIconLoader"/>、DOTween 演出は <see cref="RouletteEffects"/> に委譲する。
     /// 状態遷移は <see cref="RouletteModel"/> が担い、出目の算出（停止角度 → セクター）はここで行う。
@@ -388,7 +388,12 @@ namespace Main.Roulette
 
         /// <summary>
         /// 押下解除。離した瞬間の速度に関わらず <see cref="_minStopDuration"/>〜<see cref="_maxStopDuration"/> の
-        /// ランダムな時間をかけて ease-out で減速して止める（詳細は <see cref="RouletteSpinPhysics.Release"/>）。
+        /// ランダムな時間をかけて ease-out で減速して止める。
+        ///
+        /// 止まる位置は「自然に減速したときの停止角（<see cref="RouletteSpinPhysics.PredictStopRotation"/>）を
+        /// いちばん近いセクター中心へ寄せた角」＝**離した瞬間に確定する**。確定したセクターを
+        /// <see cref="RouletteModel.DecideSpin"/> で流すので、円盤が止まるのを待たずに他プレイヤーへ配れる
+        /// （受信側も同じタイミングで減速に入れる＝結果がほぼ同時に出る）。
         /// </summary>
         private void ReleaseHold()
         {
@@ -396,11 +401,17 @@ namespace Main.Roulette
             {
                 return;
             }
-            _spinPhysics.Release(Random.Range(_minStopDuration, _maxStopDuration));
+
+            float stopDuration = Random.Range(_minStopDuration, _maxStopDuration);
+            float predicted = _spinPhysics.PredictStopRotation(stopDuration);
+            int sector = RouletteMath.ResultFromRotation(predicted, _sectorCount);
+            _spinPhysics.ReleaseTo(
+                RouletteMath.NearestRotationForSectorCenter(predicted, sector, _sectorCount), stopDuration);
             // 離した瞬間にボタンを無効化する（惰性回転中の再押下を防ぐ）。捕捉中の
             // PointerUp はこの後 Clickable が処理して解放するため、同期無効化でも問題ない。
             _spinReleased = true;
             UpdateSpinEnabled();
+            _model.DecideSpin(new SpinDecision(sector, stopDuration));
         }
 
         private bool CanStartSpin()
@@ -591,40 +602,49 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// 手動スピンが停止するまで待ち、結果（進む参加者＋マス数）を返す（人間の手番用）。
-        /// 呼び出し前に <see cref="RouletteModel.Reset"/> 済みであることを前提に、次の Stopped を待つ。
+        /// CPU の手番。円盤を自動で回し、少しの間ホールドしてから離す（手動と同じ回転物理）。
+        /// 離した時点で止まる位置が確定する（<see cref="RouletteModel.Decided"/>）ため、
+        /// 実際に止まるのは待たずに返る。
         /// </summary>
-        public async UniTask<RouletteOutcome> WaitForManualSpinAsync(CancellationToken ct)
-        {
-            await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
-            return CurrentOutcome();
-        }
-
-        /// <summary>
-        /// CPU の手番。円盤を自動で回して自然に停止させ、結果（進む参加者＋マス数）を返す。
-        /// 手動と同じ回転物理を使うため、少しの間ホールドしてから離す。
-        /// </summary>
-        public async UniTask<RouletteOutcome> AutoSpinAsync(CancellationToken ct)
+        public async UniTask AutoSpinAsync(CancellationToken ct)
         {
             BeginSpinInternal();
             float hold = Random.Range(_minStopDuration * 0.25f, _minStopDuration * 0.5f);
             await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
             ReleaseHold();
-            await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
-            return CurrentOutcome();
+        }
+
+        /// <summary>
+        /// 他プレイヤーが「回し始めた」合図（<see cref="Online.GameActionType.SpinStart"/>）を受けて、
+        /// このクライアントでも円盤を回し始める。手番制御（<see cref="_turnInteractable"/>）に依らず回し、
+        /// 停止セクターが届く（<see cref="PlaySpinToAsync"/>）まで回り続ける。
+        /// これで相手が押している間もこちらの画面が一緒に回り、結果待ちの間が空かない。
+        /// </summary>
+        public void BeginRemoteSpin()
+        {
+            if (_model == null || _wheel == null || _model.State.CurrentValue == RouletteState.Spinning)
+            {
+                return;
+            }
+            BeginSpinInternal();
         }
 
         /// <summary>
         /// 他プレイヤーが回したスピンの結果を、同じ演出で再生する（オンラインの受信側）。
-        /// 手番制御（<see cref="_turnInteractable"/>）に依らず円盤を回し、
         /// <paramref name="sector"/> の中心でちょうど止めるので、全クライアントで同じ出目になる。
+        /// <see cref="BeginRemoteSpin"/> で既に回っていればそのまま減速へ入り、
+        /// 合図を取りこぼしていた場合だけここで回し始めて少し回してから止める。
+        /// <paramref name="stopSeconds"/> は回した本人と同じ減速時間（0 以下ならランダム）。
         /// </summary>
-        public async UniTask PlaySpinToAsync(int sector, CancellationToken ct)
+        public async UniTask PlaySpinToAsync(int sector, float stopSeconds, CancellationToken ct)
         {
-            BeginSpinInternal();
-            float hold = Random.Range(_minStopDuration * 0.25f, _minStopDuration * 0.5f);
-            await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
-            ReleaseToSector(sector);
+            if (!_spinPhysics.IsHolding)
+            {
+                BeginRemoteSpin();
+                float hold = Random.Range(_minStopDuration * 0.25f, _minStopDuration * 0.5f);
+                await UniTask.Delay(TimeSpan.FromSeconds(hold), cancellationToken: ct);
+            }
+            ReleaseToSector(sector, stopSeconds);
             await _model.State.Where(state => state == RouletteState.Stopped).FirstAsync(ct);
         }
 
@@ -632,7 +652,7 @@ namespace Main.Roulette
         /// 押下解除して、指定セクターの中心でちょうど止まるよう減速させる。
         /// 余分に 2〜3 周させてから止めることで、手動スピンと同じ止まり方の印象にする。
         /// </summary>
-        private void ReleaseToSector(int sector)
+        private void ReleaseToSector(int sector, float stopSeconds)
         {
             if (!_spinPhysics.IsHolding)
             {
@@ -640,15 +660,10 @@ namespace Main.Roulette
             }
             float target = RouletteMath.NextRotationFor(
                 _spinPhysics.CurrentRotation, sector, _sectorCount, Random.Range(2, 4));
-            _spinPhysics.ReleaseTo(target, Random.Range(_minStopDuration, _maxStopDuration));
+            float duration = stopSeconds > 0f ? stopSeconds : Random.Range(_minStopDuration, _maxStopDuration);
+            _spinPhysics.ReleaseTo(target, duration);
             _spinReleased = true;
             UpdateSpinEnabled();
-        }
-
-        /// <summary>確定済みの Model 値から現在のスピン結果を組み立てる。</summary>
-        private RouletteOutcome CurrentOutcome()
-        {
-            return new RouletteOutcome(_model.AdvancingPlayer.CurrentValue, _model.Result.CurrentValue);
         }
 
         /// <summary>

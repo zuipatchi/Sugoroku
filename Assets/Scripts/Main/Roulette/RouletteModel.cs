@@ -13,9 +13,17 @@ namespace Main.Roulette
         private readonly ReactiveProperty<RouletteState> _state = new(RouletteState.Idle);
         private readonly ReactiveProperty<int> _result = new(0);
         private readonly ReactiveProperty<int> _advancingPlayer = new(-1);
+        private readonly Subject<SpinDecision> _decided = new();
 
         /// <summary>現在の状態。</summary>
         public ReadOnlyReactiveProperty<RouletteState> State => _state;
+
+        /// <summary>
+        /// このクライアントで回した円盤の停止位置が確定した（＝押下を離して減速に入った）通知。
+        /// 円盤が止まるのを待たずに発火するので、オンラインでは結果を回り終わる前に配れる。
+        /// 他プレイヤーの結果を再生するだけの受信側では発火しない。
+        /// </summary>
+        public Observable<SpinDecision> Decided => _decided;
 
         /// <summary>最後に確定した出目（移動マス数）。未確定時は 0。</summary>
         public ReadOnlyReactiveProperty<int> Result => _result;
@@ -33,6 +41,15 @@ namespace Main.Roulette
         public void BeginSpin()
         {
             _state.Value = RouletteState.Spinning;
+        }
+
+        /// <summary>
+        /// 減速に入った時点で確定した停止位置を通知する（<see cref="Decided"/>）。
+        /// 状態はまだ <see cref="RouletteState.Spinning"/> のままで、実際の停止は <see cref="CompleteSpin"/>。
+        /// </summary>
+        public void DecideSpin(SpinDecision decision)
+        {
+            _decided.OnNext(decision);
         }
 
         /// <summary>
@@ -60,6 +77,7 @@ namespace Main.Roulette
             _state.Dispose();
             _result.Dispose();
             _advancingPlayer.Dispose();
+            _decided.Dispose();
         }
     }
 }

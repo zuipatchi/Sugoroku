@@ -6,14 +6,27 @@ namespace Tests.EditMode
     public class GameActionCodecTests
     {
         [Test]
-        public void Spinは往復しても種別と席とセクターが保たれる()
+        public void Spinは往復しても種別と席とセクターと減速時間が保たれる()
         {
-            string json = GameActionCodec.Encode(GameAction.Spin(2, 7));
+            string json = GameActionCodec.Encode(GameAction.Spin(2, 7, 2800));
 
             Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
             Assert.AreEqual(GameActionType.Spin, decoded.Type);
             Assert.AreEqual(2, decoded.Seat);
             Assert.AreEqual(7, decoded.Sector);
+            Assert.AreEqual(2800, decoded.StopMillis);
+        }
+
+        [Test]
+        public void SpinStartは引数なしで往復する()
+        {
+            // 回し始めの合図。受信側はこれで自分の円盤も回し始める（結果待ちで画面が止まらないように）。
+            string json = GameActionCodec.Encode(GameAction.SpinStart(1));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
+            Assert.AreEqual(GameActionType.SpinStart, decoded.Type);
+            Assert.AreEqual(1, decoded.Seat);
+            Assert.AreEqual(0, decoded.ArgCount);
         }
 
         [Test]

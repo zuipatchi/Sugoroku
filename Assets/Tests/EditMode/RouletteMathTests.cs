@@ -1,3 +1,4 @@
+using System;
 using Main.Roulette;
 using NUnit.Framework;
 
@@ -106,20 +107,21 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void SectorForは進む人と出目からセクターを一意に復元する()
+        public void セクターと進む人と出目の対応は1対1()
         {
-            // 停止セクターだけをオンラインで配れるよう、割り当ては 1 対 1 でなければならない。
+            // 停止セクターの整数 1 つだけをオンラインで配れるのは、この対応が 1 対 1 だから。
+            // 重複すると、受信側が「誰が何マス進むか」を一意に復元できなくなる。
+            const int numbersPerParticipant = 3;
             for (int participants = 2; participants <= 4; participants++)
             {
-                int sectorCount = RouletteMath.SectorCount(participants, 3);
+                int sectorCount = RouletteMath.SectorCount(participants, numbersPerParticipant);
+                bool[,] seen = new bool[participants, numbersPerParticipant];
                 for (int sector = 0; sector < sectorCount; sector++)
                 {
                     int player = RouletteMath.ParticipantForSector(sector, participants);
                     int steps = RouletteMath.StepsForSector(sector, participants);
-                    Assert.AreEqual(
-                        sector,
-                        RouletteMath.SectorFor(player, steps, participants),
-                        $"participants {participants} / sector {sector}");
+                    Assert.IsFalse(seen[player, steps - 1], $"participants {participants} / sector {sector}");
+                    seen[player, steps - 1] = true;
                 }
             }
         }
@@ -156,6 +158,26 @@ namespace Tests.EditMode
             float noTurn = RouletteMath.NextRotationFor(0f, 3, Count, 0);
             float threeTurns = RouletteMath.NextRotationFor(0f, 3, Count, 3);
             Assert.AreEqual(noTurn + 360f * 3f, threeTurns, 0.001f);
+        }
+
+        [Test]
+        public void NearestRotationForSectorCenterは半セクター以内で中心へ寄せる()
+        {
+            // 停止予測角を「その角度が属するセクター」の中心へ寄せる使い方（＝離した瞬間に出目を確定させる）。
+            float[] rotations = { 0f, 17f, 359f, 1234.5f, -720f, -37.25f };
+            foreach (float rotation in rotations)
+            {
+                int sector = RouletteMath.ResultFromRotation(rotation, Count);
+                float snapped = RouletteMath.NearestRotationForSectorCenter(rotation, sector, Count);
+
+                Assert.AreEqual(
+                    sector,
+                    RouletteMath.ResultFromRotation(snapped, Count),
+                    $"rotation {rotation}");
+                // 寄せ幅は半セクター以内（＝予測した止まり方をほとんど変えない）。
+                Assert.LessOrEqual(
+                    Math.Abs(snapped - rotation), SectorDeg * 0.5f + 0.001f, $"rotation {rotation}");
+            }
         }
     }
 }

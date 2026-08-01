@@ -314,15 +314,27 @@ Main シーンの盤面進行を全クライアントで一致させる仕組み
 
 | 種別 | ペイロード | 決める人 |
 |---|---|---|
-| `Spin` | 停止セクター index | 手番の人 |
+| `SpinStart` | （なし） | 手番の人 |
+| `Spin` | 停止セクター index ＋ 減速時間（ミリ秒） | 手番の人 |
 | `MoneyLanding` | 所持金の増減額（符号付き） | 着地した人 |
 | `ShopResult` | 買ったアイテム（負値＝買わなかった） | 着地した人 |
 | `ItemUse` | アイテム＋効果パラメータ | 使用者 |
 | `Leave` | （なし） | ホスト（ゲスト離脱時） |
 
-**送らないもの**: コマ移動・陣地占拠・勝敗判定は「誰が何マス進むか」と盤面データから決定論的に導けるので配らない。ルーレットの停止セクターも、`(進む人, 出目)` との割り当てが 1 対 1（`RouletteMath.SectorFor` が逆変換）なので **1 つの整数だけ**で足りる。
+**送らないもの**: コマ移動・陣地占拠・勝敗判定は「誰が何マス進むか」と盤面データから決定論的に導けるので配らない。ルーレットの停止セクターも、`(進む人, 出目)` との割り当てが 1 対 1（`RouletteMath.ParticipantForSector` / `StepsForSector`）なので **1 つの整数だけ**で足りる。
 
-受信側は `RoulettePresenter.PlaySpinToAsync(sector)` で同じセクターに止まる円盤演出を再生する（`RouletteSpinPhysics.ReleaseTo` が目標角ちょうどで止める ease-out 減速を担う）。
+### ルーレットは「回り終わってから」ではなく 2 段で配る
+
+結果（`Spin`）だけを円盤が止まってから配ると、相手が回している数秒間こちらの画面は無反応で、結果もそのぶん遅れて出る。そこでスピンは **2 段**で配る。
+
+| タイミング | 配るもの | 受信側の動き |
+|---|---|---|
+| 手番の人が押した（円盤が回り始めた） | `SpinStart` | `RoulettePresenter.BeginRemoteSpin()` で自分の円盤も回し始め、`Spin` が届くまで回し続ける |
+| 手番の人が指を離した（**まだ回っている**） | `Spin`（セクター＋減速時間） | `RoulettePresenter.PlaySpinToAsync(sector, stopSeconds)` でそのまま減速へ入り、同じセクターの中心で止まる |
+
+離した瞬間に停止位置を確定できるのは、ease-out 減速で進む角度が「離した瞬間の速度 × 停止時間 ÷ 3」に定まるため（`RouletteSpinPhysics.PredictStopRotation`）。その予測角をいちばん近いセクター中心へ寄せ（`RouletteMath.NearestRotationForSectorCenter`）、`RouletteSpinPhysics.ReleaseTo` で目標角ちょうどに止めるので、**先に配った結果と実際に止まる位置が必ず一致する**。減速時間も一緒に配ることで、全員の円盤がほぼ同時に止まる。
+
+`SpinStart` を取りこぼした場合（着地待ちに割り込んだ等）でも `PlaySpinToAsync` が自分で回し始めてから止めるので、結果がずれることはない（演出が遅れるだけ）。
 
 ### 決定と適用を分ける
 
@@ -340,7 +352,7 @@ Main シーンの盤面進行を全クライアントで一致させる仕組み
 
 `ActionStream.NextAsync` を同時に 2 箇所から待つと `InvalidOperationException` になる。進行は次のように所有権を受け渡す設計になっている。
 
-- 手番の待機（`GameFlowController.WaitForSpinAsync`）— アイテム使用が割り込んで来たら `BoardPresenter.ApplyActionAsync` へ流して待ち続ける
+- 手番の待機（`GameFlowController.WaitForSpinAsync`）— `SpinStart` は円盤を回し始めて、アイテム使用が割り込んで来たら `BoardPresenter.ApplyActionAsync` へ流して、それぞれ待ち続ける
 - 着地の待機（`BoardPresenter.WaitForActionAsync`）— `GameFlowController` は `AdvanceAsync` を待っている間ストリームを触らない
 
 アイテムは「自分の手番かつルーレット未回転（`RouletteState.Idle`）」のときしか使えないので、着地の待機中にアイテム使用が発生することは通常ない。
