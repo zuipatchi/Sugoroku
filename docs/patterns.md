@@ -352,6 +352,7 @@ SpinDecision decision = await decided;
 - **「到着した」の判定は、画面が出たことではなく同期ループが動き出したこと**にする。オンラインのキャラ選択ロビーでは「自分のプレイヤープロパティを 1 度でも書いたか」で数える（`CharacterLobbySync.CountPresent`）。画面表示だけを条件にすると、まだ通信していない相手を到着扱いしてしまう。
 - **ロジック側と UI 側の両方で塞ぐ**。`CharacterLobbySync.Select` / `Confirm` が `AllPresent` を見て弾き、Presenter もカードと確定ボタンを `SetEnabled(false)` にする。UI だけだと別経路（テスト・将来の入力）から抜けられる。
 - **待っていることを画面に出す**（「他のプレイヤーの参加を待っています...（2/4人）」）。無言で操作を受け付けないと、固まったのか待ちなのか区別できない。
+- **取り合いになる初期値は席順でずらす**。全員に同じ初期選択を与えると到着した瞬間から取り合いが起きるので、`CharacterCatalog.DefaultFor(seat)` のように「席 index → 選択肢 index」で配る（[CharacterLobbySync.cs](../Assets/Scripts/OnlineCharacterSelect/Sync/CharacterLobbySync.cs) の `ApplyInitialSelection`）。初期状態で衝突しないので、誰も操作しなくても集計だけで成立する＝「決定」を押すだけで先へ進める。**席の求め方は確定後の並び（ロースター）と同じ比較で共有する**（`CharacterClaimResolver.SeatIndexOf` と `BuildRoster` が `CompareJoin` を共有）。ここがずれると、ロビーで見せた席と本番の席が食い違う。
 
 ### 新しいアクションを足す手順
 
