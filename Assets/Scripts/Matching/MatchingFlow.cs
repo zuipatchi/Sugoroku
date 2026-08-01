@@ -21,6 +21,9 @@ namespace Matching
     {
         public static TimeSpan CreateRoomTimeoutDuration { get; } = TimeSpan.FromSeconds(120);
 
+        /// <summary>満室後、ホストだけキャラ選択ロビーへの遷移を遅らせる時間（ゲストを先に到着させる）。</summary>
+        public static TimeSpan HostStartDelayDuration { get; } = TimeSpan.FromSeconds(3);
+
         private readonly MatchingModel _model;
         private readonly MatchingService _matchingService;
         private readonly SceneTransitioner _sceneTransitioner;
@@ -104,7 +107,7 @@ namespace Matching
                     session, CreateRoomTimeoutDuration, ct, current => _model.WaitingCurrent.Value = current);
                 if (found)
                 {
-                    await StartGameAsync();
+                    await StartGameAsync(ct);
                 }
                 else
                 {
@@ -136,7 +139,7 @@ namespace Matching
                     session, CreateRoomTimeoutDuration, ct, current => _model.WaitingCurrent.Value = current);
                 if (full)
                 {
-                    await StartGameAsync();
+                    await StartGameAsync(ct);
                 }
                 else
                 {
@@ -179,11 +182,16 @@ namespace Matching
             _model.State.Value = MatchingState.BrowsingRooms;
         }
 
-        private async UniTask StartGameAsync()
+        private async UniTask StartGameAsync(CancellationToken ct)
         {
             // 満室になったら、まずキャラ選択ロビー（被り防止）へ進む。全員がキャラを確定すると Main へ遷移する。
             _model.State.Value = MatchingState.Starting;
             _soundPlayer.PlaySE(_soundStore.DecisionSE);
+            if (_gameSessionModel.IsHost)
+            {
+                // ホストはゲストより先に満室を検知しがちなので、少し待ってから遷移する。
+                await UniTask.Delay(HostStartDelayDuration, cancellationToken: ct);
+            }
             await _sceneTransitioner.Transit(Scenes.OnlineCharacterSelect);
         }
 
