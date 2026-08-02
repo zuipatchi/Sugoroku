@@ -562,10 +562,6 @@ namespace Main.Board
                     cell.AddToClassList("board-cell--goal");
                     cell.Add(new Label("S/G") { pickingMode = PickingMode.Ignore });
                 }
-                else
-                {
-                    cell.Add(new Label(i.ToString()) { pickingMode = PickingMode.Ignore });
-                }
                 ApplyCellAppearance(cell, definition);
                 AddFrameOverlay(cell);
                 _layout.PlaceAtCell(cell, i);
