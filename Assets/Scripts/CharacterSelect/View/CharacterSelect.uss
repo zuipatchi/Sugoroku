@@ -14,19 +14,19 @@
     -unity-background-scale-mode: scale-and-crop;
 }
 
-/* 背景の上に重ねる前景。操作ボタンを上、選択スロットを下に寄せる。 */
+/* 背景の上に重ねる前景。選択スロットと操作ボタンをまとめて下へ寄せる。 */
 .cs-foreground {
     flex-grow: 1;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
 }
 
-/* 画面下部の操作エリア。背景画像の上でも視認できるよう暗い帯を敷く。 */
+/* 画面下部。カードと操作ボタンをまとめて暗い帯に載せる（背景画像の上でも視認できるよう）。 */
 .cs-bottom {
     width: 100%;
     align-items: center;
     padding-top: 16px;
-    padding-bottom: 20px;
+    padding-bottom: 24px;
     background-color: rgba(0, 0, 0, 0.5);
 }
 
@@ -106,11 +106,11 @@
     -unity-text-align: middle-center;
 }
 
-/* 画面上部の操作エリア。中央寄せで右上のオプションアイコンを避ける。 */
+/* カードの下に並べる操作エリア。 */
 .cs-actions {
     flex-direction: row;
     justify-content: center;
-    margin-top: 32px;
+    margin-top: 16px;
 }
 
 .cs-action {

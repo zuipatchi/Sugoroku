@@ -4,14 +4,14 @@
         <!-- 選択中キャラの立ち絵を全画面の背景に表示する（コードで backgroundImage を差し替える） -->
         <ui:VisualElement name="PortraitView" class="cs-portrait" picking-mode="Ignore" />
         <ui:VisualElement name="Foreground" class="cs-foreground">
-            <!-- 戻る／決定は画面上部に配置する（右上は Common のオプションアイコンを避けて中央寄せ） -->
-            <ui:VisualElement name="Actions" class="cs-actions">
-                <ui:Button text="戻る" name="BackButton" class="btn-secondary cs-action" />
-                <ui:Button text="決定" name="ConfirmButton" class="btn-accent cs-action" />
-            </ui:VisualElement>
+            <!-- カードと操作ボタンをまとめて画面下部に置く（オンラインのキャラ選択と同じ並び） -->
             <ui:VisualElement name="Bottom" class="cs-bottom">
                 <!-- アイコンのカードはコードで CharacterGrid に追加する -->
                 <ui:VisualElement name="CharacterGrid" class="cs-grid" />
+                <ui:VisualElement name="Actions" class="cs-actions">
+                    <ui:Button text="戻る" name="BackButton" class="btn-secondary cs-action" />
+                    <ui:Button text="決定" name="ConfirmButton" class="btn-accent cs-action" />
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
