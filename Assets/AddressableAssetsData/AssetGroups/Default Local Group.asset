@@ -48,7 +48,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 12f2852a6b123f5438e24c391fa50e82
-    m_Address: Image/HorseRun
+    m_Address: Character/Character4/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -105,12 +105,12 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2d78966c2919703428890f9310e27297
-    m_Address: Image/CattleRun
+    m_Address: Character/Character7/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2ed41ad7b64eb9045a2073820dce97ab
-    m_Address: Image/DogRun
+    m_Address: Character/Character1/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -301,7 +301,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a450d432e1c26ac4e92555c6afaabe42
-    m_Address: Image/DragonRun
+    m_Address: Character/Character3/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -311,7 +311,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ac06208370c95a34793f77dabf3a231e
-    m_Address: Image/ChameleonRun
+    m_Address: Character/Character8/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -321,7 +321,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ad904927bf3f8bf40b1ea0c2bdcc15d1
-    m_Address: Image/CatRun
+    m_Address: Character/Character6/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -396,7 +396,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: daff4a9874134e34185f21899dac6cf2
-    m_Address: Image/CrayfishRun
+    m_Address: Character/Character2/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -412,7 +412,7 @@ MonoBehaviour:
     - default
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: deb6fec6c5acc054395221b9215549e5
-    m_Address: Image/BirdRun
+    m_Address: Character/Character5/Run
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
