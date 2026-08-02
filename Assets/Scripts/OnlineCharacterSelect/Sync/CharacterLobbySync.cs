@@ -41,6 +41,8 @@ namespace OnlineCharacterSelect.Sync
         private readonly ReactiveProperty<int> _presentCount = new(0);
         // 開始が確定したら true（ロースターは _roster へ保存済み）。
         private readonly ReactiveProperty<bool> _started = new(false);
+        // 誰かが抜けた・セッションが失われた＝このロビーは成立しない（解散）。
+        private readonly ReactiveProperty<bool> _sessionLost = new(false);
 
         // 自分のローカル選択状態（プレゼンターが更新）。ポーリングで差分があればプロパティへ書く。
         private CharacterId? _localSelection;
@@ -85,6 +87,13 @@ namespace OnlineCharacterSelect.Sync
         /// <summary>開始が確定したか。</summary>
         public ReadOnlyReactiveProperty<bool> Started => _started;
 
+        /// <summary>
+        /// 誰かがロビーから抜けた（またはセッションが失われた）か。抜けた人のキャラは永久に確定しないので、
+        /// 全員が待ち続けることになる。立ったら <c>OnlineCharacterSelectPresenter</c> がロビーを解散する。
+        /// 自分から退出したときは立てない（画面はもう遷移しているため）。
+        /// </summary>
+        public ReadOnlyReactiveProperty<bool> SessionLost => _sessionLost;
+
         /// <summary>キャラ <paramref name="character"/> が自分以外にロックされているか。</summary>
         public bool IsLockedByOther(CharacterId character)
         {
@@ -101,11 +110,11 @@ namespace OnlineCharacterSelect.Sync
 
         /// <summary>
         /// 希望キャラを選ぶ（まだ決定はしない）。他人にロックされたキャラは選べない。
-        /// 全員がロビーに到着するまでは選べない（<see cref="AllPresent"/>）。
+        /// 全員がロビーに到着するまで（<see cref="AllPresent"/>）と、解散後（<see cref="SessionLost"/>）は選べない。
         /// </summary>
         public void Select(CharacterId character)
         {
-            if (!AllPresent || IsLockedByOther(character))
+            if (!CanOperate || IsLockedByOther(character))
             {
                 return;
             }
@@ -116,12 +125,18 @@ namespace OnlineCharacterSelect.Sync
         /// <summary>現在の希望キャラで「決定」する（他人にロックされていなければ）。</summary>
         public void Confirm()
         {
-            if (!AllPresent || !_localSelection.HasValue || IsLockedByOther(_localSelection.Value))
+            if (!CanOperate || !_localSelection.HasValue || IsLockedByOther(_localSelection.Value))
             {
                 return;
             }
             _localReady = true;
         }
+
+        /// <summary>
+        /// 選択・決定を受け付けてよいか。全員そろう前は集計してもらえず、解散後はもう誰も集計しない。
+        /// UI 側でもボタンを無効化するが、別経路から抜けられないようロジック側でも塞ぐ。
+        /// </summary>
+        private bool CanOperate => AllPresent && !_sessionLost.CurrentValue;
 
         /// <summary>現在のローカル選択（ハイライト用）。</summary>
         public CharacterId? CurrentSelection => _localSelection;
@@ -168,6 +183,17 @@ namespace OnlineCharacterSelect.Sync
                     ISession session = Session;
                     if (session == null)
                     {
+                        // 自分から退出してセッションを手放した。画面はもう遷移しているので解散通知は要らない。
+                        return;
+                    }
+
+                    // (0) 誰かが抜けていたらロビーを解散する。ここは満室になってから来る画面なので、
+                    // 人数が定員を割ったら退出とみなしてよい。抜けた人のキャラは永久に確定せず、
+                    // 残った全員が「他のプレイヤーを待っています」から戻れなくなるため、待たずに畳む。
+                    // ループ先頭は必ずメインスレッド（初回＝呼び出し元／2 回目以降＝Delay の再開）なのでそのまま通知してよい。
+                    if (HasLeaver(session))
+                    {
+                        _sessionLost.Value = true;
                         return;
                     }
 
@@ -198,7 +224,36 @@ namespace OnlineCharacterSelect.Sync
             }
             catch (Exception e)
             {
+                // ホストが抜けてセッションごと消えたときも、プロパティの読み書きが例外になってここへ来る。
+                // 同期が止まった以上ロビーは成立しないので、ログを残して解散する。
                 Debug.LogError($"キャラ選択ロビーの同期に失敗: {e}");
+                await NotifySessionLostAsync(ct);
+            }
+        }
+
+        /// <summary>
+        /// 誰かがロビーから抜けたか。マッチングは満室（<c>AvailableSlots == 0</c>）になってから
+        /// このロビーへ遷移するので、ロビーにいる間の人数は常に定員と等しいはず。
+        /// </summary>
+        private static bool HasLeaver(ISession session)
+        {
+            return session.MaxPlayers > 0 && session.PlayerCount < session.MaxPlayers;
+        }
+
+        /// <summary>
+        /// 解散を UI へ知らせる。UGS の await 後は非メインスレッドになり得るため、
+        /// Reactive を触る前にメインスレッドへ戻す。
+        /// </summary>
+        private async UniTask NotifySessionLostAsync(CancellationToken ct)
+        {
+            try
+            {
+                await UniTask.SwitchToMainThread(ct);
+                _sessionLost.Value = true;
+            }
+            catch (OperationCanceledException)
+            {
+                // シーン破棄後は誰も見ていないので知らせなくてよい。
             }
         }
 
@@ -389,6 +444,7 @@ namespace OnlineCharacterSelect.Sync
             _locks.Dispose();
             _presentCount.Dispose();
             _started.Dispose();
+            _sessionLost.Dispose();
         }
 
         // JsonUtility 用のシリアライズ DTO。

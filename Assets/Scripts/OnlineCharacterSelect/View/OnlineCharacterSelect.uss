@@ -43,6 +43,11 @@
     -unity-text-align: middle-center;
 }
 
+/* ロビーの解散（誰かが退出した）を知らせるとき。通常の待機案内と区別するため赤みを付ける */
+.ocs-status--alert {
+    color: rgb(255, 150, 150);
+}
+
 /* 画面下部。カードと操作ボタンをまとめて暗い帯に載せる。 */
 .ocs-bottom {
     width: 100%;

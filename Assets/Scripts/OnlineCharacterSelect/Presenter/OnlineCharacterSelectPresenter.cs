@@ -45,6 +45,8 @@ namespace OnlineCharacterSelect.Presenter
         private readonly AddressableSpriteLoader _spriteLoader = new();
         private readonly CompositeDisposable _disposables = new();
         private bool _transiting;
+        // 誰かが抜けてロビーが解散した。以降は選択・決定を受け付けず、Title へ戻る操作だけ残す。
+        private bool _lobbyDismissed;
 
         [Inject]
         public void Construct(
@@ -124,6 +126,12 @@ namespace OnlineCharacterSelect.Presenter
                 .Subscribe(_ => GoToMain())
                 .AddTo(_disposables);
 
+            // 誰かが抜けたらロビーは成立しないので解散して Title へ戻す導線に切り替える。
+            _sync.SessionLost
+                .Where(lost => lost)
+                .Subscribe(_ => DismissLobby())
+                .AddTo(_disposables);
+
             RefreshCards();
             UpdateStatus();
 
@@ -186,7 +194,7 @@ namespace OnlineCharacterSelect.Presenter
         private void OnCardClicked(CharacterId id)
         {
             // 全員がロビーに到着するまでは選ばせない（先に選んでもロックを集計してもらえないため）。
-            if (_transiting || !_sync.AllPresent || _sync.IsLockedByOther(id))
+            if (_transiting || _lobbyDismissed || !_sync.AllPresent || _sync.IsLockedByOther(id))
             {
                 return;
             }
@@ -237,7 +245,8 @@ namespace OnlineCharacterSelect.Presenter
 
         private void OnConfirmClicked()
         {
-            if (_transiting || _sync.CurrentSelection == null || _sync.IsLockedByOther(_sync.CurrentSelection.Value))
+            if (_transiting || _lobbyDismissed
+                || _sync.CurrentSelection == null || _sync.IsLockedByOther(_sync.CurrentSelection.Value))
             {
                 return;
             }
@@ -266,12 +275,42 @@ namespace OnlineCharacterSelect.Presenter
             await _sceneTransitioner.Transit(Scenes.Title);
         }
 
+        /// <summary>
+        /// 誰かが抜けてロビーが解散した。残った人数では割り当てが確定しないので、選択・決定を閉じて
+        /// 「タイトルへ戻る」だけを残す（自動では遷移せず、理由を読んでから戻ってもらう）。
+        /// 退出ボタンはそのまま流用するので、押せば <see cref="LeaveAndReturnAsync"/> で Title へ戻る。
+        ///
+        /// セッションからはこの時点で抜けておく。読んでいる間ルームに居座ると、空いた枠へ
+        /// 新しい人が入ってきて（解散済みのロビーなので）その人も待ちぼうけになる。
+        /// </summary>
+        private void DismissLobby()
+        {
+            if (_transiting || _lobbyDismissed)
+            {
+                return;
+            }
+            _lobbyDismissed = true;
+            // ユーザー操作ではなくポーリング起点で呼ばれるので、ストアのロード前でも落ちない PlaySafe を使う。
+            _soundPlayer.PlaySafe(_soundStore?.Cancel1SE);
+            if (_leaveButton != null)
+            {
+                _leaveButton.text = "タイトルへ戻る";
+            }
+            RefreshCards();
+            UpdateStatus();
+
+            _roster.Clear();
+            // 離脱の完了は待たない（あとで「タイトルへ戻る」を押したときの離脱は冪等に空振りする）。
+            _gameSession.LeaveCurrentSessionAsync().Forget();
+        }
+
         // ロック状態に合わせて各カードの見た目・選択可否を更新する。
         private void RefreshCards()
         {
             CharacterId? selection = _sync.CurrentSelection;
             // 全員そろうまではロックを集計してもらえないので、カードも決定も触らせない。
-            bool allPresent = _sync.AllPresent;
+            // 解散後（誰かが抜けた）も同じく触らせない＝もう誰も集計しないため。
+            bool selectable = _sync.AllPresent && !_lobbyDismissed;
 
             // 自分の選択が他人にロックされていたら選択解除する。
             if (selection.HasValue && _sync.IsLockedByOther(selection.Value))
@@ -293,16 +332,25 @@ namespace OnlineCharacterSelect.Presenter
                 card.EnableInClassList("ocs-card--locked", lockedByOther);
                 card.EnableInClassList("ocs-card--selected", isSelected && !isMine);
                 card.EnableInClassList("ocs-card--mine", isMine);
-                card.SetEnabled(allPresent && !lockedByOther);
+                card.SetEnabled(selectable && !lockedByOther);
                 _lockBadges[id].style.display = lockedByOther ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
-            bool canConfirm = allPresent && selection.HasValue && !_sync.IsLockedByOther(selection.Value);
+            bool canConfirm = selectable && selection.HasValue && !_sync.IsLockedByOther(selection.Value);
             _confirmButton.SetEnabled(canConfirm && !_sync.IsReady);
         }
 
         private void UpdateStatus()
         {
+            _statusLabel.EnableInClassList("ocs-status--alert", _lobbyDismissed);
+
+            // 解散（誰かが抜けた）はどの状態より優先して知らせる。待っても割り当ては確定しない。
+            if (_lobbyDismissed)
+            {
+                _statusLabel.text = "他のプレイヤーが退出しました。タイトルへ戻ってください";
+                return;
+            }
+
             // 全員そろうまでは選べないので、何人待ちかを出す（ロビーへの到着はカード絵のロードぶん差が出る）。
             if (!_sync.AllPresent)
             {
