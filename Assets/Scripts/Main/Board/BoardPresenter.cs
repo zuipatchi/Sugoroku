@@ -1460,8 +1460,8 @@ namespace Main.Board
         /// 配る。全員ぶんが揃ったら <see cref="MiniGameRanking.Resolve"/> で勝者を決めるので、
         /// 誰かが判定役にならなくても全クライアントが同じ結論に至る。
         ///
-        /// **一人用**: 遊ぶのは <paramref name="starter"/> が人間のときだけで、相手はゲーム内の CPU が務める。
-        /// CPU のコマが着地したときは遊ばせるものが無いので勝敗を抽選する。
+        /// **一人用**: <paramref name="starter"/> が誰であっても自分（人間プレイヤー）が CPU 相手に遊ぶ
+        /// （<see cref="RunLocalMiniGameAsync"/>）。相手はゲーム内の CPU が務める。
         /// </summary>
         private async UniTask RunMiniGameAsync(int starter, MiniGameId game, int seed, CancellationToken ct)
         {
@@ -1472,10 +1472,7 @@ namespace Main.Board
 
             if (!_sync.IsOnline)
             {
-                int reward = starter == _humanPlayer && _launcher != null
-                    ? await PlayLocalMiniGameAsync(game, ct)
-                    : (_itemRng.Next(2) == 0 ? MiniGameRewardMoney : 0);
-                await ApplyMoneyRewardAsync(starter, reward, ct);
+                await RunLocalMiniGameAsync(starter, game, ct);
                 return;
             }
 
@@ -1520,15 +1517,38 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 一人用モードでミニゲームを遊んで報酬額を返す（負けたら 0）。相手はゲーム内の CPU が務めるので、
-        /// 参加者ぶんの盤面キャラをそのまま渡して勝敗はゲームの判定（<see cref="DetermineMiniGameWin"/>）に任せる。
+        /// 一人用モードのミニゲーム。**着地したのが自分でも CPU でも自分が CPU 相手に遊ぶ**
+        /// （オンラインで全員が同時に遊ぶのと同じ体験にするため）。
+        ///
+        /// 報酬は次の 1 人が受け取る:
+        /// <list type="bullet">
+        /// <item>自分が勝った → 自分（CPU が着地したミニゲームなら報酬を横取りする）</item>
+        /// <item>自分が負けた → 着地した CPU（<paramref name="starter"/>）</item>
+        /// <item>自分が着地して負けた → 勝者なし（誰も受け取らない）</item>
+        /// </list>
         /// </summary>
-        private async UniTask<int> PlayLocalMiniGameAsync(MiniGameId game, CancellationToken ct)
+        private async UniTask RunLocalMiniGameAsync(int starter, MiniGameId game, CancellationToken ct)
         {
-            int[] order = MiniGameSeatOrder();
-            MiniGameResult result = await _launcher.PlayAsync(
-                game, ct, order.Length, MiniGameCharacters(order));
-            return DetermineMiniGameWin(result) ? MiniGameRewardMoney : 0;
+            bool iWon;
+            if (_launcher != null)
+            {
+                // 相手はゲーム内の CPU が務めるので、参加者ぶんの盤面キャラをそのまま渡して
+                // 勝敗はゲームの判定（DetermineMiniGameWin）に任せる。
+                int[] order = MiniGameSeatOrder();
+                MiniGameResult result = await _launcher.PlayAsync(
+                    game, ct, order.Length, MiniGameCharacters(order));
+                iWon = DetermineMiniGameWin(result);
+            }
+            else
+            {
+                // ランチャーが無い（注入に失敗した）ときは遊ばせるものが無いので勝敗を抽選する。
+                iWon = _itemRng.Next(2) == 0;
+            }
+
+            // 負けたときの勝者は着地した CPU。自分が着地して負けたときだけ勝者なし（誰も報酬を得ない）。
+            int winner = iWon ? _humanPlayer : starter;
+            bool noWinner = !iWon && starter == _humanPlayer;
+            await AwardMiniGameAsync(noWinner ? Array.Empty<int>() : new[] { winner }, ct);
         }
 
         /// <summary>
@@ -1616,20 +1636,33 @@ namespace Main.Board
         /// 集めた結果値から勝者を決めて報酬を配り、誰が勝ったかを帯で知らせる。
         /// 判定は純粋関数（<see cref="MiniGameRanking.Resolve"/>）なので全クライアントで同じ結果になる。
         /// </summary>
-        private async UniTask ApplyMiniGameWinnersAsync(
+        private UniTask ApplyMiniGameWinnersAsync(
             MiniGameId game, IReadOnlyList<int> order, IReadOnlyList<int> values, CancellationToken ct)
         {
             bool[] wins = MiniGameRanking.Resolve(game, values);
+            List<int> winners = new();
+            for (int i = 0; i < wins.Length; i++)
+            {
+                if (wins[i])
+                {
+                    winners.Add(order[i]);
+                }
+            }
+            return AwardMiniGameAsync(winners, ct);
+        }
+
+        /// <summary>
+        /// ミニゲームの勝者 <paramref name="winnerSeats"/> に報酬を配り、誰が勝ったかを帯で知らせる
+        /// （オンライン・一人用の共通処理）。自分が勝ったときだけ増額の浮遊テキストも出す。
+        /// </summary>
+        private async UniTask AwardMiniGameAsync(IReadOnlyList<int> winnerSeats, CancellationToken ct)
+        {
             List<string> winnerNames = new();
             bool iWon = false;
 
-            for (int i = 0; i < wins.Length; i++)
+            for (int i = 0; i < winnerSeats.Count; i++)
             {
-                if (!wins[i])
-                {
-                    continue;
-                }
-                int seat = order[i];
+                int seat = winnerSeats[i];
                 _money.Add(seat, MiniGameRewardMoney);
                 winnerNames.Add(CharacterNameOf(seat));
                 iWon |= seat == _humanPlayer;
@@ -2337,19 +2370,6 @@ namespace Main.Board
             _money.Add(player, total);
             _soundPlayer.PlaySafe(_soundStore?.MoneySE);
             await ShowItemMoneyFloatAsync(total, ct);
-        }
-
-        /// <summary>ミニゲーム報酬の適用。<paramref name="reward"/> が 0（負け）なら何もしない。</summary>
-        private async UniTask ApplyMoneyRewardAsync(int player, int reward, CancellationToken ct)
-        {
-            if (_money == null || reward <= 0)
-            {
-                return;
-            }
-
-            _money.Add(player, reward);
-            _soundPlayer.PlaySafe(_soundStore?.MoneySE);
-            await ShowItemMoneyFloatAsync(reward, ct);
         }
 
         /// <summary>アイテム効果による所持金の増減を中央の浮遊テキストで見せる（マス画像は出さない）。</summary>
