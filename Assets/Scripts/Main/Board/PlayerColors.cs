@@ -1,9 +1,9 @@
 namespace Main.Board
 {
     /// <summary>
-    /// プレイヤー別の色（コマ・陣地占拠・ネームプレート上辺のアクセント）の共通ヘルパ。
+    /// プレイヤー別の色（コマ・陣地占拠・ネームプレート上辺とプレイヤー詳細モーダル上辺のアクセント）の共通ヘルパ。
     /// 実際の色は USS の <c>board-piece--p{N}</c> / <c>board-cell--owned-p{N}</c> /
-    /// <c>board-nameplate--p{N}</c>（N は 0..<see cref="Count"/>-1）に定義する。
+    /// <c>board-nameplate--p{N}</c> / <c>player-detail__card--p{N}</c>（N は 0..<see cref="Count"/>-1）に定義する。
     /// 8 色（p0..p7）を用意しておき（現状のプレイ人数上限 4 に余裕を持たせた頭数）、想定外に多い index は末尾色にクランプする。
     /// </summary>
     internal static class PlayerColors

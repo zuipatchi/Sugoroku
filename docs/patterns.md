@@ -206,7 +206,7 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 - 上に乗せたいパネル（例: ミニゲーム起動ボタン）の UIDocument の **Sorting Order を、奪っている側より大きく**する（Main では Board=0 / Roulette=10 なので、トリガーは 20 にした）
 - そのパネルのルート要素は `picking-mode="Ignore"` にし、**ボタン等の操作要素だけがイベントを拾う**ようにする。これで「ボタン以外は下のパネルへ素通り」になり、共存できる
 - 参考の Sorting Order: Transition=2000 / Option=1000 / MiniGame シーン=100。新しい前面 UI はこれらと衝突しない値にする
-- **下のパネルに載っているモーダルを一時的に最前面へ出したいときは、開いている間だけそのパネルの `UIDocument.sortingOrder` を上げて閉じたら戻す。** アイテム詳細モーダルは Board パネル（Sorting=0）にあるため、回転中のルーレット（Sorting=10）が前面に来て隠れていた。`ItemModalPresenter` が開くとき Board の `sortingOrder` を 100（ルーレット/トリガより上・Option/Transition より下）へ退避付きで持ち上げ、閉じるときに元へ戻す（閉→開の遷移でだけ退避するので二重オープンでも基準値を失わない）
+- **下のパネルに載っているモーダルを一時的に最前面へ出したいときは、開いている間だけそのパネルの `UIDocument.sortingOrder` を上げて閉じたら戻す。** アイテム詳細モーダルは Board パネル（Sorting=0）にあるため、回転中のルーレット（Sorting=10）が前面に来て隠れていた。`ItemModalPresenter` が開くとき Board の `sortingOrder` を 100（ルーレット/トリガより上・Option/Transition より下）へ退避付きで持ち上げ、閉じるときに元へ戻す（閉→開の遷移でだけ退避するので二重オープンでも基準値を失わない）。Board パネルのモーダルはすべてこの規約に従う（`ItemShopPresenter`／`MiniGameSelectPresenter`／`BoardCellInfoPresenter`／`PlayerDetailPresenter`）
 
 **逆に、下のパネルへ操作要素を足すときは、上の全画面パネルすべてのルートを `picking-mode="Ignore"` にする。** Board パネル（Sorting=0・最下層）に盤面ズームの虫眼鏡ボタンとドラッグ層を足したとき、上に乗る Roulette パネル（Sorting=10）のルートが**全画面 picking 有効**でイベントを奪っており、下の Board のボタンが無反応だった。Roulette 側の**ルートと円盤ビジュアルを `picking-mode="Ignore"`**（[Roulette.uxml](../Assets/Scripts/Main/Roulette/View/Roulette.uxml)）にし、**スピンボタンだけ操作可能**にすることで、下の Board パネルのボタン・ドラッグ層へ入力が通るようになった。「下のパネルに操作 UI を置く」場合は、それより上の全画面パネルが素通し設定になっているか必ず確認する。
 
