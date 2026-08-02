@@ -18,10 +18,13 @@
     white-space: normal;
 }
 
+/* コース背景（Image/MiniGame/Track）は RaceGamePlay が Addressables でロードして貼る。
+   未配置のときは背景画像が付かず、下の地色がそのまま見える */
 .race-track {
     width: 92%;
     height: 42%;
     background-color: rgb(30, 38, 58);
+    background-size: cover;
     border-width: 2px;
     border-color: rgba(255, 255, 255, 0.18);
     border-radius: 18px;

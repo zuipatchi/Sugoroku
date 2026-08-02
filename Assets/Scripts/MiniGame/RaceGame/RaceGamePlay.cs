@@ -29,6 +29,8 @@ namespace MiniGame.RaceGame
         // 「この値以上＝ゴール済みで、差がゴールタイム（ミリ秒）」という約束で運ぶ。
         private const int FinishedValueOffset = 1000000;
         private const float RemoteFollowSpeed = 12f;  // 相手の走者を届いた位置へ寄せる速さ（1/秒）
+        // コースの背景に敷く路面画像。未配置なら RaceGame.uss の地色のままにする。
+        private const string TrackBackgroundAddress = "Image/MiniGame/Track";
 
         private readonly RaceGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -129,7 +131,10 @@ namespace MiniGame.RaceGame
                 _session != null ? _session.ResolveSeed() : NextSeed(),
                 _session == null || _session.SimulateOpponents);
 
-            await BuildRunnersAsync(_model.RunnerCount, ct);
+            // コース背景と走者のキャラ絵はどちらも Addressables なので並列でロードする。
+            await UniTask.WhenAll(
+                ApplyTrackBackgroundAsync(ct),
+                BuildRunnersAsync(_model.RunnerCount, ct));
 
             LayoutMeterZones(config);
             _closeSource = new UniTaskCompletionSource();
@@ -524,6 +529,19 @@ namespace MiniGame.RaceGame
         {
             float percent = StartPercent - Mathf.Clamp01(progress) * (StartPercent - GoalPercent);
             runner.style.left = Length.Percent(percent);
+        }
+
+        /// <summary>
+        /// コースの背景に路面画像を貼る。拡大縮小は USS（<c>.race-track</c> の <c>background-size: cover</c>）に任せる。
+        /// 未配置のときは何もしない＝USS の地色がそのまま見える。
+        /// </summary>
+        private async UniTask ApplyTrackBackgroundAsync(CancellationToken ct)
+        {
+            Sprite sprite = await _spriteLoader.TryLoadAsync(TrackBackgroundAddress, "コース背景", ct);
+            if (sprite != null)
+            {
+                _track.style.backgroundImage = new StyleBackground(sprite);
+            }
         }
 
         private async UniTask ApplyRunnerSpriteAsync(VisualElement runner, CharacterId id, CancellationToken ct)
