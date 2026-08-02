@@ -1648,7 +1648,7 @@ namespace Main.Board
         /// アイテム取得マスの演出。着地した本人のクライアントだけが、ランダムな枚数・重複なしのラインナップ
         /// （<see cref="ItemCatalog.RandomLineup"/>）を抽選して購入を決め（<see cref="DecidePurchaseAsync"/>）、
         /// 結果を発行する。適用（代金の支払いと手札への追加）は全クライアントが受信して行う
-        /// （<see cref="ApplyShopResult"/>）ので、オンラインでも所持金と手札が食い違わない。
+        /// （<see cref="ApplyShopResultAsync"/>）ので、オンラインでも所持金と手札が食い違わない。
         /// </summary>
         private async UniTask PlayItemShopSequenceAsync(int player, CancellationToken ct)
         {
@@ -1673,7 +1673,7 @@ namespace Main.Board
 
             GameAction result = await WaitForActionAsync(GameActionType.ShopResult, ct);
             SetBusy(player, BusyReason.None);
-            ApplyShopResult(result.Seat, result.ShopItemId);
+            await ApplyShopResultAsync(result.Seat, result.ShopItemId, ct);
         }
 
         /// <summary>
@@ -1702,9 +1702,12 @@ namespace Main.Board
         /// <summary>
         /// 購入結果を適用する（全クライアントで実行）。代金を支払い、買ったアイテムを手札へ加える
         /// （自分の席のぶんだけ <see cref="ItemModel.Gained"/> 購読が右下の手札に並べる）。
+        /// 支払った代金は、お金マスと同じ浮遊テキスト（−価格）で見せる。
+        /// 買ったのが自分以外（CPU・他プレイヤー）のときは、こちらの画面にはショップが出ていない＝
+        /// 何を買ったのか分からないので、アイテム絵を中央にポップし帯でも知らせる。
         /// <paramref name="itemId"/> が負なら買わなかったので何もしない。
         /// </summary>
-        private void ApplyShopResult(int player, int itemId)
+        private async UniTask ApplyShopResultAsync(int player, int itemId, CancellationToken ct)
         {
             if (itemId < 0 || _items == null)
             {
@@ -1721,6 +1724,20 @@ namespace Main.Board
             _items.Add(player, item.Id);
             // 購入（お金を払う）なので取得 SE ではなくお金 SE を鳴らす。
             _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+
+            // 自分の買い物はショップモーダルで見えているので出さない。CPU・他プレイヤーのぶんだけ
+            // 「誰が何を買ったか」をアイテム絵のポップと帯で知らせる。
+            bool popupShown = false;
+            if (player != _humanPlayer)
+            {
+                Sprite sprite = await LoadItemSpriteAsync(item, ct);
+                popupShown = await _landing.ShowCellPopupAsync(sprite, ct);
+                ShowBannerText($"{CharacterNameOf(player)}が「{item.DisplayName}」を購入！");
+            }
+
+            // 支払いで所持金が減ったことを、お金マス・アイテム効果と同じ中央の浮遊テキストで見せる
+            // （アイテム絵を出したときは、お金マスと同じく浮遊テキストと同時に消す）。
+            await _landing.ShowMoneyFloatAsync(-item.Price, popupShown, ItemMoneyFloatSeconds, ct);
         }
 
         /// <summary>
