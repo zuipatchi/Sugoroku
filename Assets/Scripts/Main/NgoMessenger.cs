@@ -52,7 +52,11 @@ namespace Main
             }
         }
 
-        /// <summary>JSON 文字列のまま受け取るハンドラを登録する。</summary>
+        /// <summary>
+        /// JSON 文字列のまま受け取るハンドラを登録する。
+        /// 同じ名前で登録し直すとハンドラは差し替わる（再接続で <c>CustomMessagingManager</c> が
+        /// 作り直されたときに張り直すため）。解除用の控えは重複させない。
+        /// </summary>
         public void RegisterJson(string messageName, Action<ulong, string> handler)
         {
             CustomMessagingManager messaging = Messaging;
@@ -60,7 +64,10 @@ namespace Main
             {
                 return;
             }
-            _registered.Add(messageName);
+            if (!_registered.Contains(messageName))
+            {
+                _registered.Add(messageName);
+            }
             messaging.RegisterNamedMessageHandler(messageName, (senderId, reader) =>
             {
                 reader.ReadValueSafe(out string json);

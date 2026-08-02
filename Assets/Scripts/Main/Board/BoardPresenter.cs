@@ -177,6 +177,8 @@ namespace Main.Board
         private UniTaskCompletionSource<int> _territorySelectionTcs;
         // アイテム効果（選択→演出）の実行中フラグ。多重起動と、実行中の「使用する」再有効化を防ぐ。
         private bool _itemEffectRunning;
+        // 直前の一時停止（切断による進行停止）の状態。復帰したときだけスピンを戻すために覚えておく。
+        private bool _wasPaused;
         // 陣地選択のハイライトを付けたマスの USS クラス。
         private const string SelectableCellClass = "board-cell--selectable";
         // 選択できるマスに重ねるキラキラのリング要素の USS クラス。
@@ -347,6 +349,26 @@ namespace Main.Board
                         true, // 雨はシーンを出るまで降らせ続ける。
                         _destroyCt).Forget();
                 }
+            }));
+
+            // 誰かの切断で進行が止まっている間は入力を閉じ、待機表示で理由を出す
+            // （復帰すれば自分の手番のスピンだけ戻す。猶予切れなら下の SessionLost が引き継ぐ）。
+            _disposables.Add(_sync.Paused.Subscribe(paused =>
+            {
+                // 購読時にも現在値（false）が流れてくる。まだ一時停止していないのに「復帰」の処理を
+                // 走らせるとゲーム開始前にスピンを押せてしまうので、止まったことがある場合だけ戻す。
+                bool resumed = !paused && _wasPaused;
+                _wasPaused = paused;
+
+                if (paused && _roulette != null)
+                {
+                    _roulette.SetInteractable(false);
+                }
+                else if (resumed)
+                {
+                    RestoreSpinIfMyIdleTurn();
+                }
+                RefreshWaitingBanner();
             }));
 
             // オンラインで誰かが退出したら対戦は続行できない。決着時と同じ帯で知らせて Home へ戻れるようにする。
@@ -987,6 +1009,24 @@ namespace Main.Board
         /// <summary>いま出すべき待機文言（待つ必要がなければ null）。</summary>
         private string ResolveWaitingMessage()
         {
+            // 決着後・打ち切り後はもう誰も待たない（決着後に誰かがホームへ戻っても待機表示は出さない）。
+            if (_model.IsFinished || _sync.SessionLost.CurrentValue)
+            {
+                return null;
+            }
+
+            // 切断による一時停止は何より優先して知らせる（盤面が動かない理由がこれなので）。
+            if (_sync.Paused.CurrentValue)
+            {
+                int grace = _sync.PauseGraceSeconds;
+                if (_sync.PausedSeat == _sync.MySeat)
+                {
+                    return $"接続が切れました。再接続しています（最大{grace}秒）";
+                }
+                string who = _sync.PausedSeat >= 0 ? CharacterNameOf(_sync.PausedSeat) : "他のプレイヤー";
+                return $"{who}が切断しました。復帰を待っています（最大{grace}秒）";
+            }
+
             // オンラインのミニゲームは全員が同時に遊ぶので、待つ相手は 1 人に定まらない。
             if (_waitingMiniGameScores)
             {
@@ -1006,9 +1046,8 @@ namespace Main.Board
             }
 
             // 円盤は回している間しか出ないので、相手が回し始めるまでは画面が動かず待たされていることが伝わらない。
-            // 決着後・相手の退出後はもう誰も待たない。アイテム効果の演出中は画面が動いているので出さない。
-            if (_turn == null || _rouletteModel == null || _itemEffectRunning
-                || _model.IsFinished || _sync.SessionLost.CurrentValue)
+            // アイテム効果の演出中は画面が動いているので出さない（決着・打ち切りは冒頭で弾いている）。
+            if (_turn == null || _rouletteModel == null || _itemEffectRunning)
             {
                 return null;
             }
@@ -2051,11 +2090,13 @@ namespace Main.Board
 
         /// <summary>
         /// モーダルの「使用する」を有効にしてよいか。自分の手番で、まだルーレットを回していない（Idle）ときだけ。
-        /// 回した後（Spinning/Stopped）・コマ移動中・別のアイテム効果の実行中は無効にする。
+        /// 回した後（Spinning/Stopped）・コマ移動中・別のアイテム効果の実行中・
+        /// 誰かの切断で進行が止まっている間は無効にする。
         /// </summary>
         private bool CanUseItem()
         {
             return !_itemEffectRunning
+                   && !_sync.Paused.CurrentValue // 切断による一時停止中は誰も盤面を進めない
                    && _turn.CurrentPlayer.CurrentValue == _humanPlayer
                    && _rouletteModel.State.CurrentValue == RouletteState.Idle;
         }
@@ -2190,7 +2231,18 @@ namespace Main.Board
             _itemEffectRunning = false;
             // 効果が終わってもまだ相手の手番なら、待機表示（ルーレット待ち）へ戻す。
             RefreshWaitingBanner();
+            RestoreSpinIfMyIdleTurn();
+        }
+
+        /// <summary>
+        /// 一時的に閉じていたスピンを戻す。戻すのは「自分の手番・ルーレット未回転（Idle）・決着前で、
+        /// アイテム効果も切断による一時停止も走っていない」ときだけ（それ以外は閉じたままでよい）。
+        /// アイテム効果の終了（<see cref="EndItemEffect"/>）と切断からの復帰の両方から呼ぶ。
+        /// </summary>
+        private void RestoreSpinIfMyIdleTurn()
+        {
             if (_roulette != null && !_model.IsFinished
+                && !_itemEffectRunning && !_sync.Paused.CurrentValue && !_sync.SessionLost.CurrentValue
                 && _turn.CurrentPlayer.CurrentValue == _humanPlayer
                 && _rouletteModel.State.CurrentValue == RouletteState.Idle)
             {

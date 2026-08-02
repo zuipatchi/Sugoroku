@@ -2,7 +2,6 @@ using System.Threading;
 using Common.GameSession;
 using Cysharp.Threading.Tasks;
 using Main.Online;
-using Unity.Netcode;
 using VContainer.Unity;
 
 namespace Main
@@ -39,22 +38,9 @@ namespace Main
                 return;
             }
 
-            while (NetworkManager.Singleton == null)
-            {
-                await UniTask.NextFrame(cancellationToken: ct);
-            }
-
-            NetworkManager nm = NetworkManager.Singleton;
-            bool isHost = _gameSessionModel.IsHost;
-
             // 接続は Matching シーンでのセッション作成/参加時に確立済みだが、Main へ来た時点で
-            // 完全に整っているとは限らない（networking.md 4）。ホストは IsListening、
-            // クライアントは IsConnectedClient で確認する（条件が異なることに注意）。
-            while (nm.CustomMessagingManager == null
-                   || (isHost ? !nm.IsListening : !nm.IsConnectedClient))
-            {
-                await UniTask.NextFrame(cancellationToken: ct);
-            }
+            // 完全に整っているとは限らない（networking.md 4）。
+            await NgoReadiness.WaitUntilReadyAsync(_gameSessionModel.IsHost, ct);
 
             // 進行の開始（Connected 通知）より前にハンドラを永続登録しておく。
             // これで最初のアクションから取りこぼさない（networking.md 8）。

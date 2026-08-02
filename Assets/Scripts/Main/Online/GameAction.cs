@@ -15,18 +15,35 @@ namespace Main.Online
 
         private readonly int[] _args;
 
-        public GameAction(GameActionType type, int seat, int[] args)
+        public GameAction(GameActionType type, int seat, int[] args, int seq = NoSeq)
         {
             Type = type;
             Seat = seat;
             _args = args ?? EmptyArgs;
+            Seq = seq;
         }
+
+        /// <summary>まだ通し番号が振られていないことを表す値（発行時＝ホストが配る前）。</summary>
+        public const int NoSeq = 0;
 
         /// <summary>アクションの種別。</summary>
         public GameActionType Type { get; }
 
         /// <summary>このアクションを発行した席（参加者 index）。</summary>
         public int Seat { get; }
+
+        /// <summary>
+        /// ホストが再配信するときに振る通し番号（1 始まり・未採番は <see cref="NoSeq"/>）。
+        /// 受信側は「どこまで受け取ったか」をこの値で覚えておき、再接続したときに
+        /// <see cref="GameActionType.Resync"/> で申告して取りこぼしを送り直してもらう。
+        /// </summary>
+        public int Seq { get; }
+
+        /// <summary>通し番号だけ差し替えた複製（採番はホストの再配信時に 1 度だけ行う）。</summary>
+        public GameAction WithSeq(int seq)
+        {
+            return new GameAction(Type, Seat, _args, seq);
+        }
 
         /// <summary>パラメータの個数。</summary>
         public int ArgCount => _args?.Length ?? 0;
@@ -79,6 +96,12 @@ namespace Main.Online
 
         /// <summary>待機表示の理由（<see cref="GameActionType.Busy"/>）。<see cref="BusyReason"/> の値。</summary>
         public int BusyReasonId => ArgAt(0);
+
+        /// <summary>復帰を待つ残り秒数（<see cref="GameActionType.Pause"/>）。</summary>
+        public int GraceSeconds => ArgAt(0);
+
+        /// <summary>復帰したクライアントが受信済みの最後の seq（<see cref="GameActionType.Resync"/>）。</summary>
+        public int LastSeq => ArgAt(0);
 
         /// <summary>アイテム効果のパラメータ数（<see cref="GameActionType.ItemUse"/>）。</summary>
         public int EffectArgCount => ArgCount > 0 ? ArgCount - 1 : 0;
@@ -158,6 +181,29 @@ namespace Main.Online
         public static GameAction Leave(int seat)
         {
             return new GameAction(GameActionType.Leave, seat, EmptyArgs);
+        }
+
+        /// <summary>
+        /// 席 <paramref name="seat"/> の切断による一時停止（<paramref name="graceSeconds"/> = 復帰を待つ残り秒数）。
+        /// 制御メッセージなのでアクションストリームには載らない。
+        /// </summary>
+        public static GameAction Pause(int seat, int graceSeconds)
+        {
+            return new GameAction(GameActionType.Pause, seat, new[] { graceSeconds });
+        }
+
+        /// <summary>席 <paramref name="seat"/> の復帰による一時停止の解除（制御メッセージ）。</summary>
+        public static GameAction Resume(int seat)
+        {
+            return new GameAction(GameActionType.Resume, seat, EmptyArgs);
+        }
+
+        /// <summary>
+        /// 復帰したクライアントの「seq <paramref name="lastSeq"/> まで受け取った」申告（制御メッセージ）。
+        /// </summary>
+        public static GameAction Resync(int seat, int lastSeq)
+        {
+            return new GameAction(GameActionType.Resync, seat, new[] { lastSeq });
         }
     }
 }

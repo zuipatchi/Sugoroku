@@ -17,6 +17,7 @@ namespace Main.Online
                 type = (int)action.Type,
                 seat = action.Seat,
                 args = action.ArgsCopy(),
+                seq = action.Seq,
             };
             return JsonUtility.ToJson(dto);
         }
@@ -48,17 +49,19 @@ namespace Main.Online
                 return false;
             }
 
-            action = new GameAction((GameActionType)dto.type, dto.seat, dto.args);
+            action = new GameAction((GameActionType)dto.type, dto.seat, dto.args, dto.seq);
             return true;
         }
 
         // JsonUtility 用のシリアライズ DTO（JsonUtility は struct のトップレベル・可変長の型引数を扱えないため）。
+        // seq は古い形式（seq 無し）の JSON でも 0＝GameAction.NoSeq に落ちるので後方互換で読める。
         [Serializable]
         private sealed class GameActionDto
         {
             public int type;
             public int seat;
             public int[] args;
+            public int seq;
         }
     }
 }

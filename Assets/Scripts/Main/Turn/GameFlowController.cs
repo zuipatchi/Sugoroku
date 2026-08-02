@@ -171,9 +171,10 @@ namespace Main.Turn
                 Task<SpinDecision> decided = _rouletteModel.Decided.FirstAsync(ct);
                 PublishSpinStartAsync(spinner, ct).Forget();
 
+                // 切断で進行が止まっている間は押させない（復帰したら BoardPresenter が押せる状態へ戻す）。
                 if (_participants.KindOf(spinner) == PlayerKind.Human)
                 {
-                    _roulette.SetInteractable(true);
+                    _roulette.SetInteractable(!_sync.Paused.CurrentValue);
                 }
                 else
                 {

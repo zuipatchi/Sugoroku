@@ -131,6 +131,64 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void 通し番号は往復する()
+        {
+            // 復帰したクライアントが「どこまで受け取ったか」を判断する唯一の手がかりなので、
+            // 採番したぶんがそのまま相手へ届くこと。
+            string json = GameActionCodec.Encode(GameAction.Spin(1, 3).WithSeq(42));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
+            Assert.AreEqual(42, decoded.Seq);
+            Assert.AreEqual(3, decoded.Sector);
+        }
+
+        [Test]
+        public void 採番前のアクションはNoSeqのまま往復する()
+        {
+            // 発行された時点ではまだホストが番号を振っていない（一人用モードは最後まで振られない）。
+            string json = GameActionCodec.Encode(GameAction.SpinStart(0));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
+            Assert.AreEqual(GameAction.NoSeq, decoded.Seq);
+        }
+
+        [Test]
+        public void WithSeqは番号だけを差し替える()
+        {
+            GameAction original = GameAction.ItemUse(2, 5, 11, 22);
+            GameAction numbered = original.WithSeq(7);
+
+            Assert.AreEqual(7, numbered.Seq);
+            Assert.AreEqual(GameAction.NoSeq, original.Seq, "元のアクションは書き換わらないこと");
+            Assert.AreEqual(original.Type, numbered.Type);
+            Assert.AreEqual(original.Seat, numbered.Seat);
+            Assert.AreEqual(5, numbered.UsedItemId);
+            Assert.AreEqual(11, numbered.EffectArgAt(0));
+            Assert.AreEqual(22, numbered.EffectArgAt(1));
+        }
+
+        [Test]
+        public void 一時停止と復帰と取りこぼし申告が往復する()
+        {
+            string pause = GameActionCodec.Encode(GameAction.Pause(2, 60));
+            string resume = GameActionCodec.Encode(GameAction.Resume(2));
+            string resync = GameActionCodec.Encode(GameAction.Resync(2, 17));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(pause, out GameAction pauseAction));
+            Assert.AreEqual(GameActionType.Pause, pauseAction.Type);
+            Assert.AreEqual(2, pauseAction.Seat);
+            Assert.AreEqual(60, pauseAction.GraceSeconds);
+
+            Assert.IsTrue(GameActionCodec.TryDecode(resume, out GameAction resumeAction));
+            Assert.AreEqual(GameActionType.Resume, resumeAction.Type);
+            Assert.AreEqual(2, resumeAction.Seat);
+
+            Assert.IsTrue(GameActionCodec.TryDecode(resync, out GameAction resyncAction));
+            Assert.AreEqual(GameActionType.Resync, resyncAction.Type);
+            Assert.AreEqual(17, resyncAction.LastSeq);
+        }
+
+        [Test]
         public void 壊れたJSONや未知の種別はデコードに失敗する()
         {
             Assert.IsFalse(GameActionCodec.TryDecode(null, out _));

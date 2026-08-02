@@ -16,6 +16,8 @@ namespace Main.Injector
         {
             builder.Register<NetworkModel>(Lifetime.Scoped);
             builder.Register<NgoMessenger>(Lifetime.Scoped);
+            // 対戦中に切れたときセッションへ入り直す手順（猶予いっぱいまでリトライする）。
+            builder.Register<SessionReconnector>(Lifetime.Scoped);
             // 進行の決定を全クライアントへ配るアクションストリーム（一人用モードでも同じ経路を通る）。
             builder.Register<OnlineGameSync>(Lifetime.Scoped);
             builder.RegisterEntryPoint<NetworkSessionStartup>();
