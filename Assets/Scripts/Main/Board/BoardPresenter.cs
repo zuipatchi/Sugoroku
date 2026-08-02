@@ -1100,7 +1100,8 @@ namespace Main.Board
             {
                 return "YOU";
             }
-            return player == 0 ? "YOU" : "CPU";
+            // 自分の席は index 0 とは限らない（オンラインは自分の席＝ロビーで確定した席）。
+            return player == _humanPlayer ? "YOU" : "CPU";
         }
 
         private string WinnerText(int winner)

@@ -6,6 +6,7 @@ using Common.SoundManagement;
 using Common.Store;
 using Cysharp.Threading.Tasks;
 using Main.Board;
+using Main.Online;
 using Main.Turn;
 using R3;
 using UnityEngine;
@@ -45,7 +46,8 @@ namespace Main.Roulette
 
         private RouletteModel _model;
         private BoardModel _board;
-        private GameParticipants _participants;
+        // 「自分の席」の判定に使う（オンラインは全席が Human なので参加者種別では自分を見分けられない）。
+        private OnlineGameSync _sync;
         private CpuCharacterPicker _characterPicker;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
@@ -95,13 +97,14 @@ namespace Main.Roulette
             RouletteModel model,
             BoardModel board,
             GameParticipants participants,
+            OnlineGameSync sync,
             CpuCharacterPicker characterPicker,
             SoundStore soundStore,
             SoundPlayer soundPlayer)
         {
             _model = model;
             _board = board;
-            _participants = participants;
+            _sync = sync;
             _characterPicker = characterPicker;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
@@ -668,7 +671,9 @@ namespace Main.Roulette
 
         /// <summary>
         /// 進む参加者 index からプレートに出す表示名を解決する（未注入・未確定は空文字）。
-        /// 自分（人間プレイヤー）が進むときは 2 行目に「（あなた）」を添える。
+        /// 自分が進むときは 2 行目に「（あなた）」を添える。
+        /// 「自分か」は参加者種別ではなく席で判定する（オンラインは全席が Human なので、
+        /// 種別で見ると相手の席にも「（あなた）」が付いてしまう）。
         /// </summary>
         private string ResolveAdvancingCharacterName(int player)
         {
@@ -677,7 +682,7 @@ namespace Main.Roulette
                 return string.Empty;
             }
             string name = CharacterCatalog.Find(_characterPicker.ResolveCharacter(player)).DisplayName;
-            if (_participants != null && _participants.KindOf(player) == PlayerKind.Human)
+            if (_sync != null && player == _sync.MySeat)
             {
                 return $"{name}\n（あなた）";
             }
