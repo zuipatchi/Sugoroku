@@ -354,7 +354,7 @@ SpinDecision decision = await decided;
 - **同時に待つのは 1 箇所だけにする**。`ActionStream.NextAsync` は 2 箇所から待つと `InvalidOperationException` を投げる（進行の組み立て違いを早期に検出するため）。所有権は「手番待ち＝`GameFlowController`」→「着地待ち＝`BoardPresenter`」と受け渡す。
 - **想定外のアクションが来ても止まらないようにする**。期待と違う種別が届いたら、取りこぼすと困るもの（アイテム使用）は適用し、それ以外は警告ログを残して読み飛ばす。ハングよりログのほうが原因を追える。
 - **「自分か」は参加者種別ではなく席で判定する**。オンラインは `GameParticipants` が**全席を `PlayerKind.Human`** で作るので、`KindOf(player) == PlayerKind.Human` は相手の席でも真になる（一人用は Human が自分だけなので表面化せず、オンラインで初めて壊れる）。自分の席は `OnlineGameSync.MySeat`（オンライン＝ロビーで確定した席／一人用＝0）で見る。`PlayerKind` は「手動で操作するか CPU が自動で回すか」の区別に使い、「自分／相手」の区別には使わない。
-- **切断は「進行の打ち切り」として扱う**。`NetworkManager.OnClientDisconnectCallback` を監視し、内部 `CancellationTokenSource` を `Cancel` して待機中の `NextAsync` を解く（各 `async` ループの `catch (OperationCanceledException)` がそのまま受け止める）。**ゲスト同士には切断が伝わらない**（NGO はクライアント同士を繋がない）ので、ホストが退出通知（`GameAction.Leave`）を残り全員へ配る。
+- **切断は「まず一時停止、猶予切れで打ち切り」として扱う**。`NetworkManager.OnClientDisconnectCallback` を監視し、猶予（60 秒）のあいだ復帰を待ってから、内部 `CancellationTokenSource` を `Cancel` して待機中の `NextAsync` を解く（各 `async` ループの `catch (OperationCanceledException)` がそのまま受け止める）。**ゲスト同士には切断が伝わらない**（NGO はクライアント同士を繋がない）ので、一時停止（`GameAction.Pause`）も退出通知（`GameAction.Leave`）もホストが残り全員へ配る。復帰の仕組みは後述の「切断からの復帰」。
 - **接続のライフサイクルはシーンではなくセッションに預ける**。Relay を使うと NGO の起動・停止は UGS セッション（`WithRelayNetwork()` / `ISession.LeaveAsync`）が握るので、`NetworkManager` は `Common` に常駐させ、アプリから `StartHost` / `Shutdown` を呼ばない。代わりに**ゲームを抜けるとき必ずセッションを離脱する**責務が生まれる（忘れるとルームに残り続ける）。**対象は「ホームに戻る」のような対戦画面の導線だけではない**——`Common` 常駐のオプションモーダル（「タイトルへ戻る」）のように全シーンから押せる導線も、オンライン中に押されうる以上は同じ後始末が要る。また `LeaveAsync` は NGO も閉じるので**自分で抜けたときも自分の切断コールバックが発火する**。「相手が退出しました」のような通知を出しているなら、`GameSessionModel.HasSession`（離脱は await の前に `Session` を手放す）で自発的な離脱と見分けて抑える。詳細は [networking.md](networking.md)「Relay 経由の接続」。
 
 ### 参加者が非同期に集まる画面は「全員そろってから」操作させる
@@ -366,12 +366,26 @@ SpinDecision decision = await decided;
 - **待っていることを画面に出す**（「他のプレイヤーの参加を待っています...（2/4人）」）。無言で操作を受け付けないと、固まったのか待ちなのか区別できない。
 - **取り合いになる初期値は席順でずらす**。全員に同じ初期選択を与えると到着した瞬間から取り合いが起きるので、`CharacterCatalog.DefaultFor(seat)` のように「席 index → 選択肢 index」で配る（[CharacterLobbySync.cs](../Assets/Scripts/OnlineCharacterSelect/Sync/CharacterLobbySync.cs) の `ApplyInitialSelection`）。初期状態で衝突しないので、誰も操作しなくても集計だけで成立する＝「決定」を押すだけで先へ進める。**席の求め方は確定後の並び（ロースター）と同じ比較で共有する**（`CharacterClaimResolver.SeatIndexOf` と `BuildRoster` が `CompareJoin` を共有）。ここがずれると、ロビーで見せた席と本番の席が食い違う。
 
+### 切断からの復帰は「スナップショット」より「取りこぼした決定の再送」
+
+アクションストリームで進行を組んでおくと、再接続の実装がぐっと軽くなる。**盤面・所持金・アイテム・陣地をまるごとシリアライズして送る必要がない**——ホストが配信時に通し番号を振って台帳に残しておけば（`GameAction.Seq` / [ActionLog.cs](../Assets/Scripts/Main/Online/ActionLog.cs)）、復帰したクライアントは「seq N まで受け取った」と申告するだけで、N+1 以降を送り直してもらえば追いつける。
+
+- **適用が通常の受信経路を通る**のが最大の利点。スナップショット専用の「状態を流し込む」コードパスを作ると、演出・消費・購読の更新が本流と二重管理になり、片方だけ壊れる。
+- **通し番号は二重適用の防止にも使う**（受信済みの番号以下は捨てる）。再送が重複しても壊れない。
+- **前提は「アプリが生きている」こと**。ローカルの Model が残っているから差分だけで足りる。アプリ再起動からの復帰まで求めるなら、結局スナップショットが要る。
+- **切断中に自分が発行したぶんは送信キューへ**積み、復帰後に発行順で流す（送信失敗もキューへ回す）。捨てると全員が待ち続ける。
+- **復帰までは進行を止める**。「切断＝即終了」ではなく「一時停止 → 猶予 → 終了」にして、待っている側は入力を閉じて理由を表示する。猶予切れの振る舞いは従来の終了処理をそのまま使えばよい。
+- **一時停止・復帰・申告のような「進行を進めない連絡」はストリームに載せない**。専用チャンネルで送って受信側が即処理すれば、進行の待ち受け側（`WaitForSpinAsync` / `WaitForActionAsync`）を一切変更せずに済む。順序付けが要るのは盤面を動かす決定だけ。
+- **自発的な離脱は通信断と区別する**（前項の「接続のライフサイクル」参照）。区別しないと、抜けた人を猶予いっぱい待ってしまう。
+
 ### 新しいアクションを足す手順
 
 1. [GameActionType.cs](../Assets/Scripts/Main/Online/GameActionType.cs) に種別を 1 つ足す（引数の意味を doc コメントに書く）
 2. [GameAction.cs](../Assets/Scripts/Main/Online/GameAction.cs) に静的ファクトリと名前付きプロパティを足す（引数の添字を呼び出し側に散らさない）
 3. 決定側（1 人だけ通る場所）で `_sync.Publish(...)`、適用側（全員が通る場所）で受信して反映
 4. [GameActionCodecTests.cs](../Assets/Tests/EditMode/GameActionCodecTests.cs) に往復テストを 1 本足す（JSON 化はここだけの責務なので純粋にテストできる）
+
+進行を進めない連絡（一時停止・復帰など）は 1〜2 だけ行い、3 の代わりに制御チャンネル（`SGRK_Control`）で送って `OnlineGameSync.OnControlReceived` で処理し切る。
 
 ---
 
