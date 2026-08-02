@@ -376,14 +376,15 @@ SpinDecision decision = await decided;
 
 ## 15. 新しいマスイベントを追加する
 
-盤面のマスに割り当てるイベント（`BoardCellEvent`）は、色・ラベル・画像・記号・内訳がそれぞれ別のファイルに散っている。**1 つ足す／消すときの触る場所はこの 6 か所**。
+盤面のマスに割り当てるイベント（`BoardCellEvent`）は、色・ラベル・説明・画像・記号・内訳がそれぞれ別のファイルに散っている。**1 つ足す／消すときの触る場所はこの 7 か所**。
 
 1. [BoardCellEvent.cs](../Assets/Scripts/Main/Board/BoardCellEvent.cs) に種別を 1 つ足す（**値は末尾に追加し、既存の値は絶対に動かさない**。`BoardDefinition` アセットに int で保存されているので、詰めると保存済み盤面のイベントが全部ずれる。廃止するときも値は欠番のまま残す）
 2. [BoardEventColors.cs](../Assets/Scripts/Main/Board/BoardEventColors.cs) に色を足す（盤面エディタのグリッド・凡例と、マップ選択のサムネイル・内訳が同じ配色を共有する）
-3. [BoardEventLabel.cs](../Assets/Scripts/Main/Board/BoardEventLabel.cs) に日本語名を足す（凡例・内訳チップの文言）
-4. [BoardEventTally.cs](../Assets/Scripts/Main/Board/BoardEventTally.cs) の `DisplayOrder` に足す（マップ選択の内訳に出す順。入れないと内訳に出ない）
-5. マス画像を使うなら [BoardEventArtCatalog.cs](../Assets/Scripts/Main/Board/BoardEventArtCatalog.cs) の `Address` にアドレスを足し、画像を `Assets/AddressableAssets/Image/Board/` に置いて **Addressable アドレスを `Board/<イベント名>`**（＝enum 名）に設定する。画像を用意しないイベントは空文字のままで、`BoardPresenter.EventMarker` の記号表示にフォールバックする。**マスごとのデータで絵を変えたいときは `AddressFor` に分岐を足す**（ミニゲームマスが、マスに設定されたゲームのサムネイル〔`MiniGameCatalog.ImageAddress`〕を使う例）
-6. 数値パラメータ（`Amount`）を使うなら [BoardCellInspector.cs](../Assets/Scripts/Main/Editor/BoardCellInspector.cs) の入力欄の対象に足す
+3. [BoardEventLabel.cs](../Assets/Scripts/Main/Board/BoardEventLabel.cs) に日本語名を足す（凡例・内訳チップ・マス説明モーダルの見出し）
+4. [BoardEventDescription.cs](../Assets/Scripts/Main/Board/BoardEventDescription.cs) に説明文を足す（マスをタップしたときの説明モーダル本文）。**金額やマス数のような「ルール側で決まっている数値」は各ルールの定数から組み立てる**（お金マスは `MoneyCellRule.Unit`/`MinN`/`MaxN`）ので、ルールを変えれば説明も一緒に変わる。足し忘れると通常マスと同じ文言のままになる（EditMode テストが検出する）
+5. [BoardEventTally.cs](../Assets/Scripts/Main/Board/BoardEventTally.cs) の `DisplayOrder` に足す（マップ選択の内訳に出す順。入れないと内訳に出ない）
+6. マス画像を使うなら [BoardEventArtCatalog.cs](../Assets/Scripts/Main/Board/BoardEventArtCatalog.cs) の `Address` にアドレスを足し、画像を `Assets/AddressableAssets/Image/Board/` に置いて **Addressable アドレスを `Board/<イベント名>`**（＝enum 名）に設定する。画像を用意しないイベントは空文字のままで、`BoardPresenter.EventMarker` の記号表示にフォールバックする。**マスごとのデータで絵を変えたいときは `AddressFor` に分岐を足す**（ミニゲームマスが、マスに設定されたゲームのサムネイル〔`MiniGameCatalog.ImageAddress`〕を使う例）
+7. 数値パラメータ（`Amount`）を使うなら [BoardCellInspector.cs](../Assets/Scripts/Main/Editor/BoardCellInspector.cs) の入力欄の対象に足す
 
 盤面エディタの凡例は `Enum.GetValues` で自動生成されるので、1〜3 を足せば勝手に並ぶ。
 
