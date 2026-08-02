@@ -24,6 +24,9 @@
 
         <ui:VisualElement name="ResultPanel" class="race-result">
             <ui:Label text="結果" name="ResultLabel" class="race-result__label" />
+            <!-- 順位の行（走者ぶん）は RaceGamePlay が動的生成し、順位順に並べ替える -->
+            <ui:VisualElement name="ResultList" class="race-standings" picking-mode="Ignore" />
+            <ui:Label text="" name="ResultNote" class="race-result__note" />
             <ui:Button name="CloseButton" text="結果を反映" class="race-close-button" />
         </ui:VisualElement>
     </ui:VisualElement>

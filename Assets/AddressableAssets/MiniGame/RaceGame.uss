@@ -177,6 +177,58 @@
     margin-bottom: 28px;
 }
 
+/* 順位表。パネル幅は中身依存なので、行が潰れないよう最小幅を持たせる */
+.race-standings {
+    min-width: 460px;
+    margin-bottom: 20px;
+}
+
+.race-standing {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+}
+
+.race-standing--you {
+    background-color: rgba(255, 214, 102, 0.18);
+    border-color: rgba(255, 214, 102, 0.7);
+}
+
+.race-standing__rank {
+    width: 76px;
+    color: rgb(240, 240, 255);
+    font-size: 28px;
+}
+
+.race-standing__name {
+    flex-grow: 1;
+    color: rgb(225, 228, 245);
+    font-size: 24px;
+}
+
+.race-standing__time {
+    width: 130px;
+    color: rgb(190, 200, 230);
+    font-size: 24px;
+    -unity-text-align: middle-right;
+}
+
+.race-result__note {
+    color: rgb(180, 188, 215);
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    margin-bottom: 18px;
+}
+
 .race-close-button {
     background-color: rgb(70, 90, 180);
     color: rgb(255, 255, 255);
