@@ -397,6 +397,16 @@ SpinDecision decision = await decided;
 
 ---
 
+## 16. 同じ実体を複数の系統で参照するアセットは、アドレスを「識別子＋系統名」で機械的に決める
+
+キャラは Card / Icon / Portrait / Run / Flag の 5 系統の画像を持ち、[CharacterCatalog.cs](../Assets/Scripts/Common/Character/CharacterCatalog.cs) が 1 行に 5 つのアドレスを並べて持つ。ここでアドレスの付け方が系統ごとにバラバラだと、**行の中の 1 つだけ別のキャラを指していても誰も気付けない**（走行絵だけ `Image/<動物名>Run` 規約で、素材名のアルファベット順に並べたせいで 8 キャラ全員ぶんズレていた実績がある。表示は出るので画像の欠落としても検出されない）。
+
+- **アドレスは `<識別子>/<系統名>`（キャラなら `Character/Character<N>/Run`）に統一する**。素材のファイル名をアドレスに出さないので、行内の 5 つが同じ `Character<N>` を指しているか目視で照合できる
+- キャラを 1 人足すときは、画像 5 枚を `Assets/AddressableAssets/Image/Character/` 配下に置いて Addressables のアドレスをこの規約で付け、[CharacterId.cs](../Assets/Scripts/Common/Character/CharacterId.cs) に enum 値を 1 つ、`CharacterCatalog.All` に 1 行足すだけでよい（表示順＝席順ごとの初期キャラ `DefaultFor(seat)` にもそのまま効く）
+- **アセットの実体名とアドレスがズレる規約は避ける**。Addressables のアドレスはリネームしてもファイルの GUID を保つので、後からでも揃え直せる（アセット参照は切れない）
+
+---
+
 ## 共通ルール（抜粋）
 
 - `var` は使わない。型を明示する
