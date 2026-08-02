@@ -53,6 +53,8 @@ namespace Main.Board
         private float _dragMaxMoveSq;
         // 陣地選択モード中に「タップ位置（パネル座標）でマスを選べるか試す」コールバック。null なら選択モードでない。
         private Func<Vector2, bool> _trySelectAtScreenPos;
+        // 通常時のマスタップ（説明モーダルを開く）を受け取るコールバック。陣地選択モード中はそちらが優先される。
+        private Func<Vector2, bool> _cellTapHandler;
 
         /// <summary>
         /// <paramref name="root"/> から虫眼鏡ボタン・ドラッグ層を取得して配線する。ズーム段階は
@@ -239,13 +241,35 @@ namespace Main.Board
         public void EndCellSelection()
         {
             _trySelectAtScreenPos = null;
+            RefreshDragLayerPicking();
+        }
+
+        /// <summary>
+        /// 通常時のマスタップ（マスの説明モーダルを開く）を配線する。タップ／ドラッグの振り分けは
+        /// 陣地選択と同じで、ほぼ動かさず離したときだけ <paramref name="handler"/> をタップ位置（パネル座標）で呼ぶ。
+        /// 陣地選択モード中はそちらが優先され、ここへは来ない（選ぶ操作と説明を開く操作がぶつからないように）。
+        /// 配線するとドラッグ層は常に反応するようになる（盤面が画面に収まっていてもタップを拾うため）。
+        /// </summary>
+        public void SetCellTapHandler(Func<Vector2, bool> handler)
+        {
+            _cellTapHandler = handler;
+            RefreshDragLayerPicking();
+        }
+
+        /// <summary>タップを受け取る相手がいるか（＝盤面が収まっていてもドラッグ層を反応させる必要があるか）。</summary>
+        private bool HandlesTap => _trySelectAtScreenPos != null || _cellTapHandler != null;
+
+        /// <summary>ドラッグ層の反応可否を現在の状態から付け直す（寸法未確定ならタップの要否だけで決める）。</summary>
+        private void RefreshDragLayerPicking()
+        {
             if (TryGetGeometry(out _, out Vector2 scaledExtent, out Vector2 container))
             {
                 UpdateInteractivity(scaledExtent, container);
+                return;
             }
-            else if (_dragLayer != null)
+            if (_dragLayer != null)
             {
-                _dragLayer.pickingMode = PickingMode.Ignore;
+                _dragLayer.pickingMode = HandlesTap ? PickingMode.Position : PickingMode.Ignore;
             }
         }
 
@@ -288,10 +312,18 @@ namespace Main.Board
             }
             _dragPointerId = -1;
 
-            // 選択モード中に「ほぼ動かさず離した」ら、その位置のマスを選ぶ（動かしていたらパン操作だったとみなす）。
-            if (_trySelectAtScreenPos != null && _dragMaxMoveSq <= TapThresholdSq)
+            // 「ほぼ動かさず離した」らタップ扱い（動かしていたらパン操作だったとみなす）。
+            // 陣地選択モード中はマスを選び、そうでなければマスの説明モーダルを開く。
+            if (_dragMaxMoveSq <= TapThresholdSq)
             {
-                _trySelectAtScreenPos.Invoke(evt.position);
+                if (_trySelectAtScreenPos != null)
+                {
+                    _trySelectAtScreenPos.Invoke(evt.position);
+                }
+                else
+                {
+                    _cellTapHandler?.Invoke(evt.position);
+                }
             }
             evt.StopPropagation();
         }
@@ -307,9 +339,9 @@ namespace Main.Board
         {
             _zoomInButton.SetEnabled(_levelIndex > 0);                        // まだ拡大（列を減らす）余地がある
             _zoomOutButton.SetEnabled(_levelIndex < _columnLevels.Length - 1); // まだ縮小（列を増やす）余地がある
-            // 陣地選択モード中は盤面が画面内に収まっていてもタップを拾うため常に反応させる。
+            // タップを受け取る相手（マスの説明・陣地選択）がいるときは、盤面が画面内に収まっていても常に反応させる。
             bool pannable = scaledExtent.x > container.x + 0.5f || scaledExtent.y > container.y + 0.5f;
-            _dragLayer.pickingMode = pannable || _trySelectAtScreenPos != null ? PickingMode.Position : PickingMode.Ignore;
+            _dragLayer.pickingMode = pannable || HandlesTap ? PickingMode.Position : PickingMode.Ignore;
         }
 
         /// <summary>

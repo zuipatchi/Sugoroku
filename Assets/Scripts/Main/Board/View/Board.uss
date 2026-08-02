@@ -962,6 +962,15 @@
     margin-top: 18px;
 }
 
+/* マス説明モーダルの補足行（陣地の占拠状況など）。中身が無いときは Presenter が行ごと隠す */
+.cell-info__status {
+    margin-top: 10px;
+    font-size: 13px;
+    color: rgb(196, 208, 236);
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
 .item-modal__button {
     margin-left: 8px;
     margin-right: 8px;

@@ -164,6 +164,8 @@ namespace Main.Board
         private MiniGameSelectPresenter _miniGameSelect;
         // アイテム取得マス着地時に開く「アイテムショップ」モーダル。BuildCells で生成。
         private ItemShopPresenter _itemShop;
+        // マスをタップしたときに開く説明モーダル（見せるだけ）。BuildCells で生成。
+        private BoardCellInfoPresenter _cellInfo;
         // アイテムショップに並べる枚数のランダム範囲（カタログ総数でクランプ）。
         private const int ItemShopMinItems = 2;
         private const int ItemShopMaxItems = 4;
@@ -515,6 +517,13 @@ namespace Main.Board
                     _destroyCt);
             }
 
+            // マスをタップしたときに開く説明モーダル（見せるだけなので手番も演出も問わない）。
+            VisualElement cellInfoOverlay = root.Q<VisualElement>("CellInfoModal");
+            if (cellInfoOverlay != null)
+            {
+                _cellInfo = new BoardCellInfoPresenter(cellInfoOverlay, _uiDocument);
+            }
+
             // 他プレイヤーの操作を待っている間だけ出す待機表示。既定は USS で非表示。
             _waitingBanner = root.Q<VisualElement>("WaitingBanner");
             _waitingBannerLabel = root.Q<Label>("WaitingBannerLabel");
@@ -591,6 +600,8 @@ namespace Main.Board
             _zoomController = new BoardZoomController(
                 root, _boardArea, _layout, _visibleColumns, _boardDef.GridColumns, _cellFillRatio, zoomLevels);
             _zoomController.LoadMagnifierIconAsync(_destroyCt).Forget();
+            // マスをタップしたら説明モーダルを開く（ドラッグはパンのまま。陣地選択中はそちらが優先される）。
+            _zoomController.SetCellTapHandler(TryOpenCellInfoAt);
         }
 
         /// <summary>マスの塗り色・イベント表示を <paramref name="definition"/> に合わせて設定する。</summary>
@@ -1359,6 +1370,10 @@ namespace Main.Board
             const float FloatSeconds = 1.5f;
             // お金・陣地以外のマス（スタート等）は画像を計 1.0 秒表示してから 0.2 秒でフェードアウトさせる。
             const float CellPopupHoldSeconds = 1.0f;
+
+            // 着地演出はアイテムショップなど別のモーダルを開くことがあるので、見せるだけのマス説明は先に閉じる
+            // （重なって見えないだけでなく、SortingOrder の退避が二重になって戻らなくなるのを防ぐ）。
+            _cellInfo?.Close();
 
             int position = _model.Position(player).CurrentValue;
 
@@ -2455,6 +2470,72 @@ namespace Main.Board
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// タップ位置 <paramref name="screenPos"/>（パネル座標）にマスがあれば、そのマスの説明モーダルを開いて true を返す。
+        /// どのマスにも当たらなければ false。見せるだけで盤面には触らないので、誰の手番でも・演出中でも開ける
+        /// （<see cref="BoardZoomController.SetCellTapHandler"/> から呼ばれる）。
+        /// </summary>
+        private bool TryOpenCellInfoAt(Vector2 screenPos)
+        {
+            if (_cellInfo == null || _cells == null || _boardDef == null)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < _cells.Length; index++)
+            {
+                VisualElement cell = _cells[index];
+                if (cell == null || !cell.worldBound.Contains(screenPos))
+                {
+                    continue;
+                }
+                OpenCellInfo(index);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// マス <paramref name="index"/> の説明モーダルを開く。絵はロード済みのマス画像キャッシュ
+        /// （<c>_cellIcons</c>）から引くので、占拠して旗に差し替わった陣地マスでも元のマスの絵を見せる。
+        /// </summary>
+        private void OpenCellInfo(int index)
+        {
+            BoardCellDefinition definition = _boardDef.Cell(index);
+            bool isStart = index == 0;
+            string title = isStart ? BoardEventDescription.StartLabel : BoardEventLabel.Of(definition.Event);
+            string description = isStart
+                ? BoardEventDescription.StartDescription
+                : BoardEventDescription.Of(
+                    definition.Event, definition.Amount, definition.MiniGame, MiniGameRewardMoney);
+            Sprite sprite = _cellIcons != null && index < _cellIcons.Length ? _cellIcons[index] : null;
+
+            _cellInfo.Open(title, description, TerritoryStatusOf(index, definition), sprite);
+        }
+
+        /// <summary>
+        /// 陣地マスの占拠状況の行（占拠者と勝利に必要な数）。陣地マス以外・陣地を持たない盤面では空文字を返し、
+        /// モーダル側で行ごと隠される。
+        /// </summary>
+        private string TerritoryStatusOf(int index, BoardCellDefinition definition)
+        {
+            if (definition.Event != BoardCellEvent.Territory || _territory == null)
+            {
+                return string.Empty;
+            }
+            ReadOnlyReactiveProperty<int> owner = _territory.Owner(index);
+            if (owner == null)
+            {
+                return string.Empty;
+            }
+
+            int player = owner.CurrentValue;
+            string ownerText = player < 0
+                ? "まだ誰も占拠していない"
+                : $"占拠中：{(player == _humanPlayer ? "あなた" : CharacterNameOf(player))}";
+            return $"{ownerText}／勝利に必要な陣地：{_territory.RequiredToWin} マス";
         }
 
         /// <summary>陣地選択ガイドバナーの表示/非表示を切り替える。</summary>
