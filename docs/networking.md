@@ -407,6 +407,10 @@ Main シーンの盤面進行を全クライアントで一致させる仕組み
 
 `NetworkManager.OnClientDisconnectCallback` を `OnlineGameSync` が監視する。ゲスト同士には切断が伝わらない（NGO はクライアント同士を繋がない）ため、**ホストが `Leave` を残りの全員へ配る**。受け取ると `SessionLost` が立ち、待機中の `NextAsync` がキャンセルされて進行が止まり、`BoardPresenter` が「相手が退出しました」と「ホームに戻る」を出す。
 
+#### 自分から離脱したときは通知しない
+
+`ISession.LeaveAsync()` は NGO も閉じるので、**自分で抜けたときも自分の `OnClientDisconnectCallback` が発火する**。そのまま扱うと、離脱の完了を待つ間だけ自分の画面に「相手が退出しました」が出てしまう。`GameSessionModel.LeaveCurrentSessionAsync` は await の前に `Session` を手放すため、`HandleSessionLost` は `HasSession` で相手の退出と見分けられる。自発的な離脱では `SessionLost` を立てず、待機中の進行を打ち切る（`_abortCts.Cancel()`）だけにする。
+
 ---
 
 ## Relay 経由の接続（NGO のライフサイクルは UGS セッションが握る）
@@ -429,7 +433,7 @@ NGO を **Relay**（UGS の中継サーバー）経由にすることで NAT 越
 - **`NetworkManager` は `Common` シーンに常駐させる**。`WithRelayNetwork()` は `NetworkManager.Singleton` が無いと `SessionException` で落ちるが、セッションを作るのは Matching シーンなので Main に置いていては間に合わない。**ルートオブジェクトに置く**こと（NGO は親を持つ `NetworkManager` を許さない）。
 - **自分で `StartHost()` / `StartClient()` を呼ばない**。SDK が起動済みの状態でもう一度呼ぶと接続が壊れる。`NetworkSessionStartup` は `CustomMessagingManager != null` と `IsListening`（ホスト）/ `IsConnectedClient`（ゲスト）が揃うのを**待つだけ**にする。
 - **自分で `NetworkManager.Shutdown()` を呼ばない**。SDK も `"Do not call NetworkManager.Shutdown() when using a session. Use ISession.LeaveAsync instead."` と警告する。停止したいときは `ISession.LeaveAsync()`（＝`GameSessionModel.LeaveCurrentSessionAsync()`）を呼ぶ。
-- **ゲームを抜けるときは必ずセッションを離脱する**。NGO の寿命がシーンから切り離されたので、離脱を忘れると「Main を出たのにルームに残っていて、一人用で遊んでいる間も Relay に繋がったまま」になる。本プロジェクトでは `BoardPresenter.ReturnHomeAsync`（ホームに戻る）と `GameSessionModel.SetSinglePlayer`（一人用モード選択）で離脱している。
+- **ゲームを抜けるときは必ずセッションを離脱する**。NGO の寿命がシーンから切り離されたので、離脱を忘れると「Main を出たのにルームに残っていて、一人用で遊んでいる間も Relay に繋がったまま」になる。相手からは在席して見えるので、退出に気づけないまま待たされ続ける。本プロジェクトでは `BoardPresenter.ReturnHomeAsync`（ホームに戻る）・`OptionPresenter.BackToTitleAsync`（オプションの「タイトルへ戻る」）・`GameSessionModel.SetSinglePlayer`（一人用モード選択）で離脱している。**とくにオプションアイコンは Common 常駐でマッチング中・キャラ選択ロビー・対戦中のどこからでも押せる**ので、シーンを移すだけの遷移を書かないこと。
 - **`EnableSceneManagement` は切ったままにする**（セクション 1）。`NetworkManager` が常駐すると `MatchingService.DisableNgoSceneManagement()` が実際に効くようになるが、Common シーンのアセット側でも既定を `false` にしてある。
 
 ### 事前セットアップ

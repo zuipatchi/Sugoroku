@@ -198,7 +198,7 @@ Assets/Scripts/<Scene>/<Feature>/
 ### オプションモーダル
 
 - アイコンクリックで表示、Close ボタンで非表示
-- 「タイトルに戻る」ボタンでモーダルを閉じつつ Title シーンへ遷移
+- 「タイトルに戻る」ボタンでモーダルを閉じつつ Title シーンへ遷移。**遷移の前にオンラインセッションを離脱する**（`OptionPresenter.BackToTitleAsync`＝`OnlineRosterSessionModel.Clear()` → `GameSessionModel.LeaveCurrentSessionAsync()` → `Transit`）。オプションアイコンは Common 常駐でマッチング中・キャラ選択ロビー・対戦中のどこからでも押せるが、`NetworkManager` も Common 常駐なのでシーンを移るだけでは接続もルームも残ってしまう（[docs/networking.md](networking.md)「Relay 経由の接続」）。連打・多重遷移は `_backingToTitle` でガードする
 - オーバーレイ（`rgba(0,0,0,0.55)`）がゲーム画面を暗幕
 - モーダルカードは画面中央に配置（`align-items: center; justify-content: center`）
 - UIDocument の SortingOrder を 1000 にして他 UI より手前に表示

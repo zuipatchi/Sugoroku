@@ -355,7 +355,7 @@ SpinDecision decision = await decided;
 - **想定外のアクションが来ても止まらないようにする**。期待と違う種別が届いたら、取りこぼすと困るもの（アイテム使用）は適用し、それ以外は警告ログを残して読み飛ばす。ハングよりログのほうが原因を追える。
 - **「自分か」は参加者種別ではなく席で判定する**。オンラインは `GameParticipants` が**全席を `PlayerKind.Human`** で作るので、`KindOf(player) == PlayerKind.Human` は相手の席でも真になる（一人用は Human が自分だけなので表面化せず、オンラインで初めて壊れる）。自分の席は `OnlineGameSync.MySeat`（オンライン＝ロビーで確定した席／一人用＝0）で見る。`PlayerKind` は「手動で操作するか CPU が自動で回すか」の区別に使い、「自分／相手」の区別には使わない。
 - **切断は「進行の打ち切り」として扱う**。`NetworkManager.OnClientDisconnectCallback` を監視し、内部 `CancellationTokenSource` を `Cancel` して待機中の `NextAsync` を解く（各 `async` ループの `catch (OperationCanceledException)` がそのまま受け止める）。**ゲスト同士には切断が伝わらない**（NGO はクライアント同士を繋がない）ので、ホストが退出通知（`GameAction.Leave`）を残り全員へ配る。
-- **接続のライフサイクルはシーンではなくセッションに預ける**。Relay を使うと NGO の起動・停止は UGS セッション（`WithRelayNetwork()` / `ISession.LeaveAsync`）が握るので、`NetworkManager` は `Common` に常駐させ、アプリから `StartHost` / `Shutdown` を呼ばない。代わりに**ゲームを抜けるとき必ずセッションを離脱する**責務が生まれる（忘れるとルームに残り続ける）。詳細は [networking.md](networking.md)「Relay 経由の接続」。
+- **接続のライフサイクルはシーンではなくセッションに預ける**。Relay を使うと NGO の起動・停止は UGS セッション（`WithRelayNetwork()` / `ISession.LeaveAsync`）が握るので、`NetworkManager` は `Common` に常駐させ、アプリから `StartHost` / `Shutdown` を呼ばない。代わりに**ゲームを抜けるとき必ずセッションを離脱する**責務が生まれる（忘れるとルームに残り続ける）。**対象は「ホームに戻る」のような対戦画面の導線だけではない**——`Common` 常駐のオプションモーダル（「タイトルへ戻る」）のように全シーンから押せる導線も、オンライン中に押されうる以上は同じ後始末が要る。また `LeaveAsync` は NGO も閉じるので**自分で抜けたときも自分の切断コールバックが発火する**。「相手が退出しました」のような通知を出しているなら、`GameSessionModel.HasSession`（離脱は await の前に `Session` を手放す）で自発的な離脱と見分けて抑える。詳細は [networking.md](networking.md)「Relay 経由の接続」。
 
 ### 参加者が非同期に集まる画面は「全員そろってから」操作させる
 
