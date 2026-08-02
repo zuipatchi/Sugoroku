@@ -10,7 +10,8 @@
         <!-- ズーム中だけドラッグでパンするための全画面の透明層。拡大率 1.0 のときは
              BoardZoomController が picking-mode=Ignore にして下層（スピンボタン等）へ通す -->
         <ui:VisualElement name="BoardDragLayer" class="board-drag-layer" picking-mode="Ignore" />
-        <!-- 自分（YOU）のネームプレートを載せる上部ヘッダー。中身は BoardPresenter が生成する -->
+        <!-- 全プレイヤーのネームプレート（アイコン＋名前）を横 1 行で載せる上部ヘッダー。
+             中身は PlayerNameplateView が生成し、プレートのクリックで PlayerDetailModal を開く -->
         <ui:VisualElement name="PlayerHeader" class="player-header" picking-mode="Ignore" />
         <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
         <!-- 手番が移るたびに「〔キャラ名〕の番」を一瞬表示するアナウンス帯。既定は透明で、
@@ -99,6 +100,33 @@
                 <ui:Label text="" name="CellInfoDescription" class="item-modal__description" />
                 <ui:Label text="" name="CellInfoStatus" class="cell-info__status" />
                 <ui:Button text="閉じる" name="CellInfoCloseButton" class="item-modal__button item-modal__button--close" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <!-- 上部のネームプレートをクリックしたときに開くプレイヤー詳細モーダル。既定は非表示で、
+             PlayerDetailPresenter が開閉と中身（アイコン・名前・所持金・占領地・所持アイテム）の差し替えを行う。
+             見せるだけなので誰の手番でも開ける。暗幕クリックでも閉じる -->
+        <ui:VisualElement name="PlayerDetailModal" class="item-modal">
+            <ui:VisualElement name="PlayerDetailCard" class="item-modal__card player-detail__card">
+                <ui:VisualElement name="PlayerDetailAvatar" class="player-detail__avatar player-detail__avatar--empty" />
+                <ui:Label text="" name="PlayerDetailName" class="item-modal__name" />
+                <!-- 自分＝人間プレイヤーのときだけ PlayerDetailPresenter が表示する（既定は USS で非表示） -->
+                <ui:Label text="（あなた）" name="PlayerDetailYou" class="player-detail__you" />
+                <ui:VisualElement name="PlayerDetailStats" class="player-detail__stats">
+                    <ui:VisualElement name="PlayerDetailMoneyRow" class="player-detail__stat">
+                        <ui:VisualElement name="PlayerDetailMoneyIcon" class="player-detail__badge player-detail__badge--coin" />
+                        <ui:Label text="所持金" class="player-detail__stat-label" />
+                        <ui:Label text="" name="PlayerDetailMoney" class="player-detail__stat-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="PlayerDetailTerritoryRow" class="player-detail__stat">
+                        <ui:VisualElement name="PlayerDetailTerritoryIcon" class="player-detail__badge player-detail__badge--flag" />
+                        <ui:Label text="占領地" class="player-detail__stat-label" />
+                        <ui:Label text="" name="PlayerDetailTerritory" class="player-detail__stat-value player-detail__stat-value--territory" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label text="所持アイテム" class="player-detail__section" />
+                <!-- アイテム行（絵・名前・枚数）は PlayerDetailPresenter が開くたびに組み直す -->
+                <ui:VisualElement name="PlayerDetailItems" class="player-detail__items" />
+                <ui:Button text="閉じる" name="PlayerDetailCloseButton" class="item-modal__button item-modal__button--close player-detail__close" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

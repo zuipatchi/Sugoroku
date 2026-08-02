@@ -327,9 +327,8 @@
     -unity-text-align: middle-center;
 }
 
-/* 全プレイヤーのネームプレートを載せる上部ヘッダー。左右端に三角のページ送りボタン、
-   中央にプレート列（トラック）を置く。右上のオプションアイコン（60×60）を避けるため右側に
-   広めの余白を取り、三角ボタンはさらに内側に置く。 */
+/* 全プレイヤーのネームプレート（最大 4 人）を横 1 行に並べる上部ヘッダー。
+   右上のオプションアイコン（60×60）を避けるため右側に広めの余白を取り、その内側で中央寄せする。 */
 .player-header {
     position: absolute;
     left: 0;
@@ -337,99 +336,32 @@
     right: 0;
     flex-direction: row;
     justify-content: center;
-    align-items: center;
-    padding-top: 14px;
+    align-items: flex-start;
+    padding-top: 12px;
     padding-left: 12px;
-    padding-right: 12px;
-}
-
-/* 三角ボタンの間を埋めてプレート列を中央に置くラッパ。 */
-.player-header__track-wrap {
-    flex-grow: 1;
-    flex-direction: row;
-    justify-content: center;
-    align-items: flex-start;
-}
-
-/* 現在ページのプレートを横 1 行に並べるトラック。 */
-.player-header__track {
-    flex-direction: row;
-    align-items: flex-start;
-}
-
-/* 左右端のページ送り三角ボタン。暗いガラス地＋金の細枠の円。 */
-.player-pager {
-    width: 36px;
-    height: 36px;
-    flex-shrink: 0;
-    margin-left: 4px;
-    margin-right: 4px;
-    padding-top: 0;
-    padding-right: 0;
-    padding-bottom: 0;
-    padding-left: 0;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(18, 18, 30, 0.9);
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-left-color: rgb(255, 225, 120);
-    border-right-color: rgb(255, 225, 120);
-    border-top-color: rgb(255, 225, 120);
-    border-bottom-color: rgb(255, 225, 120);
-    border-top-left-radius: 18px;
-    border-top-right-radius: 18px;
-    border-bottom-left-radius: 18px;
-    border-bottom-right-radius: 18px;
-}
-
-.player-pager:hover {
-    background-color: rgba(45, 45, 66, 0.95);
-}
-
-.player-pager:disabled {
-    opacity: 0.3;
-}
-
-/* 三角形は border トリックで描く（0×0 の箱に太い片側ボーダーと透明な上下ボーダー）。 */
-.player-pager__triangle {
-    width: 0;
-    height: 0;
-    border-top-width: 7px;
-    border-bottom-width: 7px;
-    border-top-color: rgba(0, 0, 0, 0);
-    border-bottom-color: rgba(0, 0, 0, 0);
-}
-
-/* 左向き三角（右ボーダーを金色にする）。 */
-.player-pager__triangle--left {
-    border-left-width: 0;
-    border-right-width: 11px;
-    border-right-color: rgb(255, 225, 120);
-}
-
-/* 右向き三角（左ボーダーを金色にする）。 */
-.player-pager__triangle--right {
-    border-right-width: 0;
-    border-left-width: 11px;
-    border-left-color: rgb(255, 225, 120);
+    padding-right: 64px;
 }
 
 /* 各プレイヤーのネームプレート。暗いカードに上辺の金アクセント（自分のコマ --p0 と同色）を載せる。
-   横型レイアウト：左に丸アイコン、右に情報列を並べる。 */
+   縦型レイアウト：上に丸アイコン、下にキャラ名だけを置いて 4 人ぶんを 1 行に収める。
+   所持金・占領地・所持アイテムはクリックで開く詳細モーダル（PlayerDetailPresenter）に出す。
+   クリックできるよう Button で作るので、テーマ既定の余白は明示的に上書きする。 */
 .board-nameplate {
-    flex-direction: row;
+    width: 104px;
+    /* 「（あなた）」の無いプレートと高さを揃えるための下限。固定（height）にすると
+       フォントの行高しだいで「（あなた）」の行が overflow で切られるため min-height にする。 */
+    min-height: 94px;
+    flex-direction: column;
     align-items: center;
-    min-width: 168px;
-    max-width: 248px;
-    margin-left: 6px;
-    margin-right: 6px;
-    padding-top: 8px;
-    padding-right: 14px;
-    padding-bottom: 8px;
-    padding-left: 10px;
+    justify-content: flex-start;
+    margin-left: 3px;
+    margin-right: 3px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 6px;
+    padding-right: 4px;
+    padding-bottom: 6px;
+    padding-left: 4px;
     overflow: hidden;
     background-color: rgba(18, 18, 30, 0.92);
     border-left-width: 1px;
@@ -444,6 +376,17 @@
     border-top-right-radius: 10px;
     border-bottom-left-radius: 10px;
     border-bottom-right-radius: 10px;
+    transition-property: background-color, scale;
+    transition-duration: 0.1s;
+}
+
+/* クリックで詳細モーダルを開けることが分かるよう、ホバーで明るく・押下で少し縮める（手札カードと同じ）。 */
+.board-nameplate:hover {
+    background-color: rgba(48, 48, 70, 0.95);
+}
+
+.board-nameplate:active {
+    scale: 0.96 0.96;
 }
 
 /* ネームプレート上辺のアクセントをプレイヤー色（コマ・陣地と同じ）にして、盤面の色分けの凡例にする。
@@ -483,9 +426,8 @@
 /* キャラの丸バッジアイコン（盤面コマと同じ Icon 画像）。円形の枠に収める（scale-to-fit）。
    画像未ロード時は board-nameplate__avatar--empty で薄い座面のまま。 */
 .board-nameplate__avatar {
-    width: 52px;
-    height: 52px;
-    margin-right: 10px;
+    width: 46px;
+    height: 46px;
     flex-shrink: 0;
     border-left-width: 2px;
     border-right-width: 2px;
@@ -495,10 +437,10 @@
     border-right-color: rgb(255, 225, 120);
     border-top-color: rgb(255, 225, 120);
     border-bottom-color: rgb(255, 225, 120);
-    border-top-left-radius: 26px;
-    border-top-right-radius: 26px;
-    border-bottom-left-radius: 26px;
-    border-bottom-right-radius: 26px;
+    border-top-left-radius: 23px;
+    border-top-right-radius: 23px;
+    border-bottom-left-radius: 23px;
+    border-bottom-right-radius: 23px;
     background-color: rgba(255, 255, 255, 0.06);
     -unity-background-scale-mode: scale-to-fit;
 }
@@ -507,106 +449,25 @@
     background-color: rgba(255, 255, 255, 0.06);
 }
 
-/* アイコン右の情報列（名前行／所持金／占領地を縦に積む）。 */
-.board-nameplate__info {
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-/* キャラ名。長い名前は省略記号でクリップして横幅を守る。 */
+/* アイコンの下に置くキャラ名。長い名前は省略記号でクリップしてプレート幅を守る。 */
 .board-nameplate__name {
-    font-size: 16px;
+    margin-top: 4px;
+    font-size: 11px;
     color: rgb(240, 240, 255);
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-    max-width: 128px;
-    -unity-text-align: middle-left;
-}
-
-/* 所持金の行（コイン風バッジ＋金額）。名前行の下に置く。 */
-.board-nameplate__money {
-    flex-direction: row;
-    align-items: center;
-    margin-top: 4px;
-}
-
-/* コイン風の金色バッジ（グリフに頼らず USS の円で描く）。 */
-.board-nameplate__coin {
-    width: 13px;
-    height: 13px;
-    margin-right: 5px;
-    background-color: rgb(240, 200, 70);
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-left-color: rgb(180, 140, 30);
-    border-right-color: rgb(180, 140, 30);
-    border-top-color: rgb(180, 140, 30);
-    border-bottom-color: rgb(180, 140, 30);
-    border-top-left-radius: 7px;
-    border-top-right-radius: 7px;
-    border-bottom-left-radius: 7px;
-    border-bottom-right-radius: 7px;
-}
-
-/* 所持金の金額。3 桁区切りで表示。マイナス（借金）時は赤字にする。 */
-.board-nameplate__money-value {
-    font-size: 15px;
-    color: rgb(255, 226, 140);
+    max-width: 96px;
     -unity-text-align: middle-center;
 }
 
-.board-nameplate__money-value--negative {
-    color: rgb(240, 130, 130);
-}
-
-/* 占領地の行（旗風バッジ＋「占拠数 / 総数」）。所持金の行の下に置く。 */
-.board-nameplate__territory {
-    flex-direction: row;
-    align-items: center;
-    margin-top: 4px;
-}
-
-/* 旗風の四角バッジ（グリフに頼らず USS の角丸四角で描く。円のコインと形で区別する）。 */
-.board-nameplate__flag {
-    width: 12px;
-    height: 12px;
-    margin-right: 5px;
-    background-color: rgb(120, 205, 140);
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-left-color: rgb(60, 130, 80);
-    border-right-color: rgb(60, 130, 80);
-    border-top-color: rgb(60, 130, 80);
-    border-bottom-color: rgb(60, 130, 80);
-    border-top-left-radius: 3px;
-    border-top-right-radius: 3px;
-    border-bottom-left-radius: 3px;
-    border-bottom-right-radius: 3px;
-}
-
-/* 占領地の「占拠数 / 総数」。 */
-.board-nameplate__territory-value {
-    font-size: 15px;
-    color: rgb(200, 240, 205);
+/* 自分＝人間プレイヤーのプレートにだけ名前の下へ添える「（あなた）」。
+   PlayerNameplateView が自分の席のプレートにだけ足す。 */
+.board-nameplate__you {
+    margin-top: 1px;
+    font-size: 10px;
+    color: rgb(255, 225, 120);
     -unity-text-align: middle-center;
-}
-
-/* Image/Icon のアイコン画像を貼ったバッジ（コイン／旗）。USS 描画の下地（色・枠）を消し、
-   画像だけを少し大きめの箱に scale-to-fit で見せる。PlayerNameplateView が読み込み成功時に付ける。 */
-.board-nameplate__badge--image {
-    width: 18px;
-    height: 18px;
-    background-color: rgba(0, 0, 0, 0);
-    border-left-width: 0;
-    border-right-width: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
-    -unity-background-scale-mode: scale-to-fit;
 }
 
 /* コマが止まったマスの画像を画面中央に一瞬表示する演出のカード。
@@ -1542,4 +1403,236 @@
 .board-home-return:active {
     background-color: rgb(255, 225, 120);
     scale: 0.96 0.96;
+}
+
+/* ===== プレイヤー詳細モーダル（上部ネームプレートのクリックで開く） =====
+   暗幕・カードの下地は .item-modal / .item-modal__card を流用し、ここでは差分だけ定義する。
+   .item-modal__card の後に定義して border-top-* を上書きする（プレイヤー色のアクセント）。 */
+.player-detail__card {
+    border-top-width: 3px;
+    border-top-color: rgb(255, 225, 120);
+}
+
+/* カード上辺のアクセントをプレイヤー色（コマ・ネームプレートと同じ）にする。 */
+.player-detail__card--p0 {
+    border-top-color: rgb(255, 225, 120);
+}
+
+.player-detail__card--p1 {
+    border-top-color: rgb(140, 225, 235);
+}
+
+.player-detail__card--p2 {
+    border-top-color: rgb(245, 150, 140);
+}
+
+.player-detail__card--p3 {
+    border-top-color: rgb(165, 225, 150);
+}
+
+.player-detail__card--p4 {
+    border-top-color: rgb(200, 170, 240);
+}
+
+.player-detail__card--p5 {
+    border-top-color: rgb(250, 190, 120);
+}
+
+.player-detail__card--p6 {
+    border-top-color: rgb(245, 165, 210);
+}
+
+.player-detail__card--p7 {
+    border-top-color: rgb(150, 180, 245);
+}
+
+/* キャラの丸バッジアイコン（ネームプレート・盤面コマと同じ Icon 画像を大きめに）。 */
+.player-detail__avatar {
+    width: 76px;
+    height: 76px;
+    flex-shrink: 0;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgb(255, 225, 120);
+    border-right-color: rgb(255, 225, 120);
+    border-top-color: rgb(255, 225, 120);
+    border-bottom-color: rgb(255, 225, 120);
+    border-top-left-radius: 38px;
+    border-top-right-radius: 38px;
+    border-bottom-left-radius: 38px;
+    border-bottom-right-radius: 38px;
+    background-color: rgba(255, 255, 255, 0.06);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.player-detail__avatar--empty {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 自分＝人間プレイヤーの詳細を開いたときだけ名前の下に出す「（あなた）」。
+   既定は非表示で、PlayerDetailPresenter が自分の席のときだけ display を切り替える。 */
+.player-detail__you {
+    display: none;
+    margin-top: 4px;
+    font-size: 13px;
+    color: rgb(255, 225, 120);
+}
+
+/* 所持金・占領地を積む欄。カード幅いっぱいに広げる。 */
+.player-detail__stats {
+    width: 100%;
+    margin-top: 14px;
+}
+
+/* 1 行（行頭バッジ＋見出し＋値）。見出しを flex-grow で伸ばして値を右端へ寄せる。 */
+.player-detail__stat {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 6px;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* 行頭バッジの下地（Image/Icon の画像をロードできたら --image で消す）。 */
+.player-detail__badge {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+}
+
+/* コイン風の金色バッジ（グリフに頼らず USS の円で描く）。 */
+.player-detail__badge--coin {
+    background-color: rgb(240, 200, 70);
+    border-left-color: rgb(180, 140, 30);
+    border-right-color: rgb(180, 140, 30);
+    border-top-color: rgb(180, 140, 30);
+    border-bottom-color: rgb(180, 140, 30);
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    border-bottom-left-radius: 7px;
+    border-bottom-right-radius: 7px;
+}
+
+/* 旗風の四角バッジ（円のコインと形で区別する）。 */
+.player-detail__badge--flag {
+    background-color: rgb(120, 205, 140);
+    border-left-color: rgb(60, 130, 80);
+    border-right-color: rgb(60, 130, 80);
+    border-top-color: rgb(60, 130, 80);
+    border-bottom-color: rgb(60, 130, 80);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+/* Image/Icon のアイコン画像を貼ったバッジ。USS 描画の下地（色・枠）を消し、
+   画像だけを少し大きめの箱に scale-to-fit で見せる。PlayerDetailPresenter が読み込み成功時に付ける。 */
+.player-detail__badge--image {
+    width: 20px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.player-detail__stat-label {
+    flex-grow: 1;
+    margin-left: 8px;
+    font-size: 14px;
+    color: rgb(196, 208, 236);
+}
+
+/* 所持金の金額（3 桁区切り）。マイナス（借金）時は赤字にする。 */
+.player-detail__stat-value {
+    font-size: 18px;
+    color: rgb(255, 226, 140);
+    -unity-text-align: middle-right;
+}
+
+.player-detail__stat-value--negative {
+    color: rgb(240, 130, 130);
+}
+
+/* 占領地の「占拠数 / 勝利に必要な数」。 */
+.player-detail__stat-value--territory {
+    color: rgb(200, 240, 205);
+}
+
+/* 「所持アイテム」の見出し。カード左端に寄せる。 */
+.player-detail__section {
+    align-self: flex-start;
+    margin-top: 16px;
+    font-size: 14px;
+    color: rgb(255, 225, 120);
+}
+
+.player-detail__items {
+    width: 100%;
+}
+
+/* アイテム 1 行（絵＋名前＋枚数）。所持金・占領地の行と同じ下地で揃える。 */
+.player-detail__item {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 6px;
+    padding-left: 10px;
+    padding-right: 12px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.player-detail__item-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.player-detail__item-name {
+    flex-grow: 1;
+    margin-left: 10px;
+    font-size: 14px;
+    color: rgb(240, 226, 180);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+/* 同じアイテムを 2 枚以上持つときだけ出す枚数（右下の手札の「x2」バッジと同じ表し方）。 */
+.player-detail__item-count {
+    font-size: 14px;
+    color: rgb(255, 225, 120);
+}
+
+/* 1 つも持っていないときの代わりの文言。 */
+.player-detail__item-empty {
+    margin-top: 6px;
+    font-size: 13px;
+    color: rgb(150, 156, 178);
+}
+
+.player-detail__close {
+    margin-top: 18px;
 }

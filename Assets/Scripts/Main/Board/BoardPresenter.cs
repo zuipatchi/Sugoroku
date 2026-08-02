@@ -97,6 +97,8 @@ namespace Main.Board
         private SceneTransitioner _sceneTransitioner;
         private CpuCharacterPicker _characterPicker;
         private PlayerNameplateView _nameplateView;
+        // ネームプレートのクリックで開くプレイヤー詳細モーダル（所持金・占領地・所持アイテム）。BuildCells で生成。
+        private PlayerDetailPresenter _playerDetail;
         // 進行の決定を配るアクションストリーム。着地の乱数・アイテム効果は「決めた人が発行 → 全員が受信して適用」。
         private OnlineGameSync _sync;
         // ホームへ戻るときにオンラインセッションを離脱する（NGO の停止も UGS 側が一緒に行う）ために持つ。
@@ -240,9 +242,7 @@ namespace Main.Board
             _boardSession = boardSession;
             _sceneTransitioner = sceneTransitioner;
             _characterPicker = characterPicker;
-            _nameplateView = new PlayerNameplateView(participants, money, territory, _characterPicker, _iconLoader, destroyCancellationToken, _disposables);
-
-            // 手札を右下に出すのは自分＝人間プレイヤーだけ。
+            // 手札を右下に出すのは自分＝人間プレイヤーだけ（ネームプレートの「（あなた）」表示にも使う）。
             // オンラインはロビーで確定した自分の席、それ以外は参加者リストの最初の Human を採用する。
             _humanPlayer = 0;
             if (gameSession.Mode == GameMode.Online && onlineRoster.HasRoster)
@@ -260,6 +260,17 @@ namespace Main.Board
                     }
                 }
             }
+
+            // ネームプレートは「アイコン＋名前」だけを出し、所持金・占領地・所持アイテムはクリックで開く
+            // 詳細モーダル（_playerDetail）に出す。モーダルは UI 要素がそろう BuildCells で生成するため、
+            // ここでは遅延解決するラムダを渡す（Construct と OnEnable の順序に依存しない）。
+            _nameplateView = new PlayerNameplateView(
+                participants,
+                _characterPicker,
+                _iconLoader,
+                _humanPlayer,
+                destroyCancellationToken,
+                player => _playerDetail?.Open(player));
 
             // アイテム取得を購読し、人間プレイヤーのぶんだけ右下の手札にサムネイルを足す。
             _disposables.Add(_items.Gained.Subscribe(gain =>
@@ -517,6 +528,26 @@ namespace Main.Board
                     _destroyCt);
             }
 
+            // 上部のネームプレートをクリックしたときに開くプレイヤー詳細モーダル（所持金・占領地・所持アイテム）。
+            // アイテム絵はショップ・手札と同じ _itemSprites キャッシュ経由でロードする。
+            VisualElement playerDetailOverlay = root.Q<VisualElement>("PlayerDetailModal");
+            if (playerDetailOverlay != null)
+            {
+                _playerDetail = new PlayerDetailPresenter(
+                    playerDetailOverlay,
+                    _money,
+                    _territory,
+                    _items,
+                    _characterPicker,
+                    _iconLoader,
+                    _humanPlayer,
+                    (def, token) => LoadItemSpriteAsync(def, token),
+                    _uiDocument,
+                    _destroyCt);
+                // 開いたままシーンが破棄されても所持金・占領地の購読が残らないようまとめて落とす。
+                _disposables.Add(_playerDetail);
+            }
+
             // マスをタップしたときに開く説明モーダル（見せるだけなので手番も演出も問わない）。
             VisualElement cellInfoOverlay = root.Q<VisualElement>("CellInfoModal");
             if (cellInfoOverlay != null)
@@ -770,7 +801,7 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 上部ヘッダーに全プレイヤーのネームプレート（横 1 行・最大 2 人／ページ・三角ボタンでページ送り）を表示する。
+        /// 上部ヘッダーに全プレイヤーのネームプレート（横 1 行・アイコンとキャラ名だけ。クリックで詳細モーダル）を表示する。
         /// 構築の本体は <see cref="PlayerNameplateView"/> が担う。
         /// マス（BuildCells）と injection（Construct）の両方がそろってから 1 度だけ構築する。
         /// </summary>
