@@ -218,6 +218,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6d4870442bf7e5140a0eadfc6a4fc664
+    m_Address: Image/MiniGame/SandBag
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6f99a1107360cfa40afb099104a96be9
     m_Address: Image/Item/StealMoney
     m_ReadOnly: 0

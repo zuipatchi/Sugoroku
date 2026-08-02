@@ -9,11 +9,14 @@
     justify-content: center;
 }
 
+/* サンドバッグの絵に重なるので、地の明暗に依らず読めるよう黒フチを付ける */
 .tap-count {
     position: absolute;
     color: rgb(255, 255, 255);
     font-size: 88px;
     -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
 }
 
 .tap-timer {
@@ -82,14 +85,18 @@
     transform-origin: center;
 }
 
+/* サンドバッグ画像（3:2）がなるべく切れずに収まる高さにする。基準幅 540 なら 80%＝432px なので
+   縦 300px でほぼ画像と同じ比率になり、cover でもほとんど切り落とされない */
 .tap-play-area {
     width: 80%;
     max-width: 640px;
-    height: 220px;
+    height: 300px;
     align-items: center;
     justify-content: center;
 }
 
+/* 叩く場所。サンドバッグ画像（Image/MiniGame/SandBag）は TapGamePlay が
+   Addressables でロードして貼る。未配置のときは下の地色がそのまま残る */
 .tap-button {
     position: absolute;
     left: 0;
@@ -97,23 +104,28 @@
     width: 100%;
     height: 100%;
     background-color: rgb(70, 90, 180);
+    background-size: cover;
     color: rgb(255, 255, 255);
     font-size: 72px;
     border-radius: 24px;
     border-width: 0;
+    overflow: hidden;
 }
 
+/* 押下・無効の状態は地色だけでなく画像にも効かせる（画像を貼ると背景色は隠れてしまうため）。 */
 .tap-button:hover {
     background-color: rgb(85, 105, 198);
 }
 
 .tap-button:active {
     background-color: rgb(50, 65, 145);
+    -unity-background-image-tint-color: rgb(190, 190, 190);
 }
 
 .tap-button:disabled {
     background-color: rgba(70, 90, 180, 0.35);
     color: rgba(255, 255, 255, 0.5);
+    -unity-background-image-tint-color: rgba(255, 255, 255, 0.45);
 }
 
 .tap-center {
@@ -121,6 +133,8 @@
     color: rgb(255, 255, 255);
     font-size: 96px;
     -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
 }
 
 .tap-result {

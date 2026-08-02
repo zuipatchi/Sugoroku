@@ -25,6 +25,8 @@ namespace MiniGame.TapGame
         private const int RevealLeadInMs = 500;
         // オンライン対戦で自分の連打数を配る間隔（秒）。見た目だけの情報なので毎フレームは送らない。
         private const float ProgressIntervalSeconds = 0.2f;
+        // 叩く場所（タップボタン）に貼るサンドバッグの絵。未配置なら TapGame.uss の地色のままにする。
+        private const string TapTargetAddress = "Image/MiniGame/SandBag";
 
         private readonly TapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -119,7 +121,8 @@ namespace MiniGame.TapGame
 
             _closeSource = new UniTaskCompletionSource();
 
-            await ApplyCharacterCardAsync(ct);
+            // サンドバッグとキャラカードはどちらも Addressables なので並列でロードする。
+            await UniTask.WhenAll(ApplyTapTargetAsync(ct), ApplyCharacterCardAsync(ct));
             await BuildScoreboardAsync(ct);
         }
 
@@ -330,6 +333,17 @@ namespace MiniGame.TapGame
                     ? DisplayStyle.Flex
                     : DisplayStyle.None;
             _resultPanel.style.display = phase == TapGamePhase.Finished ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        // 叩く場所（タップボタン）にサンドバッグの絵を貼る。拡大縮小は USS
+        // （.tap-button の background-size: cover）に任せる。未配置なら何もしない＝地色のまま。
+        private async UniTask ApplyTapTargetAsync(CancellationToken ct)
+        {
+            Sprite target = await _spriteLoader.TryLoadAsync(TapTargetAddress, "サンドバッグ", ct);
+            if (target != null)
+            {
+                _tapButton.style.backgroundImage = new StyleBackground(target);
+            }
         }
 
         // 選択中キャラのカード絵を読み込んで中央に表示する。未配置ならプレースホルダ（色面）にフォールバックする。
