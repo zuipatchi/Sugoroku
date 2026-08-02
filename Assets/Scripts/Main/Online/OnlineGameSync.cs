@@ -255,6 +255,17 @@ namespace Main.Online
             {
                 return;
             }
+
+            // 自分から離脱したとき（オプションの「タイトルへ戻る」など）は、セッションを手放してから
+            // NGO が閉じるので既に Session が null になっている。相手の退出ではないので
+            // 「相手が退出しました」は出さず、待機中の進行を打ち切るだけにする
+            // （離脱の完了を待つ間、自分の画面に退出通知が出てしまうのを防ぐ）。
+            if (!_gameSession.HasSession)
+            {
+                _abortCts.Cancel();
+                return;
+            }
+
             _sessionLost.Value = true;
             _abortCts.Cancel();
         }

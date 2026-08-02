@@ -1,3 +1,4 @@
+using Common.GameSession;
 using Common.SceneManagement;
 using Common.SoundManagement;
 using Common.Store;
@@ -16,18 +17,23 @@ namespace Common.Option
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
         private SceneTransitioner _sceneTransitioner;
+        private GameSessionModel _gameSession;
+        private OnlineRosterSessionModel _onlineRoster;
         private VisualElement _overlay;
         private VisualElement _host;
+        private bool _backingToTitle;
         private readonly CompositeDisposable _disposables = new();
 
         [Inject]
-        public void Construct(ModalStore modalStore, OptionModel optionModel, SoundStore soundStore, SoundPlayer soundPlayer, SceneTransitioner sceneTransitioner)
+        public void Construct(ModalStore modalStore, OptionModel optionModel, SoundStore soundStore, SoundPlayer soundPlayer, SceneTransitioner sceneTransitioner, GameSessionModel gameSession, OnlineRosterSessionModel onlineRoster)
         {
             _modalStore = modalStore;
             _optionModel = optionModel;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
             _sceneTransitioner = sceneTransitioner;
+            _gameSession = gameSession;
+            _onlineRoster = onlineRoster;
         }
 
         private void Awake()
@@ -93,9 +99,30 @@ namespace Common.Option
 
         private void BackToTitle()
         {
+            if (_backingToTitle)
+            {
+                return;
+            }
+            _backingToTitle = true;
             _soundPlayer.PlaySE(_soundStore.Enter1SE);
             CloseModal();
-            _sceneTransitioner.Transit(Scenes.Title).Forget();
+            BackToTitleAsync().Forget();
+        }
+
+        /// <summary>
+        /// オンラインセッションを離脱してから Title へ戻る。オプションアイコンは Common 常駐なので
+        /// マッチング中・キャラ選択ロビー・対戦中のどこからでも押せるが、離脱せずにシーンだけ移ると
+        /// <c>NetworkManager</c> も Common 常駐のため UGS のルームにも Relay の接続にも残ったままになる
+        /// （相手には退出が伝わらず待たされ続け、自分も次のマッチングに古いセッションを引きずる）。
+        /// NGO の停止は <c>ISession.LeaveAsync</c> が一緒に行う。
+        /// 一人用モード・オフライン時はセッションを持たないので離脱は即座に返る。
+        /// </summary>
+        private async UniTaskVoid BackToTitleAsync()
+        {
+            _onlineRoster.Clear();
+            await _gameSession.LeaveCurrentSessionAsync();
+            await _sceneTransitioner.Transit(Scenes.Title);
+            _backingToTitle = false;
         }
     }
 }
