@@ -320,5 +320,43 @@ namespace Tests.EditMode
                 b.Dispose();
             }
         }
+
+        [Test]
+        public void SetProgressで相手の進捗を差し込めるが自分ぶんは上書きされない()
+        {
+            _model.Setup(FixedConfig(), playerCount: 3, seed: 1, simulateOpponents: false);
+            StartRace(_model);
+
+            _model.SetProgress(1, 0.4f);
+            _model.SetProgress(2, 1.5f);  // 1 を超える値はクランプされる
+            _model.SetProgress(0, 0.9f);  // 自分ぶんは無視される
+            _model.SetProgress(3, 0.9f);  // 走者数の範囲外も無視される
+
+            Assert.AreEqual(0.4f, _model.Progress(1), Delta);
+            Assert.AreEqual(1f, _model.Progress(2), Delta);
+            Assert.AreEqual(0f, _model.Progress(0), Delta);
+        }
+
+        [Test]
+        public void 相手をシミュレートしないときは相手がゴールしてもレースは終わらない()
+        {
+            // オンライン対戦の想定。相手の進捗は表示用に差し込まれるだけで、決着は自分のゴールで決める。
+            _model.Setup(FixedConfig(), playerCount: 2, seed: 1, simulateOpponents: false);
+            StartRace(_model);
+
+            _model.SetProgress(1, 1f);
+            _model.Tick(0.1f);
+
+            Assert.AreEqual(RaceGamePhase.Racing, _model.Phase.CurrentValue);
+            Assert.IsFalse(_model.WinnerIndex.HasValue);
+
+            // 自分がゴールしたときだけ決着する。
+            _model.ApplyTap(0.5f);
+            _model.Tick(1000f);
+
+            Assert.AreEqual(RaceGamePhase.Finished, _model.Phase.CurrentValue);
+            Assert.AreEqual(0, _model.WinnerIndex);
+            Assert.IsTrue(_model.IsPlayerWin);
+        }
     }
 }

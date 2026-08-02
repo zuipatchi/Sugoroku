@@ -23,6 +23,9 @@ namespace MiniGame.RaceGame
         private const float TapPauseSeconds = 0.35f;  // タップ後にメーターを止めておく時間
         private const float StartPercent = 82f;       // 進捗 0（スタート）のときの走者の left%
         private const float GoalPercent = 2f;         // 進捗 1（ゴール）のときの走者の left%
+        private const float ProgressIntervalSeconds = 0.2f; // 自分の進捗を配る間隔（オンラインのみ）
+        private const int ProgressScale = 10000;      // 進捗 0〜1 を整数で配るための倍率
+        private const float RemoteFollowSpeed = 12f;  // 相手の走者を届いた位置へ寄せる速さ（1/秒）
 
         private readonly RaceGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -34,6 +37,9 @@ namespace MiniGame.RaceGame
         private readonly RaceMeter _meter = new(MeterSweepSpeed);
         // 走者要素（index 0 = プレイヤー、1〜 = CPU）。RunnerCount ぶんレーンとともに動的生成する。
         private readonly List<VisualElement> _runners = new();
+        // 画面に出している進捗（_runners と同じ並び）。オンラインの相手は 200ms ごとにしか届かないので、
+        // Model の値へ毎フレーム寄せて滑らかに走らせる。自分と一人用の CPU は Model の値をそのまま出す。
+        private readonly List<float> _displayProgress = new();
 
         private Label _titleLabel;
         private VisualElement _track;
@@ -51,6 +57,9 @@ namespace MiniGame.RaceGame
         private UniTaskCompletionSource _closeSource;
 
         private float _pauseRemaining;
+        // 「結果を反映」が押されたか。オンラインでは押されるまで相手の走者を動かし続けるため、
+        // _closeSource の完了を待つ代わりにこのフラグでループを回す。
+        private bool _closeRequested;
         // 自分（走者 index 0）のゴールタイム（ミリ秒）。オンライン対戦で順位を決める結果値になる。
         private int _playerFinishMillis = MiniGameRanking.NotFinished;
 
@@ -109,6 +118,7 @@ namespace MiniGame.RaceGame
 
             LayoutMeterZones(config);
             _closeSource = new UniTaskCompletionSource();
+            _closeRequested = false;
 
             _tapButton.clicked += OnTapClicked;
             _closeButton.clicked += OnCloseClicked;
@@ -134,6 +144,7 @@ namespace MiniGame.RaceGame
             // Track から既存のレーンだけ除き、FinishLine（背面ガイド）は残す。
             _track.Query<VisualElement>(className: "race-lane").ForEach(lane => lane.RemoveFromHierarchy());
             _runners.Clear();
+            _displayProgress.Clear();
 
             // 参加者キャラはセッション（起動側が指定）から取る。全走者ぶん揃っていればそれを使い、
             // 揃っていなければ従来解決＝プレイヤーは選択キャラ・CPU は被らないランダム配布にフォールバックする。
@@ -178,17 +189,66 @@ namespace MiniGame.RaceGame
 
                 _track.Add(lane);
                 _runners.Add(runnerElement);
+                _displayProgress.Add(0f);
                 loads.Add(ApplyRunnerSpriteAsync(runnerElement, id, ct));
             }
 
             await UniTask.WhenAll(loads);
         }
 
+        /// <summary>全走者を Model の進捗どおりに置き直す（補間を挟まない初期配置用）。</summary>
         private void PlaceAllRunners()
         {
             for (int runner = 0; runner < _runners.Count; runner++)
             {
-                PlaceRunner(_runners[runner], _model.Progress(runner));
+                float progress = _model.Progress(runner);
+                _displayProgress[runner] = progress;
+                PlaceRunner(_runners[runner], progress);
+            }
+        }
+
+        /// <summary>
+        /// 走者を進捗どおりに動かす（毎フレーム）。オンラインの相手は <see cref="ProgressIntervalSeconds"/>
+        /// 間隔でしか値が届かず、そのまま置くとカクついて見えるので、届いた位置へ滑らかに寄せる。
+        /// 自分（index 0）と一人用の CPU は毎フレーム動くので Model の値をそのまま出す。
+        /// </summary>
+        private void UpdateRunnerPositions(float deltaSeconds)
+        {
+            bool smoothOpponents = !OpponentsSimulated;
+            float follow = 1f - Mathf.Exp(-RemoteFollowSpeed * Mathf.Max(0f, deltaSeconds));
+            for (int runner = 0; runner < _runners.Count; runner++)
+            {
+                float target = _model.Progress(runner);
+                float shown = runner > 0 && smoothOpponents
+                    ? Mathf.Lerp(_displayProgress[runner], target, follow)
+                    : target;
+                _displayProgress[runner] = shown;
+                PlaceRunner(_runners[runner], shown);
+            }
+        }
+
+        /// <summary>相手をこのクライアントでシミュレートしているか（＝一人用モード）。</summary>
+        private bool OpponentsSimulated => _session == null || _session.SimulateOpponents;
+
+        /// <summary>
+        /// 自分の進捗を配り、届いている相手の進捗を走者へ反映する（オンラインのみ）。
+        /// 一人用モードでは相手をゲーム内の CPU が自走させるので何もしない。
+        /// 進捗は 0〜1 の小数なので、整数しか運べない経路に合わせて <see cref="ProgressScale"/> 倍して送る。
+        /// </summary>
+        private void PublishAndApplyProgress()
+        {
+            MiniGameProgressChannel progress = _session?.Progress;
+            if (progress == null)
+            {
+                return;
+            }
+
+            progress.Publish(Mathf.RoundToInt(Mathf.Clamp01(_model.Progress(0)) * ProgressScale));
+            // 走者数（最低 2 にクランプされる）が配列より多いことがあるので、短い方に合わせる。
+            int count = Mathf.Min(_model.RunnerCount, progress.Values.Length);
+            for (int runner = 1; runner < count; runner++)
+            {
+                _model.SetProgress(runner, progress.Values[runner] / (float)ProgressScale);
             }
         }
 
@@ -216,6 +276,7 @@ namespace MiniGame.RaceGame
             // ゴールできずに決着したときは NotFinished のまま残る。
             _playerFinishMillis = MiniGameRanking.NotFinished;
             float raceElapsed = 0f;
+            float sinceProgress = 0f;
 
             while (_model.Phase.CurrentValue == RaceGamePhase.Racing)
             {
@@ -244,9 +305,21 @@ namespace MiniGame.RaceGame
                     _playerFinishMillis = Mathf.RoundToInt(raceElapsed * 1000f);
                 }
 
+                // オンライン対戦では相手を自走させない代わりに、互いの進捗を配り合って走者を動かす
+                // （見た目だけの情報なので、間引いて送り取りこぼしは気にしない）。
+                sinceProgress += dt;
+                if (sinceProgress >= ProgressIntervalSeconds)
+                {
+                    sinceProgress = 0f;
+                    PublishAndApplyProgress();
+                }
+
                 UpdateMeterMarker();
-                PlaceAllRunners();
+                UpdateRunnerPositions(dt);
             }
+
+            // ゴールした自分の位置を送り切ってから締める（間引きの都合で数回ぶん遅れていることがある）。
+            PublishAndApplyProgress();
 
             _tapButton.SetEnabled(false);
             SetDisplay(_tapButton, false);
@@ -256,9 +329,36 @@ namespace MiniGame.RaceGame
             RevealResult();
             _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
 
-            await _closeSource.Task.AttachExternalCancellation(ct);
+            await WaitForCloseAsync(ct);
             // 結果値はゴールまでのミリ秒（未ゴールは NotFinished）。オンラインでは最短の人が勝ち。
             return (_model.IsPlayerWin ? 1 : 0, _playerFinishMillis);
+        }
+
+        /// <summary>
+        /// 「結果を反映」が押されるまで待つ。オンラインでは自分が先にゴールしても相手はまだ走っているので、
+        /// 待っている間も進捗を配り／反映して相手の走者を動かし続ける（自分の位置はゴールのまま変わらない）。
+        /// </summary>
+        private async UniTask WaitForCloseAsync(CancellationToken ct)
+        {
+            if (OpponentsSimulated)
+            {
+                await _closeSource.Task.AttachExternalCancellation(ct);
+                return;
+            }
+
+            float sinceProgress = 0f;
+            while (!_closeRequested)
+            {
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                float dt = Time.deltaTime;
+                sinceProgress += dt;
+                if (sinceProgress >= ProgressIntervalSeconds)
+                {
+                    sinceProgress = 0f;
+                    PublishAndApplyProgress();
+                }
+                UpdateRunnerPositions(dt);
+            }
         }
 
         public void Dispose()
@@ -373,6 +473,7 @@ namespace MiniGame.RaceGame
 
         private void OnCloseClicked()
         {
+            _closeRequested = true;
             _closeSource?.TrySetResult();
         }
     }

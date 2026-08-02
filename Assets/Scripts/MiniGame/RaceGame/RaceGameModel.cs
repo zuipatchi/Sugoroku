@@ -52,6 +52,21 @@ namespace MiniGame.RaceGame
         /// <summary>プレイヤー（走者 index 0）が勝ったか。決着前は false。</summary>
         public bool IsPlayerWin => WinnerIndex == 0;
 
+        /// <summary>
+        /// 走者 <paramref name="runner"/>（1〜＝自分以外）の進捗を外から差し込む。オンライン対戦で
+        /// 他プレイヤーから届いた途中経過を走者の位置に反映するのに使う（自分＝index 0 は自分の走りで
+        /// 進むので上書きしない）。**決着の判定には使わない**＝相手がゴールしても自分のレースは
+        /// 打ち切らず（<see cref="ResolveFinish"/> 参照）、順位は各自のゴールタイムで決める。
+        /// </summary>
+        public void SetProgress(int runner, float progress)
+        {
+            if (runner <= 0 || runner >= _runnerCount)
+            {
+                return;
+            }
+            _progress[runner] = Mathf.Clamp01(progress);
+        }
+
         /// <summary>レースを準備する（2 走者＝既定コンフィグ）。進捗を 0 に戻しフェーズを <see cref="RaceGamePhase.Ready"/> に。</summary>
         public void Setup(int seed)
         {
@@ -224,9 +239,13 @@ namespace MiniGame.RaceGame
                 return;
             }
 
+            // オンライン対戦（相手を自走させない）では、相手の進捗は表示用に差し込まれるだけなので
+            // 決着は自分（index 0）のゴールだけで判定する。相手の到達で自分のレースを打ち切ると、
+            // まだ走っている途中でも未ゴール扱いになってしまう（順位は各自のゴールタイムで決める）。
+            int considered = _simulateOpponents ? _runnerCount : 1;
             int winner = -1;
             float winnerProgress = 0f;
-            for (int runner = 0; runner < _runnerCount; runner++)
+            for (int runner = 0; runner < considered; runner++)
             {
                 if (_progress[runner] < 1f)
                 {
