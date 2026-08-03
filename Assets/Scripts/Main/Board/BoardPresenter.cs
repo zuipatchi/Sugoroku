@@ -2424,7 +2424,11 @@ namespace Main.Board
 
         /// <summary>
         /// お金よこどりの適用。席ごとの奪取額（<paramref name="action"/> の効果パラメータ）を相手から引き、
-        /// 合計を使用者に足す（合計は保存される）。増額は中央の浮遊テキストで見せる。
+        /// 合計を使用者に足す（合計は保存される）。
+        /// 浮遊テキストは**この画面の持ち主から見た増減**を見せる（適用は全クライアントで走るので、
+        /// 一律に合計の増額を出すと奪われた側の画面にも「+」が出てしまう）＝使った本人は奪った合計をプラスで、
+        /// 奪われた側は自分が失った額をマイナスで（誰にやられたかの帯つきで）見る。
+        /// どちらでもない席（所持金 0 以下で奪われなかった人）には出さない。
         /// </summary>
         private async UniTask ApplyMoneyStealAsync(int player, GameAction action, CancellationToken ct)
         {
@@ -2434,6 +2438,8 @@ namespace Main.Board
             }
 
             int total = 0;
+            // 自分の席が奪われた額（自分が使用者、または奪われなかったときは 0）。
+            int myLoss = 0;
             int seats = Mathf.Min(_money.PlayerCount, action.EffectArgCount);
             for (int seat = 0; seat < seats; seat++)
             {
@@ -2444,6 +2450,10 @@ namespace Main.Board
                 }
                 _money.Add(seat, -amount);
                 total += amount;
+                if (seat == _humanPlayer)
+                {
+                    myLoss = amount;
+                }
             }
 
             if (total <= 0)
@@ -2452,8 +2462,22 @@ namespace Main.Board
             }
 
             _money.Add(player, total);
+
+            int delta = player == _humanPlayer ? total : -myLoss;
+            if (delta == 0)
+            {
+                return; // 使った本人でも奪われた側でもない席（一人用の CPU 相手ぶんもここで止まる）
+            }
+
+            // 奪われた側の画面にはアイテムを使う操作が出ていない＝マイナスの理由が分からないので、
+            // 購入の知らせ（ApplyShopResultAsync）と同じように誰にやられたかを帯で添える。
+            if (delta < 0)
+            {
+                ShowBannerText($"{CharacterNameOf(player)}にお金を奪われた！");
+            }
+
             _soundPlayer.PlaySafe(_soundStore?.MoneySE);
-            await ShowItemMoneyFloatAsync(total, ct);
+            await ShowItemMoneyFloatAsync(delta, ct);
         }
 
         /// <summary>アイテム効果による所持金の増減を中央の浮遊テキストで見せる（マス画像は出さない）。</summary>
