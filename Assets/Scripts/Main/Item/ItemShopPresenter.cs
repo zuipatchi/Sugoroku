@@ -32,6 +32,8 @@ namespace Main.Item
         // 所持金の行頭に置くコイン画像のアドレス（プレイヤー詳細モーダルと同じ絵）。
         // 未配置なら USS 描画のコインバッジのままにする。
         private const string CoinIconAddress = "Image/Icon/CoinIcon";
+        // モーダルの背景に敷く店内の絵。未配置なら USS の地色（暗いガラス）のままにする。
+        private const string ShopBackgroundAddress = "Image/Shop";
         // モーダルを開いている間だけ Board の UIDocument を前面へ持ち上げる SortingOrder（他のモーダルと同値）。
         private const float RaisedSortingOrder = 100f;
         // 一度に見せるカード枚数と、カード 1 枚が占める横幅（.item-shop-card の width 130 + 左右 margin 6+6）。
@@ -75,6 +77,7 @@ namespace Main.Item
             _walletValue = overlay.Q<Label>("ItemShopWalletValue");
 
             LoadWalletIconAsync(iconLoader, overlay.Q<VisualElement>("ItemShopWalletIcon")).Forget();
+            LoadBackgroundAsync(iconLoader, overlay.Q<VisualElement>("ItemShopCard")).Forget();
 
             // 購入ショップは他のモーダルと違い、暗幕（モーダル外）クリックでは閉じない。
             // 誤タップでの購入機会の取りこぼしを防ぐため、閉じるのは明示的な「買わずに閉じる」ボタンだけにする。
@@ -154,6 +157,24 @@ namespace Main.Item
             }
             icon.style.backgroundImage = new StyleBackground(sprite);
             icon.AddToClassList(WalletIconImageClass);
+        }
+
+        /// <summary>
+        /// モーダルの背景に店内の絵を貼る。拡大縮小は USS（<c>.item-shop__card</c> の <c>background-size: cover</c>）
+        /// に任せる。未配置・キャンセルなら何もしない＝USS の地色（暗いガラス）がそのまま見える。
+        /// </summary>
+        private async UniTaskVoid LoadBackgroundAsync(BoardIconLoader iconLoader, VisualElement card)
+        {
+            if (iconLoader == null || card == null)
+            {
+                return;
+            }
+            Sprite sprite = await iconLoader.LoadSpriteAsync(ShopBackgroundAddress, "ショップ背景", _ct);
+            if (sprite == null)
+            {
+                return;
+            }
+            card.style.backgroundImage = new StyleBackground(sprite);
         }
 
         /// <summary>

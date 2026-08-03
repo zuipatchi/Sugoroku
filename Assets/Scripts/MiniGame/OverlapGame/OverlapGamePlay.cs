@@ -21,6 +21,8 @@ namespace MiniGame.OverlapGame
     public sealed class OverlapGamePlay : IDisposable
     {
         private const int RevealPauseMs = 900;  // オープン演出（バッジ表示）を見せてから結果を出すまでの間
+        // 画面の背景に敷く店内の絵。アイテムを選ぶゲームなのでアイテムショップと同じ絵を使う。
+        private const string BackgroundAddress = "Image/Shop";
 
         private readonly OverlapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -83,7 +85,8 @@ namespace MiniGame.OverlapGame
             _closeSource = new UniTaskCompletionSource();
             _closeButton.clicked += OnCloseClicked;
 
-            await BuildCardsAsync(ct);
+            // カード絵と背景は互いに独立なので並列にロードする（表示前に両方そろえる）。
+            await UniTask.WhenAll(BuildCardsAsync(ct), ApplyBackgroundAsync(root, ct));
 
             _titleLabel.text = "被っちゃやーよ";
             _hintLabel.text = "ほかの人とかぶらないアイテムを選ぼう！";
@@ -156,6 +159,26 @@ namespace MiniGame.OverlapGame
                 _closeButton.clicked -= OnCloseClicked;
             }
             _spriteLoader.Dispose();
+        }
+
+        /// <summary>
+        /// 画面の背景に店内の絵を貼る。拡大縮小は USS（<c>.overlap-root</c> の <c>background-size: cover</c>）に任せる。
+        /// 未配置のときは何もしない＝USS の地色がそのまま見える（2Dレースのコース背景と同じ扱い）。
+        /// 貼り先は渡された <paramref name="root"/>（＝<c>UIDocument.rootVisualElement</c>）ではなく、
+        /// その子の <c>OverlapRoot</c>。親へ貼っても不透明な地色を持つ子に隠れて見えない。
+        /// </summary>
+        private async UniTask ApplyBackgroundAsync(VisualElement root, CancellationToken ct)
+        {
+            VisualElement target = root?.Q<VisualElement>("OverlapRoot");
+            if (target == null)
+            {
+                return;
+            }
+            Sprite sprite = await _spriteLoader.TryLoadAsync(BackgroundAddress, "ショップ背景", ct);
+            if (sprite != null)
+            {
+                target.style.backgroundImage = new StyleBackground(sprite);
+            }
         }
 
         // 提示アイテムぶんのカードを生成し、画像を並列ロードして貼る。

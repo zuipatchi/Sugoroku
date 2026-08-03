@@ -973,9 +973,14 @@
     -unity-text-align: middle-center;
 }
 
-/* アイテムショップのカード本体はやや幅を持たせる（価格・効果説明まで載せるため）。 */
+/* アイテムショップのモーダル本体。価格・効果説明まで載せるのでやや幅を持たせる。
+   背景に店内の絵（Image/Shop）を ItemShopPresenter が貼るので、はみ出しは cover で切り、
+   絵だけを暗くして（ティント）上に載る文字・商品カードを読めるようにする。
+   画像が未配置なら .item-modal__card の地色（暗いガラス）がそのまま見える。 */
 .item-shop__card {
     max-width: 460px;
+    background-size: cover;
+    -unity-background-image-tint-color: rgb(130, 130, 130);
 }
 
 /* タイトル直下に出す所持金の行（コインバッジ＋「所持金」＋金額）。買う前に手持ちが分かるようにする。 */
@@ -1131,7 +1136,8 @@
     background-color: rgb(255, 225, 120);
 }
 
-/* 商品 1 種類分のカード（絵＋名前＋効果説明＋価格）。暗いガラス地＋金の細枠。タップで購入。
+/* 商品 1 種類分のカード（絵＋名前＋効果説明・価格）。暗い不透明の地＋金の細枠。タップで購入。
+   地色は不透明にする（モーダルの背景に店内の絵を敷いたので、半透明だと絵が透けて商品が読みにくい）。
    flex-shrink:0 が無いとトラック幅に合わせてカードが縮み、3〜4 枚が一度に見えてしまう（カルーセルが機能しない）。 */
 .item-shop-card {
     width: 130px;
@@ -1157,13 +1163,13 @@
     border-top-right-radius: 12px;
     border-bottom-left-radius: 12px;
     border-bottom-right-radius: 12px;
-    background-color: rgba(24, 22, 16, 0.85);
+    background-color: rgb(24, 22, 16);
     transition-property: background-color, scale;
     transition-duration: 0.1s;
 }
 
 .item-shop-card:hover {
-    background-color: rgba(60, 52, 30, 0.9);
+    background-color: rgb(60, 52, 30);
     scale: 1.03 1.03;
 }
 
@@ -1171,13 +1177,26 @@
     scale: 0.98 0.98;
 }
 
-/* 買えないカード（価格 > 所持金）。暗くして操作不能に見せる（タップも受けない）。 */
+/* 買えないカード（価格 > 所持金）。操作不能に見せる（タップも受けない）。
+   カード自体の opacity は下げない（背景の店内の絵が透けてしまうため）。地色を暗く落として
+   中身（絵・名前・説明）だけを薄くし、価格は赤字のまま読めるように残す。 */
 .item-shop-card--disabled {
+    background-color: rgb(16, 15, 11);
+    border-left-color: rgb(96, 82, 46);
+    border-right-color: rgb(96, 82, 46);
+    border-top-color: rgb(96, 82, 46);
+    border-bottom-color: rgb(96, 82, 46);
+}
+
+.item-shop-card--disabled .item-shop-card__image,
+.item-shop-card--disabled .item-shop-card__name,
+.item-shop-card--disabled .item-shop-card__description {
     opacity: 0.45;
 }
 
+/* 買えないカードはホバーしても反応しないので、地色も拡大も既定のまま据え置く。 */
 .item-shop-card--disabled:hover {
-    background-color: rgba(24, 22, 16, 0.85);
+    background-color: rgb(16, 15, 11);
     scale: 1 1;
 }
 

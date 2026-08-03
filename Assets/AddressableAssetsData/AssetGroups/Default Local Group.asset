@@ -167,6 +167,11 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4c23e4762cd14d7449f36231b607b416
+    m_Address: Image/Shop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4e7cd4ef9c65bda46a15bc4a7679e65a
     m_Address: Character/Character6/Icon
     m_ReadOnly: 0
