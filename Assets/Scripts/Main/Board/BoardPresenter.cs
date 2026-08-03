@@ -2167,7 +2167,8 @@ namespace Main.Board
             }
 
             int itemId = action.UsedItemId;
-            if (itemId < 0 || ItemCatalog.Find((ItemId)itemId) == null)
+            ItemDefinition definition = itemId < 0 ? null : ItemCatalog.Find((ItemId)itemId);
+            if (definition == null)
             {
                 return;
             }
@@ -2179,6 +2180,9 @@ namespace Main.Board
             try
             {
                 _items.Use(seat, item); // 手札からの減算は Used 購読側（表示するのは自分の席のぶんだけ）
+
+                // 効果ごとの演出（旗・浮遊テキスト・ミニゲーム）へ入る前に、全アイテム共通の「使った」演出を挟む。
+                await PlayItemUsePresentationAsync(seat, definition, ct);
 
                 switch (item)
                 {
@@ -2260,6 +2264,40 @@ namespace Main.Board
         /// アイテム効果による所持金の増減を見せる浮遊テキストの表示時間（秒）。
         /// </summary>
         private const float ItemMoneyFloatSeconds = 1.5f;
+
+        /// <summary>
+        /// アイテム使用時に絵を中央へ出しておく時間（秒）。この後フェードアウトして効果の演出へ入るので、
+        /// 「使った」ことが伝わる範囲でなるべく短くする。
+        /// </summary>
+        private const float ItemUsePopupSeconds = 0.7f;
+
+        /// <summary>
+        /// アイテムを使ったことを見せる共通演出（効果の種別に依らず、どのアイテムでも同じように出す）。
+        /// アイテム絵を中央にポップし、「〔キャラ名〕が「〔アイテム名〕」を使用！」の帯と SE を添えてから
+        /// 絵を消す。適用側（全クライアント）から呼ぶので、相手が何を使ったのかも分かる。
+        /// アイテム絵が未配置のときはポップを飛ばして帯と SE だけになる。
+        /// </summary>
+        private async UniTask PlayItemUsePresentationAsync(int seat, ItemDefinition item, CancellationToken ct)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            ShowBannerText($"{CharacterNameOf(seat)}が「{item.DisplayName}」を使用！");
+            _soundPlayer.PlaySafe(_soundStore?.ItemGetSE);
+
+            Sprite sprite = await LoadItemSpriteAsync(item, ct);
+            bool popupShown = await _landing.ShowCellPopupAsync(sprite, ct);
+            if (!popupShown)
+            {
+                return;
+            }
+
+            await UniTask.Delay(TimeSpan.FromSeconds(ItemUsePopupSeconds), cancellationToken: ct);
+            // 効果側の演出（旗・ミニゲーム・勝者表示）を覆わないよう、絵は必ず消してから戻る。
+            await _landing.HideCellPopupAsync(ct);
+        }
 
         /// <summary>
         /// ミニゲームアイテムの決定。遊ぶミニゲームを選ばせて起動し、勝敗から所持金報酬を確定して発行する
