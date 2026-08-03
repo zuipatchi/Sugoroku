@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Main.Board;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -11,8 +12,8 @@ namespace Main.Item
     /// アイテム取得マスに止まったときに開く「アイテムショップ」モーダル。ランダムなラインナップ
     /// （<see cref="ItemCatalog.RandomLineup"/>）を絵・名前・効果説明・価格のカードで並べ、タップで 1 つ購入する
     /// （代金の支払い・手札への追加は呼び出し側＝<c>BoardPresenter</c> が担う）。カードは一度に 2 枚だけ見せ、
-    /// 残りは前後ボタン（‹ ›）＋ドットのカルーセルでページ送りする。所持金（<c>budget</c>）で買えない
-    /// カードは無効表示にする。「買わずに閉じる」ボタン・破棄では null（買わない）を返す。
+    /// 残りは前後ボタン（‹ ›）＋ドットのカルーセルでページ送りする。所持金（<c>budget</c>）はタイトル下に表示し、
+    /// それで買えないカードは無効表示にする。「買わずに閉じる」ボタン・破棄では null（買わない）を返す。
     /// 誤タップ防止のため、他のモーダルと違い暗幕（モーダル外）クリックでは閉じない。
     /// <see cref="MiniGameSelectPresenter"/> と同じく <c>BoardPresenter</c> が new する協調クラスで、開いている間だけ
     /// Board の <see cref="UIDocument"/> の sortingOrder を上げてスピンボタン等より前面に出す。
@@ -25,6 +26,12 @@ namespace Main.Item
         private const string CardDisabledClass = "item-shop-card--disabled";
         private const string PriceUnaffordableClass = "item-shop-card__price--unaffordable";
         private const string DotActiveClass = "item-shop__dot--active";
+        private const string WalletNegativeClass = "item-shop__wallet-value--negative";
+        // コイン画像を貼れたバッジに付けて USS 描画の下地（色・枠）を消すクラス。
+        private const string WalletIconImageClass = "item-shop__wallet-icon--image";
+        // 所持金の行頭に置くコイン画像のアドレス（プレイヤー詳細モーダルと同じ絵）。
+        // 未配置なら USS 描画のコインバッジのままにする。
+        private const string CoinIconAddress = "Image/Icon/CoinIcon";
         // モーダルを開いている間だけ Board の UIDocument を前面へ持ち上げる SortingOrder（他のモーダルと同値）。
         private const float RaisedSortingOrder = 100f;
         // 一度に見せるカード枚数と、カード 1 枚が占める横幅（.item-shop-card の width 130 + 左右 margin 6+6）。
@@ -36,6 +43,9 @@ namespace Main.Item
         private readonly VisualElement _overlay;
         private readonly VisualElement _list;
         private readonly UIDocument _document;
+        // タイトル下に出す所持金の行と金額ラベル。開くたびに budget で書き換える。
+        private readonly VisualElement _wallet;
+        private readonly Label _walletValue;
         // アイテム絵をロードしてキャッシュへ入れるローダ（BoardPresenter.LoadItemSpriteAsync）。
         // ここで読ませることで、購入後の手札サムネイルも同じキャッシュから引ける。
         private readonly Func<ItemDefinition, CancellationToken, UniTask<Sprite>> _spriteLoader;
@@ -53,13 +63,18 @@ namespace Main.Item
         private int _pageCount;
 
         public ItemShopPresenter(VisualElement overlay, UIDocument document,
-            Func<ItemDefinition, CancellationToken, UniTask<Sprite>> spriteLoader, CancellationToken ct)
+            Func<ItemDefinition, CancellationToken, UniTask<Sprite>> spriteLoader, BoardIconLoader iconLoader,
+            CancellationToken ct)
         {
             _overlay = overlay;
             _document = document;
             _spriteLoader = spriteLoader;
             _ct = ct;
             _list = overlay.Q<VisualElement>("ItemShopList");
+            _wallet = overlay.Q<VisualElement>("ItemShopWallet");
+            _walletValue = overlay.Q<Label>("ItemShopWalletValue");
+
+            LoadWalletIconAsync(iconLoader, overlay.Q<VisualElement>("ItemShopWalletIcon")).Forget();
 
             // 購入ショップは他のモーダルと違い、暗幕（モーダル外）クリックでは閉じない。
             // 誤タップでの購入機会の取りこぼしを防ぐため、閉じるのは明示的な「買わずに閉じる」ボタンだけにする。
@@ -72,7 +87,7 @@ namespace Main.Item
 
         /// <summary>
         /// ラインナップ <paramref name="lineup"/> のショップを開いて、買われたアイテムを待つ。
-        /// 価格が所持金 <paramref name="budget"/> を超えるカードは無効（買えない）にする。
+        /// 所持金 <paramref name="budget"/> はタイトル下に表示し、価格がそれを超えるカードは無効（買えない）にする。
         /// 「買わずに閉じる」ボタン・<paramref name="ct"/> の破棄では null（買わない）。暗幕クリックでは閉じない。
         /// </summary>
         public async UniTask<ItemId?> SelectAsync(IReadOnlyList<ItemDefinition> lineup, int budget, CancellationToken ct)
@@ -80,6 +95,7 @@ namespace Main.Item
             // 二重オープンは前の選択を破棄してから開き直す。
             _selectionSource?.TrySetResult(null);
 
+            ShowWallet(budget);
             BuildCards(lineup, budget);
 
             UniTaskCompletionSource<ItemId?> source = new();
@@ -98,6 +114,46 @@ namespace Main.Item
                 Close();
                 _selectionSource = null;
             }
+        }
+
+        /// <summary>
+        /// タイトル下の所持金表示を <paramref name="budget"/> で書き換える（開くたびに呼ぶので、
+        /// 買った後に開き直せば支払い後の額になる）。マイナス（借金）は赤字にする。
+        /// 上限なし（<see cref="int.MaxValue"/>＝所持金モデルが無い場合の呼び出し側のフォールバック）のときは
+        /// 意味のある額ではないので行ごと隠す。
+        /// </summary>
+        private void ShowWallet(int budget)
+        {
+            bool known = budget != int.MaxValue;
+            if (_wallet != null)
+            {
+                _wallet.style.display = known ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+            if (_walletValue == null || !known)
+            {
+                return;
+            }
+            _walletValue.text = $"{budget:N0} G";
+            _walletValue.EnableInClassList(WalletNegativeClass, budget < 0);
+        }
+
+        /// <summary>
+        /// 所持金の行頭のコイン画像をロードして貼る。未配置・キャンセルなら何もしない
+        /// （USS 描画のコインバッジのままなので行の幅は変わらない）。
+        /// </summary>
+        private async UniTaskVoid LoadWalletIconAsync(BoardIconLoader iconLoader, VisualElement icon)
+        {
+            if (iconLoader == null || icon == null)
+            {
+                return;
+            }
+            Sprite sprite = await iconLoader.LoadSpriteAsync(CoinIconAddress, "コインアイコン", _ct);
+            if (sprite == null)
+            {
+                return;
+            }
+            icon.style.backgroundImage = new StyleBackground(sprite);
+            icon.AddToClassList(WalletIconImageClass);
         }
 
         /// <summary>

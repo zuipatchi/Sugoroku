@@ -87,6 +87,13 @@
         <ui:VisualElement name="ItemShopModal" class="item-modal">
             <ui:VisualElement name="ItemShopCard" class="item-modal__card item-shop__card">
                 <ui:Label text="アイテムショップ" name="ItemShopTitle" class="item-modal__name" />
+                <!-- 買う前に手持ちが分かるよう、タイトルの下に現在の所持金を出す。金額は ItemShopPresenter が
+                     開くたびに書き換える。アイコンは既定が USS 描画のコインバッジで、画像が読めたら差し替わる -->
+                <ui:VisualElement name="ItemShopWallet" class="item-shop__wallet">
+                    <ui:VisualElement name="ItemShopWalletIcon" class="item-shop__wallet-icon" />
+                    <ui:Label text="所持金" class="item-shop__wallet-label" />
+                    <ui:Label text="" name="ItemShopWalletValue" class="item-shop__wallet-value" />
+                </ui:VisualElement>
                 <ui:VisualElement name="ItemShopList" class="item-shop__list" />
                 <ui:Button text="買わずに閉じる" name="ItemShopCancel" class="item-modal__button item-modal__button--close" />
             </ui:VisualElement>

@@ -978,6 +978,65 @@
     max-width: 460px;
 }
 
+/* タイトル直下に出す所持金の行（コインバッジ＋「所持金」＋金額）。買う前に手持ちが分かるようにする。 */
+.item-shop__wallet {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+/* コイン風の金色バッジ。画像（Image/Icon/CoinIcon）が読めなければこの USS 描画のまま使う
+   （プレイヤー詳細モーダルの .player-detail__badge--coin と同じ考え方。行の幅が変わらず崩れない）。 */
+.item-shop__wallet-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background-color: rgb(240, 200, 70);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(180, 140, 30);
+    border-right-color: rgb(180, 140, 30);
+    border-top-color: rgb(180, 140, 30);
+    border-bottom-color: rgb(180, 140, 30);
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    border-bottom-left-radius: 7px;
+    border-bottom-right-radius: 7px;
+}
+
+/* コイン画像を貼れたバッジ。USS 描画の下地（色・枠）を消して画像だけを見せる。 */
+.item-shop__wallet-icon--image {
+    width: 20px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.item-shop__wallet-label {
+    margin-left: 8px;
+    font-size: 13px;
+    color: rgb(210, 200, 170);
+}
+
+/* 金額。カードの価格と同じ金コイン色で揃える。 */
+.item-shop__wallet-value {
+    margin-left: 8px;
+    font-size: 18px;
+    color: rgb(255, 215, 96);
+}
+
+/* マイナス（借金）は赤字。 */
+.item-shop__wallet-value--negative {
+    color: rgb(232, 120, 110);
+}
+
 /* ショップのカルーセル一式（カルーセル本体＋ページドット）を縦に積むコンテナ。中身は ItemShopPresenter が生成する。 */
 .item-shop__list {
     width: 100%;

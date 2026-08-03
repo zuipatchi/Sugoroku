@@ -547,6 +547,7 @@ namespace Main.Board
                     itemShopOverlay,
                     _uiDocument,
                     (def, token) => LoadItemSpriteAsync(def, token),
+                    _iconLoader,
                     _destroyCt);
             }
 
