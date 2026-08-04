@@ -17,12 +17,28 @@ namespace MiniGame.OverlapGame
     /// 受け取り、カウントダウン → アイテム選択 → 全員オープン → 結果まで駆動する。
     /// 提示アイテム・被り判定・勝敗は <see cref="OverlapGameModel"/> が持ち、ここは表示・入力・時間駆動だけを担う。
     /// 選択カードは提示アイテム数（＝参加者数）に応じて動的生成する。
+    ///
+    /// オンライン対戦では相手の選択を <see cref="MiniGameProgressChannel"/> で配り合ってから開示するので、
+    /// 一人用モード（CPU の選択を <see cref="OverlapGameModel"/> が持つ）と同じく
+    /// 「誰がどのカードを選んだか」がカード上のキャラ名バッジで分かる。
     /// </summary>
     public sealed class OverlapGamePlay : IDisposable
     {
         private const int RevealPauseMs = 900;  // オープン演出（バッジ表示）を見せてから結果を出すまでの間
         // 画面の背景に敷く店内の絵。アイテムを選ぶゲームなのでアイテムショップと同じ絵を使う。
         private const string BackgroundAddress = "Image/Shop";
+
+        // オンラインで相手の選択を待つ上限。制限時間（ChoiceSeconds）いっぱい粘る相手がいても届くよう、
+        // ゲーム開始タイミングのずれぶんの余裕を足してある。全員ぶん揃えば待たずに進む。
+        private const float OpponentWaitSeconds = 8f;
+        // 自分の選択を配り直す間隔。途中経過の経路はポーリングで取りこぼしに強い代わりに、
+        // 相手がまだ受信を始めていない時期に配ったぶんは届かないので、揃うまで繰り返し送る。
+        private const float PublishIntervalSeconds = 0.2f;
+        // 選択がまだ届いていない参加者を表す値（未選択＝無効票は MiniGameRanking.NoChoice＝-1 と区別する）。
+        private const int UnknownChoice = -2;
+        // 途中経過は整数 1 つしか運べず 0 が「未送信」を意味するので、選択 index に下駄を履かせて送る
+        // （未送信=0 / 無効票(-1)=1 / index 0=2 …）。
+        private const int ChoiceValueOffset = 2;
 
         private readonly OverlapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -31,6 +47,11 @@ namespace MiniGame.OverlapGame
 
         private readonly AddressableSpriteLoader _spriteLoader = new();
         private readonly List<CardView> _cards = new();
+        // 参加者ごとの選択カード index（index 0＝自分／-1＝無効票／UnknownChoice＝未着）。
+        // 一人用は Model の CPU 選択から、オンラインは途中経過の経路から埋める。
+        private readonly List<int> _choices = new();
+
+        private bool _allChoicesKnown;
 
         private Label _titleLabel;
         private Label _hintLabel;
@@ -82,6 +103,13 @@ namespace MiniGame.OverlapGame
             // 種は起動側が配った共有の種（無ければその場の乱数）を使う。
             _model.Setup(playerCount, _session.ResolveSeed(), _session.SimulateOpponents);
 
+            _choices.Clear();
+            for (int i = 0; i < _model.PlayerCount; i++)
+            {
+                _choices.Add(UnknownChoice);
+            }
+            _allChoicesKnown = false;
+
             _closeSource = new UniTaskCompletionSource();
             _closeButton.clicked += OnCloseClicked;
 
@@ -121,6 +149,10 @@ namespace MiniGame.OverlapGame
 
             SetCardsEnabled(false);
             SetDisplay(_timerLabel, false);
+
+            await CollectChoicesAsync(ct);
+
+            _hintLabel.text = "オープン！";
             RevealChoices();
             _soundPlayer.PlaySafe(_soundStore?.Enter3SE);
 
@@ -131,7 +163,7 @@ namespace MiniGame.OverlapGame
             await _closeSource.Task.AttachExternalCancellation(ct);
             _model.Finish();
             // 結果値は選んだカードの index（未選択は NoChoice）。オンラインでは誰とも被らなければ勝ち。
-            return (_model.IsPlayerWin ? 1 : 0, _model.PlayerChoiceIndex);
+            return (IsLocalWin ? 1 : 0, _model.PlayerChoiceIndex);
         }
 
         // 制限時間 ChoiceSeconds の間だけプレイヤーの選択を待つ。クリックで Model が Revealed へ進むとループを抜ける。
@@ -150,6 +182,117 @@ namespace MiniGame.OverlapGame
             {
                 _model.TimeOut();
             }
+        }
+
+        /// <summary>
+        /// 開示に使う「誰がどのカードを選んだか」を全参加者ぶん集める。
+        /// 一人用モードは CPU の選択を <see cref="OverlapGameModel"/> が確定済みなので即座に埋まる。
+        /// オンライン対戦は相手が実プレイヤーなので、自分の選択を配りつつ相手のぶんが届くのを待つ
+        /// （<see cref="OpponentWaitSeconds"/> で打ち切る。取りこぼしても正式な勝敗は盤面側が
+        /// 全員の結果値を突き合わせて決めるので、ここは見た目だけが欠ける）。
+        /// </summary>
+        private async UniTask CollectChoicesAsync(CancellationToken ct)
+        {
+            if (_choices.Count == 0)
+            {
+                return;
+            }
+            _choices[0] = _model.PlayerChoiceIndex;
+
+            if (OpponentsSimulated)
+            {
+                IReadOnlyList<int> cpuChoices = _model.CpuChoiceIndices;
+                for (int i = 0; i < cpuChoices.Count && i + 1 < _choices.Count; i++)
+                {
+                    _choices[i + 1] = cpuChoices[i];
+                }
+                _allChoicesKnown = true;
+                return;
+            }
+
+            MiniGameProgressChannel progress = _session?.Progress;
+            if (progress == null)
+            {
+                return;
+            }
+
+            _hintLabel.text = "ほかのプレイヤーを待っています...";
+
+            float waited = 0f;
+            float sincePublish = PublishIntervalSeconds;  // 初回は待たずに配る
+            while (true)
+            {
+                if (sincePublish >= PublishIntervalSeconds)
+                {
+                    sincePublish = 0f;
+                    progress.Publish(EncodeChoice(_choices[0]));
+                }
+                ApplyReceivedChoices(progress);
+                if (_allChoicesKnown || waited >= OpponentWaitSeconds)
+                {
+                    return;
+                }
+
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                float dt = Time.deltaTime;
+                waited += dt;
+                sincePublish += dt;
+            }
+        }
+
+        // 届いている相手の選択を取り込む（一度埋まった参加者は上書きしない）。
+        private void ApplyReceivedChoices(MiniGameProgressChannel progress)
+        {
+            // 参加者数と経路の配列長は起動側が揃えているが、食い違っても落ちないよう短い方に合わせる。
+            int count = Mathf.Min(_choices.Count, progress.Values.Length);
+            bool all = true;
+            for (int participant = 1; participant < _choices.Count; participant++)
+            {
+                if (_choices[participant] == UnknownChoice && participant < count)
+                {
+                    _choices[participant] = DecodeChoice(progress.Values[participant]);
+                }
+                all &= _choices[participant] != UnknownChoice;
+            }
+            _allChoicesKnown = all;
+        }
+
+        private static int EncodeChoice(int choice)
+        {
+            return choice + ChoiceValueOffset;
+        }
+
+        private static int DecodeChoice(int value)
+        {
+            return value <= 0 ? UnknownChoice : value - ChoiceValueOffset;
+        }
+
+        /// <summary>相手をこのクライアントでシミュレートしているか（＝一人用モード・MiniGameTest）。</summary>
+        private bool OpponentsSimulated => _session == null || _session.SimulateOpponents;
+
+        /// <summary>
+        /// 集まった選択から見た自分の勝ち（＝選べていて、全員ぶん揃ったうえで誰とも被っていない）。
+        /// 一人用モードは必ず揃うので <see cref="OverlapGameModel.IsPlayerWin"/> と同じ。オンライン対戦で
+        /// 相手の選択が届かなかったときは false に倒す（正式な勝敗は結果値を突き合わせる盤面側が決める）。
+        /// </summary>
+        private bool IsLocalWin =>
+            !_model.IsPlayerVoteInvalid && !IsPlayerOverlapped() && _allChoicesKnown;
+
+        /// <summary>自分の選んだカードが他の誰かと被っているか（未着の参加者は判定に含めない）。</summary>
+        private bool IsPlayerOverlapped()
+        {
+            if (_choices.Count == 0 || _choices[0] < 0)
+            {
+                return false;
+            }
+            for (int participant = 1; participant < _choices.Count; participant++)
+            {
+                if (_choices[participant] == _choices[0])
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public void Dispose()
@@ -255,37 +398,34 @@ namespace MiniGame.OverlapGame
             _soundPlayer.PlaySafe(_soundStore?.Enter2SE);
         }
 
-        // 全員の選択をカードのバッジで開示する。カードを選んだ参加者ぶんのキャラ名バッジを積む
-        // （プレイヤー＝青・CPU＝赤）。プレイヤーのカードが他の誰かと被れば overlapped、被らなければ safe。
+        // 全員の選択をカードのバッジで開示する。そのカードを選んだ参加者ぶんのキャラ名バッジを積む
+        // （自分＝青・それ以外＝赤）。自分のカードが他の誰かと被れば overlapped、
+        // 全員ぶんの選択が揃ったうえで被っていなければ safe（揃っていなければ枠は付けない）。
         private void RevealChoices()
         {
-            IReadOnlyList<int> cpuChoices = _model.CpuChoiceIndices;
+            bool overlapped = IsPlayerOverlapped();
+            int playerChoice = _choices.Count > 0 ? _choices[0] : -1;
             for (int i = 0; i < _cards.Count; i++)
             {
                 CardView card = _cards[i];
                 card.Badges.Clear();
 
-                bool isPlayer = i == _model.PlayerChoiceIndex;
-                bool isCpu = _model.IsChosenByCpu(i);
-
-                if (isPlayer)
+                for (int participant = 0; participant < _choices.Count; participant++)
                 {
-                    card.Badges.Add(CreateChooserBadge(0));
-                }
-                for (int j = 0; j < cpuChoices.Count; j++)
-                {
-                    if (cpuChoices[j] == i)
+                    if (_choices[participant] == i)
                     {
-                        card.Badges.Add(CreateChooserBadge(j + 1));
+                        card.Badges.Add(CreateChooserBadge(participant));
                     }
                 }
 
-                card.Button.EnableInClassList("overlap-card--overlapped", isPlayer && isCpu);
-                card.Button.EnableInClassList("overlap-card--safe", isPlayer && !isCpu);
+                bool isPlayerCard = playerChoice >= 0 && i == playerChoice;
+                card.Button.EnableInClassList("overlap-card--overlapped", isPlayerCard && overlapped);
+                card.Button.EnableInClassList(
+                    "overlap-card--safe", isPlayerCard && !overlapped && _allChoicesKnown);
             }
         }
 
-        // 参加者（index 0＝プレイヤー）の名前バッジ。セッションにキャラがあればキャラ名、無ければ YOU/CPU。
+        // 参加者（index 0＝自分）の名前バッジ。セッションにキャラがあればキャラ名、無ければ YOU/CPU。
         private Label CreateChooserBadge(int participant)
         {
             Label badge = new(LabelForParticipant(participant)) { pickingMode = PickingMode.Ignore };
@@ -306,22 +446,34 @@ namespace MiniGame.OverlapGame
 
         private void RevealResult()
         {
-            bool win = _model.IsPlayerWin;
+            bool invalid = _model.IsPlayerVoteInvalid;
+            bool overlapped = IsPlayerOverlapped();
+            bool win = IsLocalWin;
+
             _titleLabel.text = "結果";
             _hintLabel.text = string.Empty;
-            // オンライン対戦では他プレイヤーの選択がまだ届いていないので被りを断定しない
-            // （正式な勝敗は全員の選択が揃ってから盤面側が発表する）。
-            _resultLabel.text = !_session.SimulateOpponents
-                ? _model.IsPlayerVoteInvalid ? "時間切れ！むこうひょう…" : "結果はこのあと発表！"
-                : win
-                    ? "かぶらなかった！ゲット！"
-                    : _model.IsPlayerVoteInvalid
-                        ? "時間切れ！むこうひょう…"
-                        : "かぶっちゃった…";
+            // 誰かと被っていれば揃うのを待たずに負けが確定する。逆に「被らなかった」は全員ぶん揃って
+            // 初めて言えるので、届かなかった相手がいるオンライン対戦だけは断定せず盤面の発表へ委ねる。
+            _resultLabel.text = invalid
+                ? "時間切れ！むこうひょう…"
+                : overlapped
+                    ? "かぶっちゃった…"
+                    : _allChoicesKnown
+                        ? "かぶらなかった！ゲット！"
+                        : "結果はこのあと発表！";
             _resultLabel.EnableInClassList("overlap-result__label--win", win);
-            _resultLabel.EnableInClassList("overlap-result__label--lose", !win);
+            _resultLabel.EnableInClassList("overlap-result__label--lose", invalid || overlapped);
             SetDisplay(_resultPanel, true);
-            _soundPlayer.PlaySafe(win ? _soundStore?.ItemGetSE : _soundStore?.Cancel1SE);
+
+            // 勝敗が確定していないときは結果音を鳴らさない（オープンの Enter3SE だけで受ける）。
+            if (win)
+            {
+                _soundPlayer.PlaySafe(_soundStore?.ItemGetSE);
+            }
+            else if (invalid || overlapped)
+            {
+                _soundPlayer.PlaySafe(_soundStore?.Cancel1SE);
+            }
         }
 
         private void SetCardsEnabled(bool enabled)
@@ -340,11 +492,6 @@ namespace MiniGame.OverlapGame
         private static void SetDisplay(VisualElement element, bool visible)
         {
             element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
-        }
-
-        private static int NextSeed()
-        {
-            return UnityEngine.Random.Range(int.MinValue, int.MaxValue);
         }
 
         // 1 枚の選択カードと、開示時にキャラ名バッジを積むコンテナをまとめて持つ。
