@@ -1,7 +1,12 @@
 @import url("unity-theme://default");
 
-/* ゲーム全体の既定フォント: NotoSansJP Bold (SDF)。
-   .unity-text-element は Label / Button など全テキスト要素の基底クラス。 */
-.unity-text-element {
-    -unity-font-definition: url("project://database/Assets/Font/NotoSansJP-Bold SDF.asset?fileID=11400000&guid=c5fa8dfb52dde944d80dcae3823f0b4c&type=2#NotoSansJP-Bold SDF");
-}
+/* ゲーム全体の既定フォント（NotoSansJP Bold SDF）はここでは指定しない。
+   .tss は ScriptedImporter の成果物なので、ここからフォント資産を参照すると
+   「フォント資産の再インポート → テーマの成果物も作り直し」の連鎖が起きる。
+   フォント資産は Atlas Population Mode = Dynamic で、新しい文字を描くたびに
+   TextCore がエディタ上で書き戻して再インポートするため、作り直しの最中に
+   UIDocument.OnEnable が走ると PanelSettings.themeUss が null になり、
+   「No Theme Style Sheet set to PanelSettings ...」の警告とともに表示が崩れる。
+   既定フォントは素の資産である PanelSettings.textSettings
+   （= Assets/UI Toolkit/PanelTextSettings.asset）で当てる。
+   セットアップは Window > Sugoroku > Setup Panel Text Settings。 */
