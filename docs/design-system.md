@@ -61,11 +61,14 @@ SDF フォントはエッジをアンチエイリアスで描画するため、*
 
 ### 日本語フォント
 
-ゲーム全体の既定フォントは **NotoSansJP Bold (SDF)** で、テーマ [UnityDefaultRuntimeTheme.tss](../Assets/UI%20Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss) の `.unity-text-element` に `-unity-font-definition` を設定して全テキスト要素（Label / Button 等）へ継承させている。**Label ごとにインラインで `-unity-font` を指定する必要はない**。
+ゲーム全体の既定フォントは **NotoSansJP Bold (SDF)** で、**PanelSettings（[Assets/Scripts/Panel Settings.asset](../Assets/Scripts/Panel%20Settings.asset)）の Text Settings に割り当てた `PanelTextSettings`（`Assets/UI Toolkit/PanelTextSettings.asset`）の Default Font Asset** で全テキスト要素（Label / Button 等）へ効かせている。**Label ごとにインラインで `-unity-font` を指定する必要はない**。
 
 - フォントアセット: [Assets/Font/NotoSansJP-Bold SDF.asset](../Assets/Font/NotoSansJP-Bold%20SDF.asset)（Atlas Population Mode = Dynamic。未収録グリフは実行時にソース TTF [NotoSansJP-Bold.ttf](../Assets/Font/NotoSansJP-Bold.ttf) から補完される）
 - 太さは Bold (700) で焼いてあるため、`-unity-font-style: bold` を重ねると faux bold で過剰に太くなる場合がある。見出しをさらに強調したいときのみ使う。
-- 別の太さ・別フォントに差し替える場合は、新しい SDF を作って TSS の url を差し替える（または PanelSettings の Text Settings に PanelTextSettings を割り当てる）。
+- 別の太さ・別フォントに差し替える場合は、新しい SDF を作って `PanelTextSettings` の Default Font Asset を差し替える。
+- セットアップ（`PanelTextSettings` の作成・割り当て）は `Window > Sugoroku > Setup Panel Text Settings`（[PanelTextSettingsSetup.cs](../Assets/Editor/PanelTextSettingsSetup.cs)・冪等）。
+
+> **フォントの指定をテーマ（[UnityDefaultRuntimeTheme.tss](../Assets/UI%20Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss)）に書いてはいけない**。`.tss` は ScriptedImporter の成果物なので、そこからフォント資産を参照すると「フォント資産の再インポート → テーマの成果物も作り直し」の依存ができる。フォントは Dynamic アトラスで**新しい文字を描くたびに TextCore がエディタ上で書き戻して再インポートする**ため、作り直しの最中に `UIDocument.OnEnable` が走ると `PanelSettings.themeUss` が null になり、`No Theme Style Sheet set to PanelSettings ..., UI will not render properly` の警告とともに**既定スタイルが当たらず全画面のレイアウトが崩れる**。Play のたびに強制 Refresh が走る Multiplayer Play Mode の仮想プレイヤーで特に踏みやすい（エディタ限定の現象で、プレイヤービルドでは起きない）。`PanelSettings` は素の資産なのでこの連鎖に巻き込まれない。
 
 > **WebGL では NotoSansJP に無い記号は豆腐（□）になる**。絵文字・ダインバット系（鉛筆 `✎`、`✕`、小三角 `▾` など）はこのフォントに未収録で、**エディタでは OS フォントへフォールバックして見えても WebGL ビルドでは豆腐になる**。閉じる＝`×`(U+00D7)、ドロップダウン矢印＝`▼`(U+25BC) のように収録済みグリフを使うか、画像アイコン（USS `background-image`）／テキストに置き換える。矢印（→←↑↓）・三点リーダ（…）・星（★☆）・●■・引用符は収録済み。
 
