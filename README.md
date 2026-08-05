@@ -28,7 +28,7 @@
 - タイトル動画は WebGL / Standalone 両対応の StreamingAssets 方式（[docs/architecture.md](docs/architecture.md)「例外: 動画は StreamingAssets」）
 
 ## 日本語フォント
-- 既定フォントは NotoSansJP Bold (SDF) をテーマで全 UI に適用済み。詳細・差し替え方法は [docs/design-system.md](docs/design-system.md)「日本語フォント」を参照
+- 既定フォントは NotoSansJP Bold (SDF) を `PanelSettings.textSettings`（`PanelTextSettings` 資産）で全 UI に適用済み。**テーマ（`.tss`）からフォント資産を参照してはいけない**（再インポートの連鎖でテーマが崩れる）。セットアップは `Window > Sugoroku > Setup Panel Text Settings`・詳細と差し替え方法は [docs/design-system.md](docs/design-system.md)「日本語フォント」を参照
 
 ## GitHub 連携（Claude Code GitHub Action）
 - `.github/workflows/claude.yml` で、GitHub の Issue / PR コメントに `@claude` とメンションすると Claude が動く
