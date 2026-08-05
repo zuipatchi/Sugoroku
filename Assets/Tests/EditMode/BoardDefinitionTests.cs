@@ -62,10 +62,8 @@ namespace Tests.EditMode
             BoardCellDefinition cell = new(Vector2Int.zero);
             cell.SetEvent(BoardCellEvent.MiniGame);
             cell.SetMiniGame(MiniGameId.Tap);
-            cell.SetAmount(3);
             Assert.AreEqual(BoardCellEvent.MiniGame, cell.Event);
             Assert.AreEqual(MiniGameId.Tap, cell.MiniGame);
-            Assert.AreEqual(3, cell.Amount);
         }
 
         [Test]

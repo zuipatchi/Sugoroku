@@ -82,6 +82,11 @@ namespace Main.Online
         /// <summary>お金マスの増減額（<see cref="GameActionType.MoneyLanding"/>）。</summary>
         public int MoneyDelta => ArgAt(0);
 
+        /// <summary>
+        /// 進む／戻るマスで続けて動くマス数（<see cref="GameActionType.MoveLanding"/>）。進む＝正・戻る＝負。
+        /// </summary>
+        public int MoveSteps => ArgAt(0);
+
         /// <summary>買ったアイテム（<see cref="GameActionType.ShopResult"/>）。負値なら買わなかった。</summary>
         public int ShopItemId => ArgAt(0, -1);
 
@@ -131,6 +136,15 @@ namespace Main.Online
         public static GameAction MoneyLanding(int seat, int delta)
         {
             return new GameAction(GameActionType.MoneyLanding, seat, new[] { delta });
+        }
+
+        /// <summary>
+        /// 進む／戻るマスへの着地（<paramref name="steps"/> = 符号付きの移動マス数・進む＝正／戻る＝負）。
+        /// マス数は着地のたびのランダムなので、盤面データからは導けず配る必要がある。
+        /// </summary>
+        public static GameAction MoveLanding(int seat, int steps)
+        {
+            return new GameAction(GameActionType.MoveLanding, seat, new[] { steps });
         }
 
         /// <summary>アイテムショップの結果（<paramref name="itemId"/> が負なら買わなかった）。</summary>

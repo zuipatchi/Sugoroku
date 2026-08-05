@@ -36,7 +36,13 @@ namespace Main.Board
         /// <summary>このマスに割り当てられたイベント。</summary>
         public BoardCellEvent Event => _event;
 
-        /// <summary>イベントの数値パラメータ（進む／戻るマス数）。</summary>
+        /// <summary>
+        /// かつてイベントの数値パラメータ（進む／戻るマス数・お金の増減額）だった値。**現在は誰も読まない**。
+        /// 進む／戻るマス数は <see cref="MoveCellRule"/>、お金の増減額は <see cref="Money.MoneyCellRule"/> が
+        /// 着地のたびにランダムで決めるようになり、マスごとに設定する値ではなくなった
+        /// （盤面エディタからも入力欄と編集 API を外してある）。
+        /// 保存済みアセットに書かれている値を捨てないよう、フィールドと読み取りだけ残してある。
+        /// </summary>
         public int Amount => _amount;
 
         /// <summary>イベントが <see cref="BoardCellEvent.MiniGame"/> のとき起動するミニゲーム。</summary>
@@ -58,11 +64,6 @@ namespace Main.Board
         public void SetEvent(BoardCellEvent value)
         {
             _event = value;
-        }
-
-        public void SetAmount(int amount)
-        {
-            _amount = amount;
         }
 
         public void SetMiniGame(MiniGameId id)

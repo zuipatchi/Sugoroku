@@ -10,26 +10,38 @@ namespace Main.Board
     {
         /// <summary>
         /// 着地マスのイベント <paramref name="cellEvent"/> がコマの移動（進む／戻る）なら true を返し、
-        /// 続けて動くマス数を <paramref name="steps"/> に入れる（進む＝+<paramref name="amount"/>、
-        /// 戻る＝-<paramref name="amount"/>）。移動イベント以外は false（steps は 0）。
+        /// 符号を付けた移動マス数を <paramref name="magnitude"/> から求めて <paramref name="steps"/> に入れる
+        /// （進む＝+<paramref name="magnitude"/>、戻る＝-<paramref name="magnitude"/>）。
+        /// 移動イベント以外は false（steps は 0）。
         ///
-        /// マス数は盤面データ（<see cref="BoardCellDefinition.Amount"/>）そのものなので全クライアントで一致する。
-        /// つまりオンラインでも移動を配る必要はなく、各クライアントが同じ連鎖を再現できる。
+        /// <paramref name="magnitude"/> は着地のたびに <see cref="MoveCellRule.Steps"/> で決まる正のマス数で、
+        /// マスごとの固定値ではない。値が着地ごとに変わるのでオンラインでは着地した本人が決めて配る
+        /// （<see cref="Money.MoneyCellRule"/> のお金マスと同じ規約）。
         /// </summary>
-        public static bool TryGetMoveSteps(BoardCellEvent cellEvent, int amount, out int steps)
+        public static bool TryGetMoveSteps(BoardCellEvent cellEvent, int magnitude, out int steps)
         {
             switch (cellEvent)
             {
                 case BoardCellEvent.Forward:
-                    steps = amount;
+                    steps = magnitude;
                     return true;
                 case BoardCellEvent.Back:
-                    steps = -amount;
+                    steps = -magnitude;
                     return true;
                 default:
                     steps = 0;
                     return false;
             }
+        }
+
+        /// <summary>
+        /// 着地マスのイベント <paramref name="cellEvent"/> がコマの移動（進む／戻る）を伴うか。
+        /// 動くマス数（ランダム）を決める前に「このマスは移動マスか」だけを全クライアントで一致して
+        /// 判定するために使う（オンライン同期）。<see cref="IsMoneyEvent"/> と同じ役割。
+        /// </summary>
+        public static bool IsMoveEvent(BoardCellEvent cellEvent)
+        {
+            return cellEvent == BoardCellEvent.Forward || cellEvent == BoardCellEvent.Back;
         }
 
         /// <summary>

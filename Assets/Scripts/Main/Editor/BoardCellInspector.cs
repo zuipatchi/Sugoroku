@@ -10,7 +10,8 @@ namespace Main.EditorTools
 {
     /// <summary>
     /// 盤面エディタ（<see cref="BoardEditorWindow"/>）の右パネル。選択中マスの
-    /// イベント・数値（お金イベントは「金額」）・色・アイコンアドレスの編集 UI と削除ボタンを構築する。
+    /// イベント・色・アイコンアドレスの編集 UI と削除ボタンを構築する
+    /// （進む/戻るのマス数もお金の増減額も着地のたびのランダムなので、マスごとには設定できない）。
     /// 値の変更は Undo 記録と SetDirty を行い、再描画・削除はコンストラクタで受けたコールバックへ依頼する。
     /// </summary>
     internal sealed class BoardCellInspector
@@ -22,7 +23,7 @@ namespace Main.EditorTools
 
         /// <param name="container">編集 UI を構築する親要素。</param>
         /// <param name="requestRebuild">グリッド・インスペクタ全体の再構築依頼（イベント種別の変更時）。</param>
-        /// <param name="requestGridRefresh">グリッドのみの再描画依頼（数値・色の変更時）。</param>
+        /// <param name="requestGridRefresh">グリッドのみの再描画依頼（色の変更時）。</param>
         /// <param name="removeSelected">選択中マスの削除依頼。</param>
         public BoardCellInspector(
             VisualElement container,
@@ -62,21 +63,8 @@ namespace Main.EditorTools
             });
             _container.Add(eventField);
 
-            if (cell.Event == BoardCellEvent.Forward
-                || cell.Event == BoardCellEvent.Back
-                || cell.Event == BoardCellEvent.MoneyUp
-                || cell.Event == BoardCellEvent.MoneyDown)
-            {
-                IntegerField amountField = new(AmountLabel(cell.Event)) { value = cell.Amount };
-                amountField.RegisterValueChangedCallback(evt =>
-                {
-                    Undo.RecordObject(target, "数値変更");
-                    cell.SetAmount(Mathf.Max(1, evt.newValue));
-                    EditorUtility.SetDirty(target);
-                    _requestGridRefresh();
-                });
-                _container.Add(amountField);
-            }
+            // 数値（マス数・金額）の入力欄は意図的に無い。進む/戻るのマス数は MoveCellRule、
+            // お金の増減額は MoneyCellRule が着地のたびにランダムで決めるので、マスごとに設定できる値ではない。
 
             if (cell.Event == BoardCellEvent.MiniGame)
             {
@@ -103,14 +91,6 @@ namespace Main.EditorTools
             Button removeButton = new(_removeSelected) { text = "このマスを削除" };
             removeButton.style.marginTop = 8f;
             _container.Add(removeButton);
-        }
-
-        /// <summary>数値フィールドのラベル。お金イベントは「金額」、それ以外は汎用の「数値」。</summary>
-        private static string AmountLabel(BoardCellEvent cellEvent)
-        {
-            return cellEvent == BoardCellEvent.MoneyUp || cellEvent == BoardCellEvent.MoneyDown
-                ? "金額"
-                : "数値";
         }
     }
 }

@@ -185,6 +185,10 @@ namespace Main.Board
         private const string SelectableGlowClass = "board-cell__glow";
         // アイテム抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は ItemCatalog にある）。
         private readonly System.Random _itemRng = new();
+        // 直前の着地で決まった「続けて動くマス数」（進む＝正／戻る＝負・0 なら連鎖しない）。
+        // マス数は着地のたびのランダムなので、演出で使った値をそのまま連鎖の移動にも使う
+        // （盤面データから引き直すと、決めた値と違うマス数だけ動いてしまう）。
+        private int _pendingChainSteps;
         private BoardDefinition _boardDef;
         private BoardLayoutCalculator _layout;
         private BoardZoomController _zoomController;
@@ -682,10 +686,11 @@ namespace Main.Board
         {
             switch (definition.Event)
             {
+                // 動くマス数は着地のたびのランダムなので、記号に数字は載せない（止まるまで分からない）。
                 case BoardCellEvent.Forward:
-                    return $"▲{definition.Amount}";
+                    return "▲";
                 case BoardCellEvent.Back:
-                    return $"▼{definition.Amount}";
+                    return "▼";
                 case BoardCellEvent.MiniGame:
                     return "MG";
                 case BoardCellEvent.MoneyUp:
@@ -1292,7 +1297,8 @@ namespace Main.Board
         ///
         /// **止まったマスが「進む／戻る」なら、そこから続けて動く**（<see cref="MaxChainedMoves"/> 回まで）。
         /// 連鎖先のマスでも着地イベントは通常どおり発動するので、進んだ先が陣地マスなら占拠まで走る。
-        /// 動くマス数は盤面データなので全クライアントで一致する＝オンラインでも配らずに同じ連鎖が起きる。
+        /// 動くマス数は着地のたびのランダム（<see cref="MoveCellRule"/>）で、着地演出が決めて配った値を
+        /// <see cref="TryGetChainedSteps"/> で受け取る＝オンラインでも全員が同じ連鎖をたどる。
         /// </summary>
         public async UniTask AdvanceAsync(int player, int steps, CancellationToken externalCt = default)
         {
@@ -1321,7 +1327,7 @@ namespace Main.Board
                     }
                     // 決着したらそこで終わり。上限に達したら連鎖を断つ（進む→進むの循環対策）。
                     if (_model.IsFinished || hop >= MaxChainedMoves
-                        || !TryGetChainedSteps(player, out next))
+                        || !TryGetChainedSteps(out next))
                     {
                         return;
                     }
@@ -1384,25 +1390,19 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// いま止まっているマスが「進む／戻る」なら、続けて動くマス数（戻るは負）を
-        /// <paramref name="steps"/> に入れて true を返す。それ以外は false。
+        /// 直前の着地で決まった「続けて動くマス数」（戻るは負）を <paramref name="steps"/> に入れて true を返す。
+        /// 進む／戻る以外のマスに止まっていれば false。
+        ///
+        /// 値は着地演出（<see cref="ApplyLandingEventAsync"/>）が <see cref="MoveCellRule"/> で決めて配り、
+        /// 全クライアントが受信したものを覚えている。盤面データから引き直さないのは、マス数が着地のたびの
+        /// ランダムで、演出で見せた数字と実際に動くマス数をずらせないため。1 度取り出したら消費する
+        /// （同じ値で二重に連鎖しないように）。
         /// </summary>
-        private bool TryGetChainedSteps(int player, out int steps)
+        private bool TryGetChainedSteps(out int steps)
         {
-            steps = 0;
-            if (_boardDef == null)
-            {
-                return false;
-            }
-
-            int position = _model.Position(player).CurrentValue;
-            if (position < 0 || position >= _boardDef.CellCount)
-            {
-                return false;
-            }
-
-            BoardCellDefinition cell = _boardDef.Cell(position);
-            return CellEventResolver.TryGetMoveSteps(cell.Event, cell.Amount, out steps) && steps != 0;
+            steps = _pendingChainSteps;
+            _pendingChainSteps = 0;
+            return steps != 0;
         }
 
         /// <summary>
@@ -1445,6 +1445,10 @@ namespace Main.Board
             // 着地演出はアイテムショップなど別のモーダルを開くことがあるので、見せるだけのマス説明は先に閉じる
             // （重なって見えないだけでなく、SortingOrder の退避が二重になって戻らなくなるのを防ぐ）。
             _cellInfo?.Close();
+
+            // 連鎖は「この着地で決まったマス数」だけで起きる。前の着地の値が残っていると、進む／戻る以外の
+            // マスに止まったのに動いてしまうので、演出に入る前に必ず落とす。
+            _pendingChainSteps = 0;
 
             int position = _model.Position(player).CurrentValue;
 
@@ -2011,10 +2015,22 @@ namespace Main.Board
             BoardCellDefinition cell = _boardDef.Cell(position);
 
             // 進む／戻るマスは、続けて動くマス数（+n / -n）をお金と同じ浮遊テキストで見せてから連鎖へ入る。
-            // マス数は盤面データそのものなので全クライアントで一致する＝お金と違って発行・受信は要らない。
-            if (CellEventResolver.TryGetMoveSteps(cell.Event, cell.Amount, out int moveSteps) && moveSteps != 0)
+            // マス数はマスごとの固定値ではなく着地のたびのランダム（MoveCellRule）。着地した本人だけが決めて発行し、
+            // 全員が受信した値を連鎖に使う（オンラインで移動先を一致させる）。お金マスと同じ規約。
+            if (CellEventResolver.IsMoveEvent(cell.Event))
             {
-                await _landing.ShowMoveFloatAsync(moveSteps, popupShown, floatSeconds, ct);
+                if (_sync.IsLocalDecider(player))
+                {
+                    if (CellEventResolver.TryGetMoveSteps(cell.Event, MoveCellRule.Steps(_itemRng), out int decided))
+                    {
+                        _sync.Publish(GameAction.MoveLanding(player, decided));
+                    }
+                }
+
+                GameAction move = await WaitForActionAsync(GameActionType.MoveLanding, ct);
+                // 連鎖の移動そのものは AdvanceAsync が TryGetChainedSteps 経由でこの値を拾って行う。
+                _pendingChainSteps = move.MoveSteps;
+                await _landing.ShowMoveFloatAsync(_pendingChainSteps, popupShown, floatSeconds, ct);
                 return popupShown;
             }
 
@@ -2674,8 +2690,7 @@ namespace Main.Board
             string title = isStart ? BoardEventDescription.StartLabel : BoardEventLabel.Of(definition.Event);
             string description = isStart
                 ? BoardEventDescription.StartDescription
-                : BoardEventDescription.Of(
-                    definition.Event, definition.Amount, definition.MiniGame, MiniGameRewardMoney);
+                : BoardEventDescription.Of(definition.Event, definition.MiniGame, MiniGameRewardMoney);
             Sprite sprite = _cellIcons != null && index < _cellIcons.Length ? _cellIcons[index] : null;
 
             _cellInfo.Open(title, description, TerritoryStatusOf(index, definition), sprite);

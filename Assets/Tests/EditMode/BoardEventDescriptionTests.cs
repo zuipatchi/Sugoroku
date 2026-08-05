@@ -15,32 +15,47 @@ namespace Tests.EditMode
         {
             foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
             {
-                string description = BoardEventDescription.Of(cellEvent, 3, MiniGameId.Tap, Reward);
+                string description = BoardEventDescription.Of(cellEvent, MiniGameId.Tap, Reward);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(description), $"{cellEvent} の説明文が空です。");
             }
         }
 
         [Test]
-        public void 進むと戻るは動くマス数を説明に含む()
+        public void 進むと戻るはルールの動くマス数の範囲を説明に含む()
         {
-            StringAssert.Contains("3 マス", BoardEventDescription.Of(BoardCellEvent.Forward, 3, MiniGameId.Tap, Reward));
-            StringAssert.Contains("2 マス", BoardEventDescription.Of(BoardCellEvent.Back, 2, MiniGameId.Tap, Reward));
+            string forward = BoardEventDescription.Of(BoardCellEvent.Forward, MiniGameId.Tap, Reward);
+            StringAssert.Contains(MoveCellRule.MinSteps.ToString(), forward);
+            StringAssert.Contains(MoveCellRule.MaxSteps.ToString(), forward);
+            StringAssert.Contains("進む", forward);
+
+            string back = BoardEventDescription.Of(BoardCellEvent.Back, MiniGameId.Tap, Reward);
+            StringAssert.Contains(MoveCellRule.MinSteps.ToString(), back);
+            StringAssert.Contains(MoveCellRule.MaxSteps.ToString(), back);
+            StringAssert.Contains("戻る", back);
+        }
+
+        [Test]
+        public void 進むと戻るは毎回変わることを説明に含む()
+        {
+            // マスごとの固定値だと誤解されないよう、ランダムである旨を必ず書く（お金マスと同じ）。
+            StringAssert.Contains("ランダム", BoardEventDescription.Of(BoardCellEvent.Forward, MiniGameId.Tap, Reward));
+            StringAssert.Contains("ランダム", BoardEventDescription.Of(BoardCellEvent.Back, MiniGameId.Tap, Reward));
         }
 
         [Test]
         public void お金マスはルールの増減額の範囲を説明に含む()
         {
-            string up = BoardEventDescription.Of(BoardCellEvent.MoneyUp, 0, MiniGameId.Tap, Reward);
+            string up = BoardEventDescription.Of(BoardCellEvent.MoneyUp, MiniGameId.Tap, Reward);
             StringAssert.Contains((MoneyCellRule.Unit * MoneyCellRule.MinN).ToString(), up);
             StringAssert.Contains((MoneyCellRule.Unit * MoneyCellRule.MaxN).ToString(), up);
             StringAssert.Contains("増える", up);
-            StringAssert.Contains("減る", BoardEventDescription.Of(BoardCellEvent.MoneyDown, 0, MiniGameId.Tap, Reward));
+            StringAssert.Contains("減る", BoardEventDescription.Of(BoardCellEvent.MoneyDown, MiniGameId.Tap, Reward));
         }
 
         [Test]
         public void ミニゲームマスは遊ぶゲーム名と報酬額を説明に含む()
         {
-            string description = BoardEventDescription.Of(BoardCellEvent.MiniGame, 0, MiniGameId.Race, Reward);
+            string description = BoardEventDescription.Of(BoardCellEvent.MiniGame, MiniGameId.Race, Reward);
             StringAssert.Contains(MiniGameCatalog.Find(MiniGameId.Race).DisplayName, description);
             StringAssert.Contains(Reward.ToString(), description);
         }
@@ -49,7 +64,7 @@ namespace Tests.EditMode
         public void 説明文はイベントごとに違う()
         {
             // 説明を足し忘れて既定の文言のままになっていないか（None 以外が既定と同じなら足し忘れ）。
-            string none = BoardEventDescription.Of(BoardCellEvent.None, 1, MiniGameId.Tap, Reward);
+            string none = BoardEventDescription.Of(BoardCellEvent.None, MiniGameId.Tap, Reward);
             foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
             {
                 if (cellEvent == BoardCellEvent.None)
@@ -58,7 +73,7 @@ namespace Tests.EditMode
                 }
                 Assert.AreNotEqual(
                     none,
-                    BoardEventDescription.Of(cellEvent, 1, MiniGameId.Tap, Reward),
+                    BoardEventDescription.Of(cellEvent, MiniGameId.Tap, Reward),
                     $"{cellEvent} の説明文が通常マスと同じです。");
             }
         }

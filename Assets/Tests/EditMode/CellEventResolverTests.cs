@@ -33,6 +33,30 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void IsMoveEventは進むと戻るだけtrueを返す()
+        {
+            Assert.IsTrue(CellEventResolver.IsMoveEvent(BoardCellEvent.Forward));
+            Assert.IsTrue(CellEventResolver.IsMoveEvent(BoardCellEvent.Back));
+            Assert.IsFalse(CellEventResolver.IsMoveEvent(BoardCellEvent.MoneyUp));
+            Assert.IsFalse(CellEventResolver.IsMoveEvent(BoardCellEvent.Territory));
+            Assert.IsFalse(CellEventResolver.IsMoveEvent(BoardCellEvent.None));
+        }
+
+        [Test]
+        public void IsMoveEventとTryGetMoveStepsの判定は一致する()
+        {
+            // 着地演出は IsMoveEvent で「配るかどうか」を決め、TryGetMoveSteps で符号を付ける。
+            // 片方だけが true になるイベントがあると、配ったのに動かない（逆も）という食い違いになる。
+            foreach (BoardCellEvent cellEvent in System.Enum.GetValues(typeof(BoardCellEvent)))
+            {
+                Assert.AreEqual(
+                    CellEventResolver.IsMoveEvent(cellEvent),
+                    CellEventResolver.TryGetMoveSteps(cellEvent, 1, out int _),
+                    $"{cellEvent} で IsMoveEvent と TryGetMoveSteps の判定が食い違っています。");
+            }
+        }
+
+        [Test]
         public void IsMoneyEventはお金マスだけtrueを返す()
         {
             Assert.IsTrue(CellEventResolver.IsMoneyEvent(BoardCellEvent.MoneyUp));

@@ -19,17 +19,20 @@ namespace Main.Board
             "スタート地点。ここを通過しても止まらず、そのまま盤面を回り続ける。";
 
         /// <summary>
-        /// マスの説明文。<paramref name="amount"/> は進む／戻るマス数、<paramref name="game"/> は
-        /// ミニゲームマスで遊ぶゲーム、<paramref name="miniGameReward"/> はミニゲームに勝ったときの報酬額。
+        /// マスの説明文。<paramref name="game"/> はミニゲームマスで遊ぶゲーム、
+        /// <paramref name="miniGameReward"/> はミニゲームに勝ったときの報酬額。
+        /// 進む／戻るマス数とお金の増減額はマスごとの設定ではなくルール側の定数から組み立てるので引数に取らない。
         /// </summary>
-        public static string Of(BoardCellEvent cellEvent, int amount, MiniGameId game, int miniGameReward)
+        public static string Of(BoardCellEvent cellEvent, MiniGameId game, int miniGameReward)
         {
             switch (cellEvent)
             {
                 case BoardCellEvent.Forward:
-                    return $"止まるとさらに {amount} マス進む。進んだ先のマスの効果もそのまま発動する。";
+                    return $"止まるとさらに {MoveRangeText()} マス進む（止まるたびにランダム）。"
+                        + "進んだ先のマスの効果もそのまま発動する。";
                 case BoardCellEvent.Back:
-                    return $"止まると {amount} マス戻る。戻った先のマスの効果もそのまま発動する。";
+                    return $"止まると {MoveRangeText()} マス戻る（止まるたびにランダム）。"
+                        + "戻った先のマスの効果もそのまま発動する。";
                 case BoardCellEvent.MiniGame:
                     return $"止まるとミニゲーム「{MiniGameCatalog.Find(game).DisplayName}」に挑戦する。"
                         + $"勝つと所持金が {miniGameReward} 増える。";
@@ -52,6 +55,12 @@ namespace Main.Board
         private static string MoneyRangeText()
         {
             return $"{MoneyCellRule.Unit * MoneyCellRule.MinN}〜{MoneyCellRule.Unit * MoneyCellRule.MaxN}";
+        }
+
+        // 進む／戻るマスで動くマス数の範囲（ルール側の定数から組み立てる）。
+        private static string MoveRangeText()
+        {
+            return $"{MoveCellRule.MinSteps}〜{MoveCellRule.MaxSteps}";
         }
     }
 }
