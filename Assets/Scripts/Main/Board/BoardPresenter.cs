@@ -185,6 +185,10 @@ namespace Main.Board
         private const string SelectableGlowClass = "board-cell__glow";
         // アイテム抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は ItemCatalog にある）。
         private readonly System.Random _itemRng = new();
+        // 着地時に見せるマスの文言（BoardCellMessageCatalog）を選ぶ乱数源。演出専用に _itemRng と分けてあるのは、
+        // _itemRng が「決めて配る側」の値（お金の増減額など）を決めるのに対し、文言は各クライアントが
+        // ローカルに選ぶ見た目だけの値で、消費回数が席によって変わるため（混ぜると決定値の再現性が読みにくくなる）。
+        private readonly System.Random _messageRng = new();
         // 直前の着地で決まった「続けて動くマス数」（進む＝正／戻る＝負・0 なら連鎖しない）。
         // マス数は着地のたびのランダムなので、演出で使った値をそのまま連鎖の移動にも使う
         // （盤面データから引き直すと、決めた値と違うマス数だけ動いてしまう）。
@@ -597,7 +601,8 @@ namespace Main.Board
             _landing = new BoardLandingPresentation(
                 root.Q<VisualElement>("CellPopup"),
                 root.Q<VisualElement>("FlagPopup"),
-                root.Q<Label>("MoneyFloat"));
+                root.Q<Label>("MoneyFloat"),
+                root.Q<Label>("CellMessage"));
             if (_boardArea == null || _clearLabel == null)
             {
                 Debug.LogError("Board の UI 要素が見つかりませんでした。");
@@ -1430,8 +1435,10 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 着地演出を統括する。止まったマスの画像を中央に拡大表示し、着地イベントを反映する。
+        /// 着地演出を統括する。止まったマスの画像とそのマスの文言を中央に拡大表示し、着地イベントを反映する。
         /// お金マスでは増減額の浮遊テキストと画像を同じタイミングで消し、それ以外は画像を少し見せてから消す。
+        /// 陣地・アイテム・ミニゲームのマスは専用の演出（旗・ショップ・ゲーム起動）へ分岐するので、
+        /// その手前で文言だけを短く見せてから分岐する。
         /// </summary>
         private async UniTask PlayLandingSequenceAsync(int player, CancellationToken ct)
         {
@@ -1451,6 +1458,7 @@ namespace Main.Board
             _pendingChainSteps = 0;
 
             int position = _model.Position(player).CurrentValue;
+            string message = PickCellMessage(position);
 
             // 陣地マスは専用の旗演出（中央に旗を表示→縮小しながらマスへ重ねて占拠）に置き換える。
             // 旗がマスに重なった瞬間の占拠確定（ロジック）はコールバックでここから渡す。
@@ -1463,6 +1471,7 @@ namespace Main.Board
                 {
                     return;
                 }
+                await ShowCellMessageOnlyAsync(message, ct);
                 Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
                 VisualElement targetCell = _cells != null && position < _cells.Length ? _cells[position] : null;
                 await _landing.PlayTerritoryFlagSequenceAsync(flag, targetCell, () => ApplyTerritoryLanding(player, position), ct);
@@ -1473,6 +1482,7 @@ namespace Main.Board
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.Item)
             {
+                await ShowCellMessageOnlyAsync(message, ct);
                 await PlayItemShopSequenceAsync(player, ct);
                 return;
             }
@@ -1481,15 +1491,16 @@ namespace Main.Board
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.MiniGame)
             {
+                await ShowCellMessageOnlyAsync(message, ct);
                 await PlayMiniGameCellSequenceAsync(player, _boardDef.Cell(position).MiniGame, ct);
                 return;
             }
 
-            // 止まったマスの画像を中央に出す（消さずに保持）。
+            // 止まったマスの画像と文言を中央に出す（消さずに保持）。
             Sprite cellIcon = _cellIcons != null && position >= 0 && position < _cellIcons.Length
                 ? _cellIcons[position]
                 : null;
-            bool popupShown = await _landing.ShowCellPopupAsync(cellIcon, ct);
+            bool popupShown = await _landing.ShowCellPopupAsync(cellIcon, message, ct);
             if (popupShown)
             {
                 await UniTask.Delay(TimeSpan.FromSeconds(PreHoldSeconds), cancellationToken: ct);
@@ -1506,6 +1517,45 @@ namespace Main.Board
                 await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, CellPopupHoldSeconds - PreHoldSeconds)), cancellationToken: ct);
                 await _landing.HideCellPopupAsync(ct);
             }
+        }
+
+        /// <summary>
+        /// 盤面 index <paramref name="position"/> のマスで見せる文言を 1 つ選ぶ（イベント種別ごとに用意した
+        /// <see cref="BoardCellMessageCatalog"/> からの抽選）。盤面外なら null。
+        ///
+        /// 抽選は各クライアントがローカルに行う。文言は見た目だけで盤面の状態には影響しないので、
+        /// オンラインでもアクションストリームに載せて配る必要がない（食い違っても進行は一致する）。
+        /// </summary>
+        private string PickCellMessage(int position)
+        {
+            if (_boardDef == null || position < 0 || position >= _boardDef.CellCount)
+            {
+                return null;
+            }
+            // 経路 index 0 はスタート＝ゴール。イベント種別ではなく位置で決まるので専用の文言を使う。
+            return BoardCellMessageCatalog.Pick(_boardDef.Cell(position).Event, position == 0, _messageRng);
+        }
+
+        /// <summary>
+        /// マスの文言だけを中央に短く見せてから消す。陣地・アイテム・ミニゲームのマスのように、
+        /// このあと専用の演出（旗・ショップ・ゲーム起動）へ分岐して画像ポップアップを出さない着地で使う。
+        /// 文言が無いときは何もしない（分岐を待たせない）。
+        /// </summary>
+        private async UniTask ShowCellMessageOnlyAsync(string message, CancellationToken ct)
+        {
+            // 読める長さだけ見せる。このあとの演出を待たせるので画像ありの着地（1.0 秒）より短くする。
+            const float MessageOnlySeconds = 0.9f;
+
+            if (string.IsNullOrEmpty(message))
+            {
+                return;
+            }
+            if (!await _landing.ShowCellMessageAsync(message, ct))
+            {
+                return;
+            }
+            await UniTask.Delay(TimeSpan.FromSeconds(MessageOnlySeconds), cancellationToken: ct);
+            await _landing.HideCellPopupAsync(ct);
         }
 
         /// <summary>

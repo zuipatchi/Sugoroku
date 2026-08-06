@@ -26,6 +26,10 @@
         </ui:VisualElement>
         <!-- コマが止まったマスの画像を画面中央に一瞬拡大表示する演出。中身は BoardPresenter が制御する -->
         <ui:VisualElement name="CellPopup" class="cell-popup" picking-mode="Ignore" />
+        <!-- 止まったマスの文言（「お金を落とした！」等）。イベント種別ごとに用意した文言
+             （BoardCellMessageCatalog）から着地のたびに 1 つを抽選し、マス画像の下に出す。
+             表示は画像ポップアップと足並みをそろえて BoardLandingPresentation が制御する -->
+        <ui:Label text="" name="CellMessage" class="cell-message" picking-mode="Ignore" />
         <!-- 陣地マス占拠時に、そのコマのキャラの旗を中央に表示→縮小しながらマスへ重ねる演出。BoardPresenter が制御する -->
         <ui:VisualElement name="FlagPopup" class="flag-popup" picking-mode="Ignore" />
         <!-- お金マスに止まったときに増減額（+n / -n）を上へ浮かび上がらせる演出。BoardPresenter が制御する -->

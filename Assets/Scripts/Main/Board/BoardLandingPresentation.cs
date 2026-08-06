@@ -7,24 +7,36 @@ using UnityEngine.UIElements;
 namespace Main.Board
 {
     /// <summary>
-    /// 着地演出のビュー。画面中央のマス画像ポップアップ（表示・フェードアウト）、
+    /// 着地演出のビュー。画面中央のマス画像ポップアップ（表示・フェードアウト）とその下に出すマスの文言、
     /// 浮遊テキスト（お金マスの増減額・進む／戻るマスの移動マス数）、
     /// 陣地マスの旗トゥイーン（中央表示→マスへ縮小移動）を担う。
-    /// UI 要素（CellPopup / FlagPopup / MoneyFloat＝浮遊テキストはお金と移動で共用）の表示制御だけを持ち、
-    /// ゲームロジック（お金加算・占拠確定・勝者判定）と「どの演出をいつ呼ぶか」の統括は
+    /// UI 要素（CellPopup / CellMessage / FlagPopup / MoneyFloat＝浮遊テキストはお金と移動で共用）の
+    /// 表示制御だけを持ち、ゲームロジック（お金加算・占拠確定・勝者判定）と「どの演出をいつ呼ぶか」の統括は
     /// <see cref="BoardPresenter"/> 側に残す。
     /// </summary>
     public sealed class BoardLandingPresentation
     {
+        private const string CellPopupVisibleClass = "cell-popup--visible";
+        private const string CellMessageVisibleClass = "cell-message--visible";
+        private const string CellMessageAloneClass = "cell-message--alone";
+
         private readonly VisualElement _cellPopup;
         private readonly VisualElement _flagPopup;
         private readonly Label _moneyFloat;
+        private readonly Label _cellMessage;
 
-        public BoardLandingPresentation(VisualElement cellPopup, VisualElement flagPopup, Label moneyFloat)
+        // 中央ポップアップの表示状態。画像と文言は片方だけ出ることがある（画像未配置・文言だけ見せるマス）ので
+        // 別々に覚え、消すときに出していたものだけを対象にする。
+        private bool _popupShown;
+        private bool _messageShown;
+
+        public BoardLandingPresentation(
+            VisualElement cellPopup, VisualElement flagPopup, Label moneyFloat, Label cellMessage)
         {
             _cellPopup = cellPopup;
             _flagPopup = flagPopup;
             _moneyFloat = moneyFloat;
+            _cellMessage = cellMessage;
         }
 
         /// <summary>
@@ -32,34 +44,110 @@ namespace Main.Board
         /// マス画像とアイテム絵で共用する。表示できたら true。画像が null なら false を返し何もしない。
         /// 消すのは呼び出し側（<see cref="HideCellPopupAsync"/> / <see cref="ShowMoneyFloatAsync"/>）。
         /// </summary>
-        public async UniTask<bool> ShowCellPopupAsync(Sprite sprite, CancellationToken ct)
+        public UniTask<bool> ShowCellPopupAsync(Sprite sprite, CancellationToken ct)
         {
-            if (_cellPopup == null || sprite == null)
+            return ShowCellPopupAsync(sprite, null, ct);
+        }
+
+        /// <summary>
+        /// マスの文言 <paramref name="message"/> だけを画面中央に拡大表示する（画像は出さない・消さない）。
+        /// 陣地・アイテム・ミニゲームのように、このあと専用の演出へ分岐して画像を出さない着地で使う。
+        /// 表示できたら true。消すのは呼び出し側（<see cref="HideCellPopupAsync"/>）。
+        /// </summary>
+        public UniTask<bool> ShowCellMessageAsync(string message, CancellationToken ct)
+        {
+            return ShowCellPopupAsync(null, message, ct);
+        }
+
+        /// <summary>
+        /// 画像 <paramref name="sprite"/> と、その下に出すマスの文言 <paramref name="message"/> を
+        /// 画面中央のポップアップに拡大表示する（消さない）。どちらか片方だけでも表示でき
+        /// （画像が未配置のマス・文言だけ見せるマス）、どちらも出せなければ false を返す。
+        /// 消すのは呼び出し側（<see cref="HideCellPopupAsync"/> / <see cref="ShowMoneyFloatAsync"/>）で、
+        /// 画像と文言は常に足並みをそろえて出入りする。
+        /// </summary>
+        public async UniTask<bool> ShowCellPopupAsync(Sprite sprite, string message, CancellationToken ct)
+        {
+            bool showPopup = _cellPopup != null && sprite != null;
+            bool showMessage = _cellMessage != null && !string.IsNullOrEmpty(message);
+            if (!showPopup && !showMessage)
             {
                 return false;
             }
 
-            _cellPopup.style.backgroundImage = new StyleBackground(sprite);
-            _cellPopup.RemoveFromClassList("cell-popup--visible");
-            _cellPopup.style.display = DisplayStyle.Flex;
+            if (showPopup)
+            {
+                _cellPopup.style.backgroundImage = new StyleBackground(sprite);
+                _cellPopup.RemoveFromClassList(CellPopupVisibleClass);
+                _cellPopup.style.display = DisplayStyle.Flex;
+                _popupShown = true;
+            }
+            if (showMessage)
+            {
+                _cellMessage.text = message;
+                _cellMessage.RemoveFromClassList(CellMessageVisibleClass);
+                // 画像を出さない着地（陣地・アイテム・ミニゲーム）は文言だけが宙に浮くので、
+                // 画像の下ではなく画面中央へ寄せる。
+                _cellMessage.EnableInClassList(CellMessageAloneClass, !showPopup);
+                _cellMessage.style.display = DisplayStyle.Flex;
+                _messageShown = true;
+            }
 
             // 次フレームまで待ってから --visible を付け、縮小→等倍の transition を効かせる。
             await UniTask.NextFrame(ct);
-            _cellPopup.AddToClassList("cell-popup--visible");
+            if (showPopup)
+            {
+                _cellPopup.AddToClassList(CellPopupVisibleClass);
+            }
+            if (showMessage)
+            {
+                _cellMessage.AddToClassList(CellMessageVisibleClass);
+            }
             return true;
         }
 
-        /// <summary>表示中のマス画像ポップアップをフェードアウトして非表示にする。既に非表示なら何もしない。</summary>
+        /// <summary>
+        /// 表示中の中央ポップアップ（マス画像・文言）をフェードアウトして非表示にする。
+        /// 既に非表示なら何もしない。
+        /// </summary>
         public async UniTask HideCellPopupAsync(CancellationToken ct)
         {
-            if (_cellPopup == null || _cellPopup.style.display == DisplayStyle.None)
+            if (!_popupShown && !_messageShown)
             {
                 return;
             }
             // 等倍→縮小のフェードアウト（USS transition）ぶん待ってから非表示にする。
-            _cellPopup.RemoveFromClassList("cell-popup--visible");
+            BeginHideCellPopup();
             await UniTask.Delay(TimeSpan.FromSeconds(0.2f), cancellationToken: ct);
-            _cellPopup.style.display = DisplayStyle.None;
+            FinishHideCellPopup();
+        }
+
+        /// <summary>中央ポップアップ（マス画像・文言）のフェードアウトを始める（消えるのは transition のぶん後）。</summary>
+        private void BeginHideCellPopup()
+        {
+            if (_popupShown)
+            {
+                _cellPopup.RemoveFromClassList(CellPopupVisibleClass);
+            }
+            if (_messageShown)
+            {
+                _cellMessage.RemoveFromClassList(CellMessageVisibleClass);
+            }
+        }
+
+        /// <summary>フェードアウトし終えた中央ポップアップ（マス画像・文言）を非表示にする。</summary>
+        private void FinishHideCellPopup()
+        {
+            if (_popupShown)
+            {
+                _cellPopup.style.display = DisplayStyle.None;
+                _popupShown = false;
+            }
+            if (_messageShown)
+            {
+                _cellMessage.style.display = DisplayStyle.None;
+                _messageShown = false;
+            }
         }
 
         /// <summary>
@@ -85,7 +173,7 @@ namespace Main.Board
         /// <summary>
         /// 浮遊テキストの共通演出。<paramref name="text"/> を画面中央から上へ浮かび上がらせながらフェードアウトさせる。
         /// <paramref name="amount"/> は色分け（正＝緑／負＝赤）と「0 なら何もしない」の判定にだけ使う。
-        /// <paramref name="hidePopup"/> が true なら、表示中のマス画像ポップアップを
+        /// <paramref name="hidePopup"/> が true なら、表示中の中央ポップアップ（マス画像・文言）を
         /// 浮遊テキストが消えるのと同じタイミングでフェードアウトさせる。
         /// </summary>
         private async UniTask ShowFloatTextAsync(
@@ -93,7 +181,7 @@ namespace Main.Board
         {
             if (_moneyFloat == null || amount == 0)
             {
-                // 浮遊テキストが出せない場合でも、保持していた画像は消す。
+                // 浮遊テキストが出せない場合でも、保持していた画像・文言は消す。
                 if (hidePopup)
                 {
                     await HideCellPopupAsync(ct);
@@ -108,7 +196,7 @@ namespace Main.Board
             _moneyFloat.style.display = DisplayStyle.Flex;
 
             // 開始位置はポップ画像の中央やや下（中央 top:50% + 画像高さの一部）。画像が無ければ中央から。
-            float startY = hidePopup && _cellPopup != null ? _cellPopup.resolvedStyle.height * 0.1f : 0f;
+            float startY = _popupShown ? _cellPopup.resolvedStyle.height * 0.1f : 0f;
             const float rise = 170f;
             // 画像ポップアップのフェードアウト（USS transition）ぶん手前で消し始め、テキストと同時に消えるようにする。
             const float PopupFadeLead = 0.2f;
@@ -123,11 +211,11 @@ namespace Main.Board
                 // ポップ画像の底から上へ上昇する。
                 _moneyFloat.style.translate = new Translate(0f, startY - rise * t);
 
-                // 浮遊テキストが消えきるのに合わせて画像もフェードアウトを開始する。
+                // 浮遊テキストが消えきるのに合わせて画像・文言もフェードアウトを開始する。
                 if (hidePopup && !popupHideStarted && elapsed >= duration - PopupFadeLead)
                 {
                     popupHideStarted = true;
-                    _cellPopup?.RemoveFromClassList("cell-popup--visible");
+                    BeginHideCellPopup();
                 }
 
                 await UniTask.Yield(PlayerLoopTiming.Update, ct);
@@ -137,10 +225,10 @@ namespace Main.Board
             _moneyFloat.style.opacity = 0f;
             _moneyFloat.style.translate = new Translate(0f, 0f);
 
-            // フェードが終わった画像を非表示にする。
-            if (hidePopup && _cellPopup != null)
+            // フェードが終わった画像・文言を非表示にする。
+            if (hidePopup)
             {
-                _cellPopup.style.display = DisplayStyle.None;
+                FinishHideCellPopup();
             }
         }
 
