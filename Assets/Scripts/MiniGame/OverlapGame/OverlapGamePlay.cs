@@ -125,7 +125,7 @@ namespace MiniGame.OverlapGame
         }
 
         /// <summary>
-        /// カウントダウン → 選択待ち → オープン → 結果表示を駆動し、「結果を反映」クリックで
+        /// カウントダウン → 選択待ち → オープン → 結果表示を駆動し、「進む」クリックで
         /// スコア（獲得＝被らなかった=1／被った=0）を返す。フェードイン後に呼ばれる想定で Forget して走らせる。
         /// </summary>
         public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)

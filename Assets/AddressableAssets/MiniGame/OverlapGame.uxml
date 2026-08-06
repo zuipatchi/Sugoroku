@@ -11,7 +11,7 @@
 
         <ui:VisualElement name="ResultPanel" class="overlap-result">
             <ui:Label text="結果" name="ResultLabel" class="overlap-result__label" />
-            <ui:Button name="CloseButton" text="結果を反映" class="overlap-close-button" />
+            <ui:Button name="CloseButton" text="進む" class="overlap-close-button" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

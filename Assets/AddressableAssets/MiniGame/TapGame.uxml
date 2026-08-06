@@ -10,12 +10,15 @@
         </ui:VisualElement>
         <ui:VisualElement name="PlayArea" class="tap-play-area">
             <ui:Button name="TapButton" class="tap-button" />
+            <!-- 叩く場所（サンドバッグ）の上に重ねる案内。連打数と重ならないよう下寄せに置き、
+                 表示は計測中だけ（点滅は TapGamePlay が駆動する） -->
+            <ui:Label text="タップ" name="TapHintLabel" class="tap-hint" picking-mode="Ignore" />
             <ui:Label text="0" name="CountLabel" class="tap-count" picking-mode="Ignore" />
             <ui:Label text="準備…" name="CenterLabel" class="tap-center" />
         </ui:VisualElement>
         <ui:VisualElement name="ResultPanel" class="tap-result">
             <ui:Label text="結果" name="ResultLabel" class="tap-result-label" />
-            <ui:Button name="CloseButton" text="結果を反映" class="tap-close-button" />
+            <ui:Button name="CloseButton" text="進む" class="tap-close-button" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

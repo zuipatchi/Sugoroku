@@ -19,6 +19,17 @@
     -unity-text-outline-color: rgba(0, 0, 0, 0.85);
 }
 
+/* 叩く場所を示す案内。サンドバッグの下寄りに重ね、中央の連打数（.tap-count）と重ならないようにする */
+.tap-hint {
+    position: absolute;
+    bottom: 18px;
+    color: rgb(255, 226, 140);
+    font-size: 40px;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+}
+
 .tap-timer {
     color: rgb(180, 180, 210);
     font-size: 40px;

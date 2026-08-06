@@ -27,6 +27,9 @@ namespace MiniGame.TapGame
         private const float ProgressIntervalSeconds = 0.2f;
         // 叩く場所（タップボタン）に貼るサンドバッグの絵。未配置なら TapGame.uss の地色のままにする。
         private const string TapTargetAddress = "Image/MiniGame/SandBag";
+        // 「タップ」案内の点滅（明るい ↔ 暗いを往復する片道の秒数と、暗いときの不透明度）。
+        private const float HintBlinkSeconds = 0.4f;
+        private const float HintBlinkMinOpacity = 0.15f;
 
         private readonly TapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -38,6 +41,7 @@ namespace MiniGame.TapGame
         private Label _timerLabel;
         private Label _countLabel;
         private Label _centerLabel;
+        private Label _tapHintLabel;
         private Button _tapButton;
         private VisualElement _characterCard;
         private VisualElement _scoreboard;
@@ -51,6 +55,8 @@ namespace MiniGame.TapGame
         private readonly AddressableSpriteLoader _spriteLoader = new();
         private Tween _shakeTween;
         private float _shakePhase;
+        private Tween _hintTween;
+        private float _hintOpacity = 1f;
 
         private UniTaskCompletionSource _closeSource;
 
@@ -77,6 +83,7 @@ namespace MiniGame.TapGame
             _timerLabel = root.Q<Label>("TimerLabel");
             _countLabel = root.Q<Label>("CountLabel");
             _centerLabel = root.Q<Label>("CenterLabel");
+            _tapHintLabel = root.Q<Label>("TapHintLabel");
             _tapButton = root.Q<Button>("TapButton");
             _characterCard = root.Q<VisualElement>("CharacterCard");
             _scoreboard = root.Q<VisualElement>("Scoreboard");
@@ -214,7 +221,7 @@ namespace MiniGame.TapGame
         }
 
         /// <summary>
-        /// カウントダウン → 計測 → 結果表示を駆動し、「結果を反映」クリックでスコア（1 位=1／それ以外=0）を返す。
+        /// カウントダウン → 計測 → 結果表示を駆動し、「進む」クリックでスコア（1 位=1／それ以外=0）を返す。
         /// 計測中はスコアボードを毎フレーム更新する（一人用は各 CPU を <see cref="TapGameModel.Tick"/> で
         /// 自動連打させ、オンラインは互いの連打数を配り合って表示する）。
         /// フェードイン後に呼ばれる想定で、Forget して走らせる。
@@ -304,6 +311,8 @@ namespace MiniGame.TapGame
         {
             _shakeTween?.Kill();
             _shakeTween = null;
+            _hintTween?.Kill();
+            _hintTween = null;
             if (_tapButton != null)
             {
                 _tapButton.clicked -= OnTapClicked;
@@ -332,7 +341,54 @@ namespace MiniGame.TapGame
                 (phase == TapGamePhase.Ready || phase == TapGamePhase.Countdown)
                     ? DisplayStyle.Flex
                     : DisplayStyle.None;
+            if (_tapHintLabel != null)
+            {
+                // 叩く場所の案内。「スタート！」が消えて計測が始まってから出し、点滅させて目を引く。
+                bool showHint = phase == TapGamePhase.Playing;
+                _tapHintLabel.style.display = showHint ? DisplayStyle.Flex : DisplayStyle.None;
+                if (showHint)
+                {
+                    StartHintBlink();
+                }
+                else
+                {
+                    StopHintBlink();
+                }
+            }
             _resultPanel.style.display = phase == TapGamePhase.Finished ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        // 「タップ」案内をチカチカ点滅させる（明滅を往復ループ）。計測中だけ回し、止めたら不透明へ戻す。
+        private void StartHintBlink()
+        {
+            _hintTween?.Kill();
+            _hintOpacity = 1f;
+            _tapHintLabel.style.opacity = 1f;
+
+            _hintTween = DOTween.To(
+                    () => _hintOpacity,
+                    v =>
+                    {
+                        _hintOpacity = v;
+                        if (_tapHintLabel != null)
+                        {
+                            _tapHintLabel.style.opacity = v;
+                        }
+                    },
+                    HintBlinkMinOpacity,
+                    HintBlinkSeconds)
+                .SetEase(Ease.InOutSine)
+                .SetLoops(-1, LoopType.Yoyo);
+        }
+
+        private void StopHintBlink()
+        {
+            _hintTween?.Kill();
+            _hintTween = null;
+            if (_tapHintLabel != null)
+            {
+                _tapHintLabel.style.opacity = 1f;
+            }
         }
 
         // 叩く場所（タップボタン）にサンドバッグの絵を貼る。拡大縮小は USS

@@ -70,7 +70,7 @@ namespace MiniGame.RaceGame
         private UniTaskCompletionSource _closeSource;
 
         private float _pauseRemaining;
-        // 「結果を反映」が押されたか。オンラインでは押されるまで相手の走者を動かし続けるため、
+        // 「進む」が押されたか。オンラインでは押されるまで相手の走者を動かし続けるため、
         // _closeSource の完了を待つ代わりにこのフラグでループを回す。
         private bool _closeRequested;
         // 自分（走者 index 0）のゴールタイム（ミリ秒）。オンライン対戦で順位を決める結果値になる。
@@ -341,7 +341,7 @@ namespace MiniGame.RaceGame
         }
 
         /// <summary>
-        /// カウントダウン → レース進行 → 結果表示を駆動し、「結果を反映」クリックでスコア（勝ち=1／負け=0）を返す。
+        /// カウントダウン → レース進行 → 結果表示を駆動し、「進む」クリックでスコア（勝ち=1／負け=0）を返す。
         /// フェードイン後に呼ばれる想定で、Forget して走らせる。
         /// </summary>
         public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)
@@ -423,7 +423,7 @@ namespace MiniGame.RaceGame
         }
 
         /// <summary>
-        /// 「結果を反映」が押されるまで待つ。オンラインでは自分が先にゴールしても相手はまだ走っているので、
+        /// 「進む」が押されるまで待つ。オンラインでは自分が先にゴールしても相手はまだ走っているので、
         /// 待っている間も進捗を配り／反映して相手の走者を動かし続け、順位表も更新する
         /// （自分の位置はゴールのまま変わらず、全員がゴールしたところで暫定順位が確定順位に変わる）。
         /// </summary>
