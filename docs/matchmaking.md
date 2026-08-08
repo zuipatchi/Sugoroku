@@ -31,7 +31,7 @@ Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使っ�
 Title → Home →（オンラインプレイ）→ Matching → OnlineCharacterSelect（満室後）→ Main
 ```
 
-- `Matching` は Home の「オンラインプレイ」ボタンから遷移する（「一人用モード」は `Matching` を経由せず `CharacterSelect`→`MapSelect`→`Main` へ進む）
+- `Matching` は Home の「オンラインプレイ」ボタンから遷移する（「一人で遊ぶ」＝一人用モードは `Matching` を経由せず `CharacterSelect`→`MapSelect`→`Main` へ進む）
 - `Matching` シーンでルーム選択・接続を完了させ、満室になったら `OnlineCharacterSelect`（キャラ選択ロビー・被り防止）を経て `Main` へ遷移する（ロビーの詳細は CLAUDE.md／[architecture.md](architecture.md)）
 - `Common` シーンは常駐（既存の構成を維持）。**`NetworkManager` は `Common` に置く**（セッション作成時に存在している必要があるため。詳細は [networking.md](networking.md)「Relay 経由の接続」）
 
