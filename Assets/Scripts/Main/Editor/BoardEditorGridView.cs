@@ -93,7 +93,7 @@ namespace Main.EditorTools
             bool selected = pathIndex >= 0 && pathIndex == selectedIndex;
             float borderWidth = selected ? 2f : 1f;
             Color borderColor = selected ? Color.white
-                : (pathIndex == 0 ? new Color(1f, 0.85f, 0.4f) : new Color(0f, 0f, 0f, 0.4f));
+                : (pathIndex == 0 ? BoardEventColors.StartOutline : new Color(0f, 0f, 0f, 0.4f));
             cell.style.borderLeftWidth = borderWidth;
             cell.style.borderRightWidth = borderWidth;
             cell.style.borderTopWidth = borderWidth;

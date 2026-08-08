@@ -129,10 +129,12 @@ namespace Main.Board
 
             // 各マスを小さな四角で描く。index 0（スタート）は別色、それ以外はイベント種別ごとの色で塗り分ける。
             float half = Mathf.Max(1.5f, unit * 0.2f);
+            painter.lineWidth = Mathf.Clamp(unit * 0.08f, 1f, 3f);
             for (int i = 0; i < board.CellCount; i++)
             {
                 Vector2 c = ToPoint(i);
-                painter.fillColor = i == 0 ? BoardEventColors.Start : BoardEventColors.Of(board.Cell(i).Event);
+                bool isStart = i == 0;
+                painter.fillColor = isStart ? BoardEventColors.Start : BoardEventColors.Of(board.Cell(i).Event);
                 painter.BeginPath();
                 painter.MoveTo(new Vector2(c.x - half, c.y - half));
                 painter.LineTo(new Vector2(c.x + half, c.y - half));
@@ -140,6 +142,13 @@ namespace Main.Board
                 painter.LineTo(new Vector2(c.x - half, c.y + half));
                 painter.ClosePath();
                 painter.Fill();
+                if (isStart)
+                {
+                    // スタートは黒く塗るので、暗いカード地に溶けないよう金の枠で縁取る
+                    // （盤面エディタもスタートマスだけ同じ金の枠を描いている）。
+                    painter.strokeColor = BoardEventColors.StartOutline;
+                    painter.Stroke();
+                }
             }
         }
     }

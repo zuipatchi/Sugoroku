@@ -202,7 +202,9 @@ namespace Main.EditorTools
             items.style.flexDirection = FlexDirection.Row;
             items.style.flexWrap = Wrap.Wrap;
 
-            items.Add(BuildLegendItem("スタート(S/G)", BoardEditorGridView.StartCellColor));
+            // スタートは黒なので、見本の枠も盤面と同じ金にして暗い地から浮かせる。
+            items.Add(BuildLegendItem(
+                "スタート(S/G)", BoardEditorGridView.StartCellColor, BoardEventColors.StartOutline));
             foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
             {
                 items.Add(BuildLegendItem(EventLabel(cellEvent), BoardEditorGridView.EventColor(cellEvent)));
@@ -212,8 +214,11 @@ namespace Main.EditorTools
             parent.Add(legend);
         }
 
-        /// <summary>凡例の 1 項目（色見本＋イベント名）を作る。</summary>
-        private static VisualElement BuildLegendItem(string label, Color color)
+        /// <summary>
+        /// 凡例の 1 項目（色見本＋イベント名）を作る。
+        /// <paramref name="borderColor"/> を渡すと見本の枠色を差し替える（黒い色見本用）。
+        /// </summary>
+        private static VisualElement BuildLegendItem(string label, Color color, Color? borderColor = null)
         {
             VisualElement item = new();
             item.style.flexDirection = FlexDirection.Row;
@@ -227,7 +232,7 @@ namespace Main.EditorTools
             swatch.style.marginRight = 4f;
             swatch.style.backgroundColor = color;
             // 明るい色でも輪郭が見えるよう薄い枠を付ける。
-            Color swatchBorder = new(0f, 0f, 0f, 0.5f);
+            Color swatchBorder = borderColor ?? new Color(0f, 0f, 0f, 0.5f);
             swatch.style.borderLeftWidth = 1f;
             swatch.style.borderRightWidth = 1f;
             swatch.style.borderTopWidth = 1f;

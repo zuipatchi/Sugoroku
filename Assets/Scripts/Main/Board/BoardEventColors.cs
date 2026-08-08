@@ -12,9 +12,17 @@ namespace Main.Board
         /// スタート＝ゴール（経路 index 0）のマス色。イベントではなく位置で決まるので
         /// <see cref="Of"/> とは別に持つが、定義はここに一本化する（盤面エディタのグリッド・凡例と
         /// マップ選択のサムネイルで別々に持っていたため色が食い違い、エディタ側は陣地の青と
-        /// ほぼ同色になっていた）。どのイベント色とも被らない色相（マゼンタ）を使う。
+        /// ほぼ同色になっていた）。
+        /// **色相を持たない黒**にしてどのイベント色とも家族を分ける（有彩色はどれを選んでも
+        /// 7 種類のイベント色のどれかと近くなる）。
         /// </summary>
-        public static readonly Color Start = new(0.86f, 0.26f, 0.86f);
+        public static readonly Color Start = new(0.06f, 0.06f, 0.08f);
+
+        /// <summary>
+        /// スタートマスの縁取り色（金）。<see cref="Start"/> は黒なので、暗い地
+        /// （マップ選択のサムネイルのカード地・盤面エディタの空マス）に溶けないよう枠で見せる。
+        /// </summary>
+        public static readonly Color StartOutline = new(1f, 0.85f, 0.4f);
 
         /// <summary>
         /// イベント種別ごとのマス色。<see cref="BoardCellEvent.None"/>（通常マス）は白＝
