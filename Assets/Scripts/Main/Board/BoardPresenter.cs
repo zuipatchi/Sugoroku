@@ -179,6 +179,8 @@ namespace Main.Board
         private bool _itemEffectRunning;
         // 直前の一時停止（切断による進行停止）の状態。復帰したときだけスピンを戻すために覚えておく。
         private bool _wasPaused;
+        // 勝敗テキストのピルを見せる USS クラス（文言が入るまでは空のピルを出さないよう隠してある）。
+        private const string ClearLabelVisibleClass = "board-clear__label--visible";
         // 陣地選択のハイライトを付けたマスの USS クラス。
         private const string SelectableCellClass = "board-cell--selectable";
         // 選択できるマスに重ねるキラキラのリング要素の USS クラス。
@@ -324,7 +326,7 @@ namespace Main.Board
                 {
                     return;
                 }
-                _clearLabel.text = WinnerText(winner);
+                ShowClearMessage(WinnerText(winner));
                 _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
                 // 決着したらもう誰の操作も待たないので待機表示を消す。
                 SetBusy(-1, BusyReason.None);
@@ -386,10 +388,7 @@ namespace Main.Board
                 {
                     return;
                 }
-                if (_clearLabel != null)
-                {
-                    _clearLabel.text = "相手が退出しました";
-                }
+                ShowClearMessage("相手が退出しました");
                 // 退出した相手の操作を待っていた場合、待機表示は用済みなので消す。
                 SetBusy(-1, BusyReason.None);
                 ShowGameOverActions();
@@ -1198,6 +1197,18 @@ namespace Main.Board
             CharacterId id = _characterPicker.ResolveCharacter(winner);
             string characterName = CharacterCatalog.Find(id).DisplayName;
             return $"{characterName}の勝ち！";
+        }
+
+        // 勝敗テキスト（勝者／相手の退出）を暗いガラス地のピルで見せる。
+        // 文言が無いうちは空のピルが出てしまうので、USS で隠してあるのをここで開ける。
+        private void ShowClearMessage(string message)
+        {
+            if (_clearLabel == null)
+            {
+                return;
+            }
+            _clearLabel.text = message;
+            _clearLabel.AddToClassList(ClearLabelVisibleClass);
         }
 
         // 勝敗確定後に「ホームに戻る」ボタンの帯を表示する。

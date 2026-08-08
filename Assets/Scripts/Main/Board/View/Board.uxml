@@ -13,7 +13,12 @@
         <!-- 全プレイヤーのネームプレート（アイコン＋名前）を横 1 行で載せる上部ヘッダー。
              中身は PlayerNameplateView が生成し、プレートのクリックで PlayerDetailModal を開く -->
         <ui:VisualElement name="PlayerHeader" class="player-header" picking-mode="Ignore" />
-        <ui:Label text="" name="ClearLabel" class="board-clear" picking-mode="Ignore" />
+        <!-- 勝敗テキスト（「〔キャラ名〕の勝ち！」「相手が退出しました」）。盤面の絵の上でも読めるよう
+             文字だけでなく暗いガラス地＋金枠のピルで見せる。文言が無いうちはピルごと隠す（USS の
+             display:none を BoardPresenter が ShowClearMessage で開ける） -->
+        <ui:VisualElement name="ClearBanner" class="board-clear" picking-mode="Ignore">
+            <ui:Label text="" name="ClearLabel" class="board-clear__label" picking-mode="Ignore" />
+        </ui:VisualElement>
         <!-- 手番が移るたびに「〔キャラ名〕の番」を一瞬表示するアナウンス帯。既定は透明で、
              BoardPresenter が手番の変化を購読して表示→数秒後に隠す。picking-mode=Ignore で盤面操作を通す -->
         <ui:VisualElement name="TurnBanner" class="turn-banner" picking-mode="Ignore">
