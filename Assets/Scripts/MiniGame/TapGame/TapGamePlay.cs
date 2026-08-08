@@ -36,12 +36,11 @@ namespace MiniGame.TapGame
         private const float HintBlinkMinOpacity = 0.15f;
         // キャラカードの寸法。カード絵は 1:1 なので枠も正方形にし（scale-to-fit で絵の幅が枠幅どおりになる）、
         // 人数が増えたら並べる枠（.tap-character-area）の幅に収まるよう縮める。
+        // 実際の寸法は枠の実寸から決めるので（LayoutCards）、ここでは上限・下限だけ持つ。
         private const float CardMaxWidth = 190f;
         private const float CardMinWidth = 70f;
         // 1 枚あたりの左右マージン合計（.tap-character-card の margin-left + margin-right）。
         private const float CardMarginPx = 8f;
-        // カードを並べられる幅（基準解像度 540px の 92%＝.tap-character-area の width）。
-        private const float CardAreaWidth = 540f * 0.92f;
 
         private readonly TapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -71,6 +70,8 @@ namespace MiniGame.TapGame
 
         // 参加者ごとのキャラカードの弾み（index＝参加者）。叩いた本人のカードだけを弾ませる。
         private readonly List<TapCardShaker> _cardShakers = new();
+        // 参加者ごとのキャラカード本体（index＝参加者）。並べる枠の実寸が決まってから寸法を入れる。
+        private readonly List<VisualElement> _cardElements = new();
         // 相手の連打を検知するために覚えておく前フレームの連打数（index＝参加者）。
         private readonly List<int> _lastTapCounts = new();
 
@@ -133,6 +134,8 @@ namespace MiniGame.TapGame
 
             _tapButton.clicked += OnTapClicked;
             _closeButton.clicked += OnCloseClicked;
+            // カードの寸法は枠の実寸から決めるので、レイアウトが決まった（変わった）ら入れ直す。
+            _characterArea?.RegisterCallback<GeometryChangedEvent>(OnCharacterAreaGeometryChanged);
 
             // Model を source of truth として UI へ反映する。
             _disposables.Add(_model.TapCount.Subscribe(count =>
@@ -367,6 +370,7 @@ namespace MiniGame.TapGame
         public void Dispose()
         {
             DisposeCardShakers();
+            _characterArea?.UnregisterCallback<GeometryChangedEvent>(OnCharacterAreaGeometryChanged);
             _hintTween?.Kill();
             _hintTween = null;
             if (_tapButton != null)
@@ -489,11 +493,10 @@ namespace MiniGame.TapGame
 
             _characterArea.Clear();
             DisposeCardShakers();
+            _cardElements.Clear();
             _lastTapCounts.Clear();
 
             int count = _model.ParticipantCount;
-            // カード絵は 1:1 なので枠も正方形にする（縦に余白を作らず、絵の大きさが枠幅どおりになる）。
-            float size = CardWidthFor(count);
 
             List<UniTask> loads = new(count);
             for (int p = 0; p < count; p++)
@@ -514,27 +517,55 @@ namespace MiniGame.TapGame
 
                 VisualElement card = new() { pickingMode = PickingMode.Ignore };
                 card.AddToClassList("tap-character-card");
-                card.style.width = size;
-                card.style.height = size;
+                // 寸法は枠の実寸が決まってから入れる（LayoutCards）。それまでは上限の大きさで置く。
+                card.style.width = CardMaxWidth;
+                card.style.height = CardMaxWidth;
 
                 slot.Add(card);
                 _characterArea.Add(slot);
+                _cardElements.Add(card);
                 _cardShakers.Add(new TapCardShaker(slot));
                 _lastTapCounts.Add(0);
                 loads.Add(ApplyCardImageAsync(card, id, ct));
             }
 
+            LayoutCards();
             await UniTask.WhenAll(loads);
         }
 
-        // 人数ぶんのカードが並ぶ枠に収まる 1 枚の幅（左右マージンぶんを差し引いて等分し、上限で丸める）。
-        private static float CardWidthFor(int count)
+        // 並べる枠の実寸から 1 枚の寸法を決めて全カードへ入れる（USS 側の幅を変えても追従する）。
+        // 枠のレイアウトが決まる前は寸法が読めないので、GeometryChangedEvent でもう一度呼ばれる。
+        private void LayoutCards()
+        {
+            if (_characterArea == null || _cardElements.Count == 0)
+            {
+                return;
+            }
+
+            float areaWidth = _characterArea.resolvedStyle.width;
+            if (float.IsNaN(areaWidth) || areaWidth <= 0f)
+            {
+                // まだ表示されていない（レイアウト前）。次の geometry で拾う。
+                return;
+            }
+
+            // カード絵は 1:1 なので枠も正方形にする（縦に余白を作らず、絵の大きさが枠幅どおりになる）。
+            float size = CardSizeFor(_cardElements.Count, areaWidth);
+            foreach (VisualElement card in _cardElements)
+            {
+                card.style.width = size;
+                card.style.height = size;
+            }
+        }
+
+        // 人数ぶんのカードが枠に収まる 1 枚の寸法（左右マージンぶんを差し引いて等分し、上下限で丸める）。
+        private static float CardSizeFor(int count, float areaWidth)
         {
             if (count <= 0)
             {
                 return CardMaxWidth;
             }
-            float perCard = (CardAreaWidth / count) - CardMarginPx;
+            float perCard = (areaWidth / count) - CardMarginPx;
             return Mathf.Clamp(perCard, CardMinWidth, CardMaxWidth);
         }
 
@@ -579,6 +610,11 @@ namespace MiniGame.TapGame
                 shaker.Dispose();
             }
             _cardShakers.Clear();
+        }
+
+        private void OnCharacterAreaGeometryChanged(GeometryChangedEvent _)
+        {
+            LayoutCards();
         }
 
         private void OnTapClicked()
