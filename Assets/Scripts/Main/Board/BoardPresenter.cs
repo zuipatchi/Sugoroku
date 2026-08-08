@@ -330,7 +330,8 @@ namespace Main.Board
                     return;
                 }
                 ShowClearMessage(WinnerText(winner));
-                _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
+                // 決着 SE は自分の勝敗で鳴らし分ける（自分以外が勝利条件を満たしたら負けの SE）。
+                _soundPlayer.PlaySafe(winner == _humanPlayer ? _soundStore?.DecisionSE : _soundStore?.LoseSE);
                 // 決着したらもう誰の操作も待たないので待機表示を消す。
                 SetBusy(-1, BusyReason.None);
                 // 勝敗が決まったら「ホームに戻る」ボタンを出す。

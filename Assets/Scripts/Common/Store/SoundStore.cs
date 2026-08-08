@@ -20,6 +20,7 @@ namespace Common.Store
         private readonly string _runSEAddressable = "Sound/SE/Run";
         private readonly string _moneySEAddressable = "Sound/SE/Money";
         private readonly string _itemGetSEAddressable = "Sound/SE/ItemGet";
+        private readonly string _loseSEAddressable = "Sound/SE/Lose";
         private readonly string[] _punchSEAddressables =
         {
             "Sound/SE/Punch1",
@@ -50,6 +51,9 @@ namespace Common.Store
         /// <summary>アイテム取得マスでアイテムをもらったときに鳴らす SE。</summary>
         public AudioClip ItemGetSE => _itemGetSE;
 
+        /// <summary>自分以外のプレイヤーが勝利条件を満たした（＝自分の負けが決まった）ときに鳴らす SE。</summary>
+        public AudioClip LoseSE => _loseSE;
+
         /// <summary>タップ連打ミニゲームのタップ時に鳴らすパンチ SE（1〜3 をランダムに再生）。</summary>
         public AudioClip RandomPunchSE => _punchSE.Length > 0 ? _punchSE[UnityEngine.Random.Range(0, _punchSE.Length)] : null;
 
@@ -65,6 +69,7 @@ namespace Common.Store
         private AudioClip _runSE = null;
         private AudioClip _moneySE = null;
         private AudioClip _itemGetSE = null;
+        private AudioClip _loseSE = null;
         private AudioClip[] _punchSE = Array.Empty<AudioClip>();
 
         protected override string AssetCategory => "サウンド";
@@ -83,6 +88,7 @@ namespace Common.Store
             _runSE = await Addressables.LoadAssetAsync<AudioClip>(_runSEAddressable).ToUniTask();
             _moneySE = await Addressables.LoadAssetAsync<AudioClip>(_moneySEAddressable).ToUniTask();
             _itemGetSE = await Addressables.LoadAssetAsync<AudioClip>(_itemGetSEAddressable).ToUniTask();
+            _loseSE = await Addressables.LoadAssetAsync<AudioClip>(_loseSEAddressable).ToUniTask();
 
             // パンチ SE は 1〜3 を並列ロードする（タップ時にランダム再生する）。
             List<UniTask<AudioClip>> punchTasks = new(_punchSEAddressables.Length);

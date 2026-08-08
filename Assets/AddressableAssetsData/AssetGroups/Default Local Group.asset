@@ -447,6 +447,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - default
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e6c2be06532117b4cb477f9a17856fdf
+    m_Address: Sound/SE/Lose
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - default
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e88b69c9b968cd142b3a249d75dd6dfb
     m_Address: Character/Character1/Card
     m_ReadOnly: 0
