@@ -221,11 +221,11 @@ Assets/Scripts/<Scene>/<Feature>/
 | `OnlineCharacterSelect` | `Assets/Scripts/OnlineCharacterSelect/` | VContainer / R3 / UniTask / Addressables / Common / Unity.Services.Multiplayer（キャラ選択ロビーの UGS プロパティ同期） |
 | `Main` | `Assets/Scripts/Main/` | VContainer / R3 / UniTask / Common / Unity.Netcode / DOTween |
 | `MiniGame` | `Assets/Scripts/MiniGame/` | VContainer / R3 / UniTask / Addressables / Common |
-| `Main.Editor` | `Assets/Scripts/Main/Editor/` | Main / Common（`includePlatforms: ["Editor"]`＝ビルド非対象。盤面エディタ用） |
+| `Main.Editor` | `Assets/Scripts/Main/Editor/` | Main / Common（`includePlatforms: ["Editor"]`＝ビルド非対象。盤面エディタ・マスの文言エディタ用） |
 
 - `Title` / `Home` / `CharacterSelect` / `MapSelect` / `Matching` / `OnlineCharacterSelect` / `Main` / `MiniGame` は `Common` に依存し、逆方向の依存は禁止
 - `BoardSessionModel`（選択マップの識別子）は `Common` に置き文字列 ID だけを持つ。`BoardCatalog` / `BoardDefinition` は `Main` にあるため、それらを扱う `MapSelect` だけが `Common` に加えて `Main` にも依存する
-- `Main.Editor` はエディタ専用（`Window > Sugoroku > Board Editor`）。参照は推移解決されないため対象ランタイム asmdef の GUID を明示する（[patterns.md](patterns.md) #11）
+- `Main.Editor` はエディタ専用（`Window > Sugoroku > Board Editor`＝盤面の形とイベント、`Window > Sugoroku > Cell Message Editor`＝マスに止まったときの文言）。参照は推移解決されないため対象ランタイム asmdef の GUID を明示する（[patterns.md](patterns.md) #11）
 - `autoReferenced: true` のため既存コードへの影響なし
 
 ---
