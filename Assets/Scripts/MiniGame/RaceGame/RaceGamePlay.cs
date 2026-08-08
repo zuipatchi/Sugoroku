@@ -31,6 +31,8 @@ namespace MiniGame.RaceGame
         private const float RemoteFollowSpeed = 12f;  // 相手の走者を届いた位置へ寄せる速さ（1/秒）
         // コースの背景に敷く路面画像。未配置なら RaceGame.uss の地色のままにする。
         private const string TrackBackgroundAddress = "Image/MiniGame/Track";
+        // 画面全体に敷くレース会場の絵（コースの背後）。未配置なら RaceGame.uss の地色のまま。
+        private const string BackgroundAddress = "Image/Background/RaceBackground";
 
         private readonly RaceGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -131,8 +133,9 @@ namespace MiniGame.RaceGame
                 _session != null ? _session.ResolveSeed() : NextSeed(),
                 _session == null || _session.SimulateOpponents);
 
-            // コース背景と走者のキャラ絵はどちらも Addressables なので並列でロードする。
+            // 画面背景・コース背景・走者のキャラ絵はいずれも Addressables なので並列でロードする。
             await UniTask.WhenAll(
+                ApplyBackgroundAsync(root, ct),
                 ApplyTrackBackgroundAsync(ct),
                 BuildRunnersAsync(_model.RunnerCount, ct));
 
@@ -529,6 +532,25 @@ namespace MiniGame.RaceGame
         {
             float percent = StartPercent - Mathf.Clamp01(progress) * (StartPercent - GoalPercent);
             runner.style.left = Length.Percent(percent);
+        }
+
+        /// <summary>
+        /// 画面全体にレース会場の絵を貼る。貼り先は <see cref="BuildAsync"/> に渡る <paramref name="root"/>
+        /// （＝UXML ルートの親）ではなく子の <c>RaceRoot</c>（親へ貼っても不透明な地色を持つ子に隠れて見えない）。
+        /// 拡大縮小は USS（<c>.race-root</c> の <c>background-size: cover</c>）に任せ、未配置なら地色のまま。
+        /// </summary>
+        private async UniTask ApplyBackgroundAsync(VisualElement root, CancellationToken ct)
+        {
+            VisualElement target = root?.Q<VisualElement>("RaceRoot");
+            if (target == null)
+            {
+                return;
+            }
+            Sprite sprite = await _spriteLoader.TryLoadAsync(BackgroundAddress, "レース会場背景", ct);
+            if (sprite != null)
+            {
+                target.style.backgroundImage = new StyleBackground(sprite);
+            }
         }
 
         /// <summary>
