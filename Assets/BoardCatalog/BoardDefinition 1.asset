@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76f0efe3619fd7340a77117a15c7b458, type: 3}
   m_Name: BoardDefinition 1
   m_EditorClassIdentifier: Main::Main.Board.BoardDefinition
-  _displayName: "\u9663\u5730"
+  _displayName: "\u30DF\u30CB\u30B2\u30FC\u30E0\u3042\u308A"
   _gridColumns: 4
   _gridRows: 5
   _frameAddress: Board/Frame
@@ -24,57 +24,67 @@ MonoBehaviour:
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 1, y: 0}
-    _event: 1
-    _amount: 2
+    _event: 4
+    _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 2, y: 0}
-    _event: 2
+    _event: 7
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 3, y: 0}
     _event: 1
-    _amount: 2
+    _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 3, y: 1}
-    _event: 2
+    _event: 1
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 3, y: 2}
     _event: 4
     _amount: 1
-    _miniGame: 1
+    _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 3, y: 3}
     _event: 7
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 2, y: 3}
+  - _grid: {x: 3, y: 4}
+    _event: 1
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 2, y: 4}
+    _event: 4
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 1, y: 4}
     _event: 7
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
-  - _grid: {x: 1, y: 3}
-    _event: 7
+  - _grid: {x: 0, y: 4}
+    _event: 2
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 0, y: 3}
-    _event: 7
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 0, y: 2}
-    _event: 7
+    _event: 8
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
   - _grid: {x: 0, y: 1}
-    _event: 7
+    _event: 2
     _amount: 1
     _miniGame: 0
     _color: {r: 0, g: 0, b: 0, a: 0}
