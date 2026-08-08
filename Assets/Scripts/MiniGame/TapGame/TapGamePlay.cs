@@ -27,6 +27,8 @@ namespace MiniGame.TapGame
         private const float ProgressIntervalSeconds = 0.2f;
         // 叩く場所（タップボタン）に貼るサンドバッグの絵。未配置なら TapGame.uss の地色のままにする。
         private const string TapTargetAddress = "Image/MiniGame/SandBag";
+        // 画面全体に敷くジムの絵（サンドバッグを叩く場所の背景）。未配置なら TapGame.uss の地色のまま。
+        private const string BackgroundAddress = "Image/GymBackground";
         // 「タップ」案内の点滅（明るい ↔ 暗いを往復する片道の秒数と、暗いときの不透明度）。
         private const float HintBlinkSeconds = 0.4f;
         private const float HintBlinkMinOpacity = 0.15f;
@@ -128,8 +130,8 @@ namespace MiniGame.TapGame
 
             _closeSource = new UniTaskCompletionSource();
 
-            // サンドバッグとキャラカードはどちらも Addressables なので並列でロードする。
-            await UniTask.WhenAll(ApplyTapTargetAsync(ct), ApplyCharacterCardAsync(ct));
+            // 背景・サンドバッグ・キャラカードはいずれも Addressables なので並列でロードする。
+            await UniTask.WhenAll(ApplyBackgroundAsync(root, ct), ApplyTapTargetAsync(ct), ApplyCharacterCardAsync(ct));
             await BuildScoreboardAsync(ct);
         }
 
@@ -388,6 +390,23 @@ namespace MiniGame.TapGame
             if (_tapHintLabel != null)
             {
                 _tapHintLabel.style.opacity = 1f;
+            }
+        }
+
+        // 画面の背景にジムの絵を貼る。貼り先は BuildAsync に渡る root（＝UXML ルートの親）ではなく
+        // 子の TapRoot（親へ貼っても不透明な地色を持つ子に隠れて見えない＝patterns.md 8 の注意）。
+        // 拡大縮小は USS（.tap-root の background-size: cover）に任せ、未配置なら何もしない＝地色のまま。
+        private async UniTask ApplyBackgroundAsync(VisualElement root, CancellationToken ct)
+        {
+            VisualElement target = root?.Q<VisualElement>("TapRoot");
+            if (target == null)
+            {
+                return;
+            }
+            Sprite sprite = await _spriteLoader.TryLoadAsync(BackgroundAddress, "ジム背景", ct);
+            if (sprite != null)
+            {
+                target.style.backgroundImage = new StyleBackground(sprite);
             }
         }
 

@@ -295,6 +295,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 94afbdfa54d37834b8a7453603d04b9a
+    m_Address: Image/GymBackground
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9511aa62b2fc3e44da0cb7962ba93bc8
     m_Address: Character/Character4/Portrait
     m_ReadOnly: 0
