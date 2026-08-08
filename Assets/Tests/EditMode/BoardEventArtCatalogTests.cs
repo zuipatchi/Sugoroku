@@ -12,15 +12,16 @@ namespace Tests.EditMode
         [TestCase(BoardCellEvent.MoneyDown, "Board/MoneyDown")]
         [TestCase(BoardCellEvent.Territory, "Board/Territory")]
         [TestCase(BoardCellEvent.Item, "Board/Item")]
+        [TestCase(BoardCellEvent.None, "Image/Board/Glass")]
         public void Addressは画像のあるイベントの共通アドレスを返す(BoardCellEvent cellEvent, string expected)
         {
             Assert.AreEqual(expected, BoardEventArtCatalog.Address(cellEvent));
         }
 
-        [TestCase(BoardCellEvent.None)]
         [TestCase(BoardCellEvent.MiniGame)]
         public void Addressは画像の無いイベントで空文字を返す(BoardCellEvent cellEvent)
         {
+            // ミニゲームだけはマスごとに絵が違うので、共通アドレスは持たず AddressFor が解決する。
             Assert.AreEqual(string.Empty, BoardEventArtCatalog.Address(cellEvent));
         }
 

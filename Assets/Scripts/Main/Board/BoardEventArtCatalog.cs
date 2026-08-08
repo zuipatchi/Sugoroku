@@ -6,8 +6,9 @@ namespace Main.Board
     /// 盤面マスの画像アドレス（Addressables）を全マップ共通で解決する静的カタログ。
     /// マスの見た目はマップに依らず共通なので、盤面データ（<see cref="BoardDefinition"/>）ごとに持たせず、
     /// ここ 1 か所を唯一のソースにする。解決の入口は <see cref="AddressFor"/>。
-    /// 画像アドレスは <c>Board/&lt;イベント名&gt;</c> 規約で、対応するスプライトを Addressables に登録して用意する。
-    /// 画像が無いイベント（None）は空文字を返し、呼び出し側は記号表示にフォールバックする。
+    /// 画像アドレスは <c>Board/&lt;イベント名&gt;</c> 規約で、対応するスプライトを Addressables に登録して用意する
+    /// （通常マス＝<see cref="BoardCellEvent.None"/> だけは素材名のままの <see cref="NoneAddress"/>）。
+    /// 画像を持たないイベントは空文字を返し、呼び出し側は記号表示にフォールバックする。
     /// <see cref="CharacterCatalog"/> / <see cref="Item.ItemCatalog"/> と同じ静的カタログ方式。
     /// </summary>
     public static class BoardEventArtCatalog
@@ -17,6 +18,12 @@ namespace Main.Board
         /// <see cref="Address"/> より優先して使う（解決は <see cref="AddressFor"/>）。
         /// </summary>
         public const string StartAddress = "Board/Start";
+
+        /// <summary>
+        /// 通常マス（<see cref="BoardCellEvent.None"/>＝何も起きないマス）に貼る画像アドレス。
+        /// 他のイベントは <c>Board/&lt;イベント名&gt;</c> 規約だが、これだけは素材名のままの例外。
+        /// </summary>
+        public const string NoneAddress = "Image/Board/Glass";
 
         /// <summary>
         /// マス <paramref name="cell"/>（経路 index <paramref name="index"/>）に貼る画像のアドレス。
@@ -63,7 +70,10 @@ namespace Main.Board
                     return "Board/Territory";
                 case BoardCellEvent.Item:
                     return "Board/Item";
+                case BoardCellEvent.None:
+                    return NoneAddress;
                 default:
+                    // ミニゲームはマスごとに絵が違うので、ここではなく AddressFor が解決する。
                     return string.Empty;
             }
         }

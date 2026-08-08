@@ -462,6 +462,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f5087fe85e3660e4999862aef739e4e8
+    m_Address: Image/Board/Glass
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f54208596078e324cadeba2fcdda3363
     m_Address: Board/Start
     m_ReadOnly: 0

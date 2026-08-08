@@ -35,7 +35,9 @@
 
 /* 外周のマス（コードで left/top に %座標を設定し、translate で自身の中心へ合わせる）。
    width/height は隣接マスが接するよう BoardPresenter がマス間隔に合わせて動的設定する
-   （ここの値はロード直後の一瞬に使われるフォールバック）。 */
+   （ここの値はロード直後の一瞬に使われるフォールバック）。
+   地色は白＝イベント None（絵を持たない通常マス）の見た目。イベントマスは絵（--icon）や
+   占拠色（--owned-pN）で覆われるので、この色が見えるのは通常マスだけ。 */
 .board-cell {
     position: absolute;
     width: 52px;
@@ -43,22 +45,22 @@
     translate: -50% -50%;
     align-items: center;
     justify-content: center;
-    background-color: rgb(22, 22, 35);
+    background-color: rgb(255, 255, 255);
     border-left-width: 1px;
     border-right-width: 1px;
     border-top-width: 1px;
     border-bottom-width: 1px;
-    border-left-color: rgba(255, 255, 255, 0.15);
-    border-right-color: rgba(255, 255, 255, 0.15);
-    border-top-color: rgba(255, 255, 255, 0.15);
-    border-bottom-color: rgba(255, 255, 255, 0.15);
+    border-left-color: rgba(0, 0, 0, 0.25);
+    border-right-color: rgba(0, 0, 0, 0.25);
+    border-top-color: rgba(0, 0, 0, 0.25);
+    border-bottom-color: rgba(0, 0, 0, 0.25);
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
     -unity-text-align: middle-center;
     font-size: 16px;
-    color: rgb(180, 180, 210);
+    color: rgb(60, 60, 80);
 }
 
 /* スタート＝ゴールのマス */
@@ -214,6 +216,9 @@
     font-size: 10px;
     color: rgb(255, 235, 150);
     -unity-text-align: middle-center;
+    /* 絵の上にも、絵が未配置のときの白い地の上にも読めるよう黒フチを付ける。 */
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.8);
 }
 
 /* プレイヤーのコマ。left/top の transition で 1 マスずつ滑らかに移動する。

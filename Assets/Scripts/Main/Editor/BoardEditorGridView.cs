@@ -82,6 +82,10 @@ namespace Main.EditorTools
                     : (pathIndex == 0 ? StartCellColor : EventColor(definition.Event));
             }
             cell.style.backgroundColor = background;
+            // 通常マス（イベント None）の白のように明るい地でも経路番号が読めるよう、地の明るさで文字色を変える。
+            cell.style.color = IsLightColor(background)
+                ? new Color(0.12f, 0.12f, 0.16f)
+                : new Color(0.94f, 0.95f, 1f);
 
             bool selected = pathIndex >= 0 && pathIndex == selectedIndex;
             float borderWidth = selected ? 2f : 1f;
@@ -107,6 +111,12 @@ namespace Main.EditorTools
         public static Color EventColor(BoardCellEvent cellEvent)
         {
             return BoardEventColors.Of(cellEvent);
+        }
+
+        /// <summary>マスの地が明るいか（知覚輝度で判定）。マス上の文字色を黒寄り／白寄りに切り替えるのに使う。</summary>
+        private static bool IsLightColor(Color color)
+        {
+            return (0.299f * color.r) + (0.587f * color.g) + (0.114f * color.b) > 0.6f;
         }
     }
 }

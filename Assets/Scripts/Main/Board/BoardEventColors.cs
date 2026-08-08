@@ -9,7 +9,8 @@ namespace Main.Board
     public static class BoardEventColors
     {
         /// <summary>
-        /// イベント種別ごとのマス色。<see cref="BoardCellEvent.None"/>（通常マス）は中立色。
+        /// イベント種別ごとのマス色。<see cref="BoardCellEvent.None"/>（通常マス）は白＝
+        /// 何も起きないマスであることが、色の付いたイベントマスとひと目で見分けられるようにする。
         /// </summary>
         public static Color Of(BoardCellEvent cellEvent)
         {
@@ -30,7 +31,7 @@ namespace Main.Board
                 case BoardCellEvent.Item:
                     return new Color(0.86f, 0.66f, 0.24f);
                 default:
-                    return new Color(0.35f, 0.45f, 0.55f);
+                    return Color.white;
             }
         }
     }
