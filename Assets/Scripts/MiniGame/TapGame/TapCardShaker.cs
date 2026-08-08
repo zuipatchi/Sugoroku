@@ -10,6 +10,8 @@ namespace MiniGame.TapGame
     /// 「がたがた」（減衰する小刻みな振動）と「パンチ」（ぷにっと拡大→戻る）を合わせて再生する。
     /// 参加者ごとに 1 つ持ち（自分は自分のタップで、相手は届いた連打数の増加で叩く）、
     /// <see cref="TapGamePlay"/> が所有・破棄する。
+    /// 揺らす対象はカードそのものではなく**カード 1 枚ぶんの枠**（<c>.tap-character-slot</c>）なので、
+    /// 自分の「あなた」の目印もカードと一緒に震える。
     /// </summary>
     public sealed class TapCardShaker : IDisposable
     {
@@ -21,20 +23,21 @@ namespace MiniGame.TapGame
         // パンチ（拡大）の最大量。位相と一緒に 0 へ収束する。
         private const float PunchScale = 0.16f;
 
-        private readonly VisualElement _card;
+        // 揺らす対象（カード 1 枚ぶんの枠）。
+        private readonly VisualElement _target;
 
         private Tween _tween;
         private float _phase;
 
-        public TapCardShaker(VisualElement card)
+        public TapCardShaker(VisualElement target)
         {
-            _card = card;
+            _target = target;
         }
 
         /// <summary>1 回ぶん弾ませる（再生中に呼ばれたら弾み直す）。</summary>
         public void Shake()
         {
-            if (_card == null)
+            if (_target == null)
             {
                 return;
             }
@@ -63,19 +66,19 @@ namespace MiniGame.TapGame
         // 位相 phase（1→0）から、減衰する小刻み振動（がたがた）と減衰する拡大（パンチ）を適用する。
         private void Apply(float phase, float amplitude, float sign)
         {
-            if (_card == null)
+            if (_target == null)
             {
                 return;
             }
 
             float offsetX = sign * amplitude * phase * Mathf.Sin(phase * 42f);
             float offsetY = amplitude * 0.6f * phase * Mathf.Cos(phase * 38f);
-            _card.style.translate = new Translate(
+            _target.style.translate = new Translate(
                 new Length(offsetX, LengthUnit.Pixel),
                 new Length(offsetY, LengthUnit.Pixel));
 
             float punch = 1f + (PunchScale * phase);
-            _card.style.scale = new Scale(new Vector3(punch, punch, 1f));
+            _target.style.scale = new Scale(new Vector3(punch, punch, 1f));
         }
 
         public void Dispose()

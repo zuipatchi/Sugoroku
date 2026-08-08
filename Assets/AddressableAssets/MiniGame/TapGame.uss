@@ -98,9 +98,12 @@
 /* カード 1 枚ぶんの枠。自分の枠だけカードの上に「あなた」の目印が入る。
    下端そろえ（.tap-character-area の align-items: flex-end）なので、目印のぶん高くなっても
    カードの並びは崩れない。 */
+/* 弾み（がたがた＋パンチ）はカード単体ではなくこの枠に掛ける（TapCardShaker）。
+   自分の「あなた」の目印もカードと一緒に震える。 */
 .tap-character-slot {
     align-items: center;
     justify-content: flex-end;
+    transform-origin: center;
 }
 
 /* 自分のカードの上に出す「あなた」。背景の絵の上でも読めるよう黒フチ付きの金文字にする。 */
@@ -120,14 +123,6 @@
     margin-left: 4px;
     margin-right: 4px;
     -unity-background-scale-mode: scale-to-fit;
-    transform-origin: center;
-}
-
-/* 自分のカードだけ金の淡いスポットを背後に敷いて、どれが自分か分かるようにする
-   （カード絵は背景が透過のスチッカーなので、枠線ではなく地色で示す）。 */
-.tap-character-card--you {
-    background-color: rgba(255, 210, 90, 0.16);
-    border-radius: 14px;
 }
 
 /* サンドバッグ画像（3:2）がなるべく切れずに収まる高さにする。基準幅 540 なら 80%＝432px なので

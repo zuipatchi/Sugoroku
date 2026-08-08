@@ -500,8 +500,9 @@ namespace MiniGame.TapGame
             {
                 CharacterId id = CharacterFor(p);
 
-                // カード 1 枚ぶんの枠。自分だけカードの上に「あなた」を載せる（弾むのはカードだけなので、
-                // 目印は枠側に置いて一緒に揺れないようにする）。下端をそろえて並ぶのでカードの高さは崩れない。
+                // カード 1 枚ぶんの枠。自分だけカードの上に「あなた」を載せる。
+                // 弾みはこの枠に掛けるので、目印もカードと一緒に震える。
+                // 枠は下端をそろえて並ぶので、目印のぶん高くなってもカードの並びは崩れない。
                 VisualElement slot = new() { pickingMode = PickingMode.Ignore };
                 slot.AddToClassList("tap-character-slot");
                 if (p == 0)
@@ -513,16 +514,12 @@ namespace MiniGame.TapGame
 
                 VisualElement card = new() { pickingMode = PickingMode.Ignore };
                 card.AddToClassList("tap-character-card");
-                if (p == 0)
-                {
-                    card.AddToClassList("tap-character-card--you");
-                }
                 card.style.width = size;
                 card.style.height = size;
 
                 slot.Add(card);
                 _characterArea.Add(slot);
-                _cardShakers.Add(new TapCardShaker(card));
+                _cardShakers.Add(new TapCardShaker(slot));
                 _lastTapCounts.Add(0);
                 loads.Add(ApplyCardImageAsync(card, id, ct));
             }
