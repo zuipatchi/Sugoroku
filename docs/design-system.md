@@ -182,6 +182,8 @@ private static void AddButtonHoverEffect(Button button, Color baseColor)
 .action-button:active { scale: 0.94 0.94; }
 ```
 
+無効状態も背景色では見えないので `-unity-background-image-tint-color` で絵に効かせられるが、**「まだ操作できない準備中」を薄さで見せない**（タップ連打はカウントダウン中もサンドバッグを 100% で見せる＝`.tap-button:disabled` は絵を薄くせず `opacity: 1` を明示する）。無効の見た目が要るのは「押せるはずのものが今は押せない」ときだけ。
+
 ### リスト項目（`.room-item`）
 
 ```css
