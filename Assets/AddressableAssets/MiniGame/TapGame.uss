@@ -95,6 +95,24 @@
     margin-bottom: 20px;
 }
 
+/* カード 1 枚ぶんの枠。自分の枠だけカードの上に「あなた」の目印が入る。
+   下端そろえ（.tap-character-area の align-items: flex-end）なので、目印のぶん高くなっても
+   カードの並びは崩れない。 */
+.tap-character-slot {
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* 自分のカードの上に出す「あなた」。背景の絵の上でも読めるよう黒フチ付きの金文字にする。 */
+.tap-character-you {
+    margin-bottom: 2px;
+    color: rgb(255, 226, 140);
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1.5px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.85);
+}
+
 /* キャラカード 1 枚。寸法は参加者数から TapGamePlay が決める（人数が増えるほど小さくする。
    カード絵は 1:1 なので枠も正方形）。絵は scale-to-fit なので枠が小さくなれば絵も一緒に縮む。 */
 .tap-character-card {
