@@ -331,6 +331,7 @@ SpinDecision decision = await decided;
 - **コンストラクタで要素（グリッド・プレビュー・ラベル群）を受け取り**、`Build(catalog, initialId)` で組み、`SelectedId`／`HasSelection`／`Selected`（選択変化イベント）を公開する。SE・確定/キャンセル・シーン遷移の配線は**呼び出し側の Presenter が持つ**（コントローラは UI 構築と選択状態だけに専念）。
 - **Presenter からロジックを消して委譲に置き換える**（`MapSelectPresenter` の `BuildCards`／`UpdateSelection`／`UpdateStats` を削除しコントローラへ）。純粋な描画ヘルパ（`BoardSchematicView`）も Main 型のみ依存なら MapSelect 等のシーンアセンブリから Main へ移す。
 - **USS クラス名は共通**（`map-card`／`map-thumb`／`map-name`／`map-card--selected`／`ms-stat*`）。コントローラが同じクラス名で要素を組むので、**埋め込む各シーンの USS に同じクラスを定義する**（スタイルシートはシーンごとに別なので、クラス定義は各 USS に複製する＝USS の重複は許容）。
+- **コンテンツに合わせて寸法を変えたいときは「USS の寸法＝基準ボックス」にする**。埋め込む側ごとに適切な大きさは違う（`.ms-preview` は 320px・`.mp-preview` は 220px）ので、コントローラが px を直書きせず、**初回の `GeometryChangedEvent` で `resolvedStyle` の寸法を 1 度だけ覚えて**、その中へ内接させた値をインラインの `style.width`／`style.height` に設定する（`MapPickerView.ApplyPreviewAspect`＝大プレビュー枠を選択マップの縦横比に合わせる）。覚えるのは 1 度きりにしないと、自分が設定した寸法を基準として読み直して縮み続ける。オーバーレイは開くまで `display:none` で寸法が 0 なので、**0 のときは覚えずに次の geometry を待つ**。極端な比率（一直線のマップ＝縦横比 10:1 等）で枠が潰れないよう `Mathf.Clamp` で丸める。
 - **全画面オーバーレイに埋め込むとき**は、そのシーンの UXML に「プレビュー＋ラベル＋グリッド（`ScrollView` でも可＝`Add`/`Clear` は contentContainer に効く）＋確定/閉じるボタン」を用意し、Presenter が `display` トグルで開閉する。開くたびに `Build(catalog, 確定中ID)` で選択状態を作り直せば「キャンセルを引きずらない」挙動になる。
 
 ---
