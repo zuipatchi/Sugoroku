@@ -5,9 +5,9 @@
         <!-- 全参加者の連打数を横一列で逐次表示するスコアボード。チップ（アイコン＋連打数）は
              参加者数に応じて TapGamePlay が動的生成し、毎フレーム数を更新する -->
         <ui:VisualElement name="Scoreboard" class="tap-scoreboard" picking-mode="Ignore" />
-        <ui:VisualElement name="CharacterArea" class="tap-character-area">
-            <ui:VisualElement name="CharacterCard" class="tap-character-card" picking-mode="Ignore" />
-        </ui:VisualElement>
+        <!-- 全参加者のキャラカードを横一列に並べる。カード（自分＋相手）は参加者数に応じて
+             TapGamePlay が動的生成し、その参加者が叩くたびに 1 枚ずつ弾ませる -->
+        <ui:VisualElement name="CharacterArea" class="tap-character-area" picking-mode="Ignore" />
         <ui:VisualElement name="PlayArea" class="tap-play-area">
             <ui:Button name="TapButton" class="tap-button" />
             <!-- 叩く場所（サンドバッグ）の上に重ねる案内。連打数と重ならないよう下寄せに置き、

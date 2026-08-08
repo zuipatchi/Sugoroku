@@ -17,7 +17,9 @@ namespace MiniGame.TapGame
     /// タップ連打ミニゲームの UI 構築と進行。<see cref="MiniGameHostPresenter"/> から
     /// クローン済みの UXML ルートを受け取り、カウントダウン → 計測 → 結果まで駆動する。
     /// タップ数・残り時間・フェーズは <see cref="TapGameModel"/> が持ち、ここは表示・入力・時間駆動だけを担う。
-    /// 選択中キャラのカード絵を中央に表示し、タップのたびにカードを「がたがた」振動＋「パンチ」拡大で弾ませる。
+    /// **全参加者（自分＋相手）のキャラカードを横一列に並べ、その参加者が叩くたびにそのカードだけを**
+    /// 「がたがた」振動＋「パンチ」拡大で弾ませる（<see cref="TapCardShaker"/>）。自分は自分のタップで、
+    /// 相手は連打数の増加（一人用は CPU の自動連打／オンラインは届いた値）を見て弾ませる。
     /// </summary>
     public sealed class TapGamePlay : IDisposable
     {
@@ -32,6 +34,14 @@ namespace MiniGame.TapGame
         // 「タップ」案内の点滅（明るい ↔ 暗いを往復する片道の秒数と、暗いときの不透明度）。
         private const float HintBlinkSeconds = 0.4f;
         private const float HintBlinkMinOpacity = 0.15f;
+        // キャラカードの寸法。カード絵は 1:1 なので枠も正方形にし（scale-to-fit で絵の幅が枠幅どおりになる）、
+        // 人数が増えたら並べる枠（.tap-character-area）の幅に収まるよう縮める。
+        private const float CardMaxWidth = 190f;
+        private const float CardMinWidth = 70f;
+        // 1 枚あたりの左右マージン合計（.tap-character-card の margin-left + margin-right）。
+        private const float CardMarginPx = 8f;
+        // カードを並べられる幅（基準解像度 540px の 92%＝.tap-character-area の width）。
+        private const float CardAreaWidth = 540f * 0.92f;
 
         private readonly TapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -45,7 +55,7 @@ namespace MiniGame.TapGame
         private Label _centerLabel;
         private Label _tapHintLabel;
         private Button _tapButton;
-        private VisualElement _characterCard;
+        private VisualElement _characterArea;
         private VisualElement _scoreboard;
         private VisualElement _resultPanel;
         private Label _resultLabel;
@@ -59,9 +69,12 @@ namespace MiniGame.TapGame
         // スコアボードの各参加者チップの連打数ラベル（index＝参加者）。毎フレーム更新する。
         private readonly List<Label> _scoreCountLabels = new();
 
+        // 参加者ごとのキャラカードの弾み（index＝参加者）。叩いた本人のカードだけを弾ませる。
+        private readonly List<TapCardShaker> _cardShakers = new();
+        // 相手の連打を検知するために覚えておく前フレームの連打数（index＝参加者）。
+        private readonly List<int> _lastTapCounts = new();
+
         private readonly AddressableSpriteLoader _spriteLoader = new();
-        private Tween _shakeTween;
-        private float _shakePhase;
         private Tween _hintTween;
         private float _hintOpacity = 1f;
 
@@ -92,7 +105,7 @@ namespace MiniGame.TapGame
             _centerLabel = root.Q<Label>("CenterLabel");
             _tapHintLabel = root.Q<Label>("TapHintLabel");
             _tapButton = root.Q<Button>("TapButton");
-            _characterCard = root.Q<VisualElement>("CharacterCard");
+            _characterArea = root.Q<VisualElement>("CharacterArea");
             _scoreboard = root.Q<VisualElement>("Scoreboard");
             _resultPanel = root.Q<VisualElement>("ResultPanel");
             _resultLabel = root.Q<Label>("ResultLabel");
@@ -141,7 +154,7 @@ namespace MiniGame.TapGame
             _closeSource = new UniTaskCompletionSource();
 
             // 背景・サンドバッグ・キャラカードはいずれも Addressables なので並列でロードする。
-            await UniTask.WhenAll(ApplyBackgroundAsync(root, ct), ApplyTapTargetAsync(ct), ApplyCharacterCardAsync(ct));
+            await UniTask.WhenAll(ApplyBackgroundAsync(root, ct), ApplyTapTargetAsync(ct), BuildCharacterCardsAsync(ct));
             await BuildScoreboardAsync(ct);
         }
 
@@ -155,15 +168,12 @@ namespace MiniGame.TapGame
             _standings.Clear();
 
             int count = _model.ParticipantCount;
-            IReadOnlyList<CharacterId> characters = _session?.Characters;
 
             List<UniTask> loads = new(count);
             for (int p = 0; p < count; p++)
             {
                 bool isPlayer = p == 0;
-                CharacterId id = characters != null && characters.Count > p
-                    ? characters[p]
-                    : (isPlayer ? _characterSession.Selected : CharacterCatalog.All[p % CharacterCatalog.All.Count].Id);
+                CharacterId id = CharacterFor(p);
 
                 VisualElement chip = new() { pickingMode = PickingMode.Ignore };
                 chip.AddToClassList("tap-score-chip");
@@ -187,6 +197,22 @@ namespace MiniGame.TapGame
             }
 
             await UniTask.WhenAll(loads);
+        }
+
+        /// <summary>
+        /// その参加者のキャラ。起動側が渡したセッション指定（index 0＝自分）を優先し、
+        /// 未指定のときは自分は選択キャラ・相手はカタログ順にフォールバックする。
+        /// </summary>
+        private CharacterId CharacterFor(int participant)
+        {
+            IReadOnlyList<CharacterId> characters = _session?.Characters;
+            if (characters != null && characters.Count > participant)
+            {
+                return characters[participant];
+            }
+            return participant == 0
+                ? _characterSession.Selected
+                : CharacterCatalog.All[participant % CharacterCatalog.All.Count].Id;
         }
 
         private async UniTask ApplyChipIconAsync(VisualElement icon, CharacterId id, CancellationToken ct)
@@ -277,11 +303,14 @@ namespace MiniGame.TapGame
                     PublishAndApplyProgress();
                 }
 
+                // 連打数が増えた相手のカードを弾ませる（自分は OnTapClicked で弾ませている）。
+                ShakeOpponentsOnTap();
                 UpdateScoreboard();
             }
 
             // 最後の値を送り切ってから締める（間引きの都合で数回ぶん遅れていることがある）。
             PublishAndApplyProgress();
+            ShakeOpponentsOnTap();
 
             _model.Finish();
             UpdateScoreboard();
@@ -337,8 +366,7 @@ namespace MiniGame.TapGame
 
         public void Dispose()
         {
-            _shakeTween?.Kill();
-            _shakeTween = null;
+            DisposeCardShakers();
             _hintTween?.Kill();
             _hintTween = null;
             if (_tapButton != null)
@@ -447,84 +475,111 @@ namespace MiniGame.TapGame
             }
         }
 
-        // 選択中キャラのカード絵を読み込んで中央に表示する。未配置ならプレースホルダ（色面）にフォールバックする。
-        private async UniTask ApplyCharacterCardAsync(CancellationToken ct)
+        /// <summary>
+        /// 参加者ぶんのキャラカードを横一列に生成し、カード絵を並列ロードして貼る。
+        /// カードごとに弾み（<see cref="TapCardShaker"/>）を持たせ、叩いた本人のカードだけを弾ませる。
+        /// 未配置のキャラ絵はプレースホルダ（色面）にフォールバックする。
+        /// </summary>
+        private async UniTask BuildCharacterCardsAsync(CancellationToken ct)
         {
-            if (_characterCard == null)
+            if (_characterArea == null)
             {
                 return;
             }
 
-            // プレイヤー（index 0）のキャラはセッション指定を優先し、無ければ選択キャラへフォールバック。
-            CharacterId id = _session != null && _session.Characters.Count > 0
-                ? _session.Characters[0]
-                : _characterSession.Selected;
-            CharacterDefinition definition = CharacterCatalog.Find(id);
+            _characterArea.Clear();
+            DisposeCardShakers();
+            _lastTapCounts.Clear();
 
-            Sprite card = await _spriteLoader.TryLoadAsync(definition.CardAddress, "キャラカード", ct);
-            if (card != null)
+            int count = _model.ParticipantCount;
+            // カード絵は 1:1 なので枠も正方形にする（縦に余白を作らず、絵の大きさが枠幅どおりになる）。
+            float size = CardWidthFor(count);
+
+            List<UniTask> loads = new(count);
+            for (int p = 0; p < count; p++)
             {
-                _characterCard.style.backgroundImage = new StyleBackground(card);
+                CharacterId id = CharacterFor(p);
+
+                VisualElement card = new() { pickingMode = PickingMode.Ignore };
+                card.AddToClassList("tap-character-card");
+                if (p == 0)
+                {
+                    card.AddToClassList("tap-character-card--you");
+                }
+                card.style.width = size;
+                card.style.height = size;
+
+                _characterArea.Add(card);
+                _cardShakers.Add(new TapCardShaker(card));
+                _lastTapCounts.Add(0);
+                loads.Add(ApplyCardImageAsync(card, id, ct));
+            }
+
+            await UniTask.WhenAll(loads);
+        }
+
+        // 人数ぶんのカードが並ぶ枠に収まる 1 枚の幅（左右マージンぶんを差し引いて等分し、上限で丸める）。
+        private static float CardWidthFor(int count)
+        {
+            if (count <= 0)
+            {
+                return CardMaxWidth;
+            }
+            float perCard = (CardAreaWidth / count) - CardMarginPx;
+            return Mathf.Clamp(perCard, CardMinWidth, CardMaxWidth);
+        }
+
+        private async UniTask ApplyCardImageAsync(VisualElement card, CharacterId id, CancellationToken ct)
+        {
+            CharacterDefinition definition = CharacterCatalog.Find(id);
+            Sprite sprite = await _spriteLoader.TryLoadAsync(definition.CardAddress, "キャラカード", ct);
+            if (sprite != null)
+            {
+                card.style.backgroundImage = new StyleBackground(sprite);
             }
             else
             {
-                _characterCard.style.backgroundImage = StyleKeyword.None;
-                _characterCard.style.backgroundColor = CharacterPalette.PlaceholderColorFor(id);
+                card.style.backgroundImage = StyleKeyword.None;
+                card.style.backgroundColor = CharacterPalette.PlaceholderColorFor(id);
             }
         }
 
-        // タップのたびにカードを弾ませる。「がたがた」（減衰する小刻みな振動）と「パンチ」（ぷにっと拡大→戻る）を合わせた演出。
-        // 位相 1→0 を 1 本の Tween で流し、その位相から毎フレーム位置と拡大を計算する。
-        private void ShakeCard()
+        /// <summary>
+        /// 相手（index 1〜）の連打を検知して、その参加者のカードだけを弾ませる。
+        /// 一人用モードは CPU の自動連打（<see cref="TapGameModel.Tick"/>）、オンラインは
+        /// 届いた連打数（<see cref="PublishAndApplyProgress"/>）で数が増えるので、どちらも同じ経路で見える。
+        /// オンラインは値が間引かれて届くため、まとめて増えたぶんは 1 回の弾みになる。
+        /// </summary>
+        private void ShakeOpponentsOnTap()
         {
-            if (_characterCard == null)
+            for (int p = 1; p < _cardShakers.Count && p < _lastTapCounts.Count; p++)
             {
-                return;
+                int current = _model.TapCountOf(p);
+                if (current > _lastTapCounts[p])
+                {
+                    _cardShakers[p].Shake();
+                }
+                _lastTapCounts[p] = current;
             }
-
-            _shakeTween?.Kill();
-
-            float amplitude = UnityEngine.Random.Range(9f, 13f);
-            float sign = (UnityEngine.Random.value < 0.5f) ? -1f : 1f;
-
-            _shakePhase = 1f;
-            ApplyShake(1f, amplitude, sign);
-
-            _shakeTween = DOTween.To(
-                    () => _shakePhase,
-                    p =>
-                    {
-                        _shakePhase = p;
-                        ApplyShake(p, amplitude, sign);
-                    },
-                    0f,
-                    0.4f)
-                .SetEase(Ease.Linear);
         }
 
-        // 位相 phase（1→0）から、減衰する小刻み振動（がたがた）と減衰する拡大（パンチ）を適用する。
-        private void ApplyShake(float phase, float amplitude, float sign)
+        private void DisposeCardShakers()
         {
-            if (_characterCard == null)
+            foreach (TapCardShaker shaker in _cardShakers)
             {
-                return;
+                shaker.Dispose();
             }
-
-            // phase を減衰係数に使い、揺れ幅・拡大量ともに 0 へ収束させる。
-            float offsetX = sign * amplitude * phase * Mathf.Sin(phase * 42f);
-            float offsetY = amplitude * 0.6f * phase * Mathf.Cos(phase * 38f);
-            _characterCard.style.translate = new Translate(
-                new Length(offsetX, LengthUnit.Pixel),
-                new Length(offsetY, LengthUnit.Pixel));
-
-            float punch = 1f + 0.16f * phase;
-            _characterCard.style.scale = new Scale(new Vector3(punch, punch, 1f));
+            _cardShakers.Clear();
         }
 
         private void OnTapClicked()
         {
             _model.Tap();
-            ShakeCard();
+            // 自分（index 0）のカードは押した瞬間に弾ませる（相手は連打数の増加で弾む）。
+            if (_cardShakers.Count > 0)
+            {
+                _cardShakers[0].Shake();
+            }
             _soundPlayer.PlaySafe(_soundStore?.RandomPunchSE);
         }
 

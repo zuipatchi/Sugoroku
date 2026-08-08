@@ -83,21 +83,33 @@
     color: rgb(255, 226, 140);
 }
 
+/* 全参加者のキャラカードを横一列に並べる枠（中身は TapGamePlay が生成する）。
+   下端をそろえて並べ、カードの幅・高さは人数に応じてコード側で決める。 */
 .tap-character-area {
-    width: 80%;
+    width: 92%;
     max-width: 640px;
     height: 260px;
-    align-items: center;
-    justify-content: flex-end;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
     margin-bottom: 20px;
 }
 
+/* キャラカード 1 枚。寸法は参加者数から TapGamePlay が決める（人数が増えるほど小さくする。
+   カード絵は 1:1 なので枠も正方形）。絵は scale-to-fit なので枠が小さくなれば絵も一緒に縮む。 */
 .tap-character-card {
-    width: 190px;
-    height: 250px;
     background-color: rgba(0, 0, 0, 0);
+    margin-left: 4px;
+    margin-right: 4px;
     -unity-background-scale-mode: scale-to-fit;
     transform-origin: center;
+}
+
+/* 自分のカードだけ金の淡いスポットを背後に敷いて、どれが自分か分かるようにする
+   （カード絵は背景が透過のスチッカーなので、枠線ではなく地色で示す）。 */
+.tap-character-card--you {
+    background-color: rgba(255, 210, 90, 0.16);
+    border-radius: 14px;
 }
 
 /* サンドバッグ画像（3:2）がなるべく切れずに収まる高さにする。基準幅 540 なら 80%＝432px なので
