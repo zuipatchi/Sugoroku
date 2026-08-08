@@ -8,7 +8,7 @@
             <ui:VisualElement name="HeroScrim" class="home-bg__scrim" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:VisualElement name="ModeButtons" class="mode-buttons">
-            <ui:Button text="一人用モード" name="SinglePlayerButton" class="btn-accent mode-button" />
+            <ui:Button text="一人で遊ぶ" name="SinglePlayerButton" class="btn-accent mode-button" />
             <ui:Button text="オンラインプレイ" name="OnlineButton" class="btn-accent mode-button" />
             <ui:Button text="クレジット" name="CreditButton" class="btn-accent mode-button" />
         </ui:VisualElement>

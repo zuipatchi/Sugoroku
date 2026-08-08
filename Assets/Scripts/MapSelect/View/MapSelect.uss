@@ -37,11 +37,11 @@
     background-color: rgba(15, 15, 26, 0.55);
 }
 
-/* 画面上部の操作エリア。中央寄せで右上のオプションアイコンを避ける。 */
+/* 操作エリア。カード一覧の下＝画面下部の暗い帯の中に中央寄せで置く（CharacterSelect と同じ）。 */
 .ms-actions {
     flex-direction: row;
     justify-content: center;
-    margin-top: 32px;
+    margin-top: 16px;
 }
 
 .ms-action {

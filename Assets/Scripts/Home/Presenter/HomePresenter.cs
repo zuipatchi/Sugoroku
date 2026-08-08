@@ -12,7 +12,7 @@ using VContainer;
 namespace Home.Presenter
 {
     // 2つのモードボタン（一人用/オンライン）とクレジットボタンを表示する。
-    // 「一人用モード」は CharacterSelect（キャラ選択）へ、「オンラインプレイ」は Matching へ遷移し、
+    // 「一人で遊ぶ」（一人用モード）は CharacterSelect（キャラ選択）へ、「オンラインプレイ」は Matching へ遷移し、
     // 「クレジット」はクレジットモーダルを開く。
     // 背景には固定画像 Image/HomeBackGround を全画面に表示する
     // （前面 UI が読めるよう上に暗いスクリムを重ねる。未配置は色面プレースホルダ）。

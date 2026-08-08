@@ -7,11 +7,6 @@
             <ui:VisualElement name="BackgroundImage" class="ms-bg__image" picking-mode="Ignore" />
             <ui:VisualElement name="BackgroundScrim" class="ms-bg__scrim" picking-mode="Ignore" />
         </ui:VisualElement>
-        <!-- 戻る／決定は画面上部に配置する（右上は Common のオプションアイコンを避けて中央寄せ） -->
-        <ui:VisualElement name="Actions" class="ms-actions">
-            <ui:Button text="戻る" name="BackButton" class="btn-secondary ms-action" />
-            <ui:Button text="決定" name="ConfirmButton" class="btn-accent ms-action" />
-        </ui:VisualElement>
         <!-- 選択中マップの大プレビュー（盤面サムネイルをコードで Painter2D 描画）とマップ名・イベント内訳 -->
         <ui:VisualElement name="PreviewWrap" class="ms-preview-wrap">
             <ui:VisualElement name="MapPreview" class="ms-preview" picking-mode="Ignore" />
@@ -32,6 +27,11 @@
             </ui:VisualElement>
             <!-- マップのカードはコードで MapGrid に追加する -->
             <ui:VisualElement name="MapGrid" class="ms-grid" />
+            <!-- 戻る／決定はカードの下＝画面下部の暗い帯の中に置く（CharacterSelect と同じ並び） -->
+            <ui:VisualElement name="Actions" class="ms-actions">
+                <ui:Button text="戻る" name="BackButton" class="btn-secondary ms-action" />
+                <ui:Button text="決定" name="ConfirmButton" class="btn-accent ms-action" />
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
