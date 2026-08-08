@@ -12,14 +12,21 @@ namespace Main.Board
         /// イベント種別ごとのマス色。<see cref="BoardCellEvent.None"/>（通常マス）は白＝
         /// 何も起きないマスであることが、色の付いたイベントマスとひと目で見分けられるようにする。
         /// </summary>
+        /// <remarks>
+        /// 色は種別ごとに色相を離して選ぶ。意味から素直に決まるもの（お金アップ＝緑／お金ダウン＝赤／
+        /// アイテム＝金／陣地＝青／ミニゲーム＝紫）を先に置き、意味で色が決まらない進む/戻るを
+        /// 残った色相（シアン／ピンク）に割り当てている。**イベントを足すときは既存の色相と
+        /// 隣り合わない色を選ぶ**（進む＝緑系とお金アップ＝緑、戻る＝橙とアイテム＝金が似ていて
+        /// 盤面エディタとマップ選択のサムネイルで見分けられなかったため入れ替えた）。
+        /// </remarks>
         public static Color Of(BoardCellEvent cellEvent)
         {
             switch (cellEvent)
             {
                 case BoardCellEvent.Forward:
-                    return new Color(0.24f, 0.62f, 0.5f);
+                    return new Color(0.16f, 0.7f, 0.78f);
                 case BoardCellEvent.Back:
-                    return new Color(0.82f, 0.52f, 0.22f);
+                    return new Color(0.9f, 0.38f, 0.62f);
                 case BoardCellEvent.MiniGame:
                     return new Color(0.56f, 0.36f, 0.72f);
                 case BoardCellEvent.MoneyUp:
@@ -27,7 +34,7 @@ namespace Main.Board
                 case BoardCellEvent.MoneyDown:
                     return new Color(0.76f, 0.3f, 0.3f);
                 case BoardCellEvent.Territory:
-                    return new Color(0.3f, 0.46f, 0.76f);
+                    return new Color(0.26f, 0.42f, 0.82f);
                 case BoardCellEvent.Item:
                     return new Color(0.86f, 0.66f, 0.24f);
                 default:
