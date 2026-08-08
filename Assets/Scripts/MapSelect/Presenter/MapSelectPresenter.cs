@@ -18,11 +18,15 @@ namespace MapSelect.Presenter
     /// 「戻る」で CharacterSelect へ遷移する。キャラ選択（CharacterSelect）の盤面版。
     /// カードの並べ替え・大プレビュー・イベント内訳・選択状態は共通の <see cref="MapPickerView"/> に委譲する
     /// （オンラインのルーム作成マップ選択と共用）。サムネイルは画像を使わず Painter2D 描画で非同期ロードは無い。
+    /// 背景には固定画像 Image/StageBackground を全画面に敷く（Home と同じく上に暗いスクリムを重ねる）。
     /// UI 構築は DI 注入（Construct）後に走る <see cref="ISceneReady.ReadyAsync"/> で行う（OnEnable は注入前）。
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public sealed class MapSelectPresenter : MonoBehaviour, ISceneReady
     {
+        // 全画面背景に敷くステージ選択背景画像の Addressables アドレス。
+        private const string BackgroundAddress = "Image/StageBackground";
+
         // 選択できるマップ一覧。MapSelect シーンでこのカタログ資産を割り当てる（Main の BoardPresenter と同じ資産）。
         [SerializeField] private BoardCatalog _catalog;
 
@@ -46,6 +50,7 @@ namespace MapSelect.Presenter
         private Label _playerCountValue;
 
         private MapPickerView _picker;
+        private readonly AddressableSpriteLoader _spriteLoader = new();
         private int _playerCount;
         private bool _transiting;
 
@@ -69,14 +74,14 @@ namespace MapSelect.Presenter
             _uiDocument = GetComponent<UIDocument>();
         }
 
-        // フェードイン前に、注入済みの状態を使ってカード・プレビューを組む。
-        public UniTask ReadyAsync(CancellationToken ct)
+        // フェードイン前に、注入済みの状態を使ってカード・プレビューを組み、背景画像のロードを終える。
+        public async UniTask ReadyAsync(CancellationToken ct)
         {
             _root = _uiDocument.rootVisualElement;
             if (_root == null)
             {
                 Debug.LogError("MapSelect の rootVisualElement が見つかりませんでした。");
-                return UniTask.CompletedTask;
+                return;
             }
 
             _grid = _root.Q<VisualElement>("MapGrid");
@@ -94,7 +99,7 @@ namespace MapSelect.Presenter
                 || _playerCountMinus == null || _playerCountPlus == null || _playerCountValue == null)
             {
                 Debug.LogError("MapSelect の UI 要素が見つかりませんでした。");
-                return UniTask.CompletedTask;
+                return;
             }
 
             // カード一覧・大プレビュー・イベント内訳・選択状態は共通コントローラに委譲する。
@@ -115,7 +120,28 @@ namespace MapSelect.Presenter
             _playerCountPlus.clicked += OnPlayerCountPlusClicked;
             _confirmButton.clicked += OnConfirmClicked;
             _backButton.clicked += OnBackClicked;
-            return UniTask.CompletedTask;
+
+            // 背景画像は表示前にロードを終える（暗幕が開いた後に差し替わらないように）。
+            await LoadBackgroundAsync(ct);
+        }
+
+        // 固定のステージ選択背景画像（Image/StageBackground）を最背面の BackgroundImage に貼る。
+        // 未配置なら .ms-root の暗い地色がそのまま背景になる。
+        private async UniTask LoadBackgroundAsync(CancellationToken ct)
+        {
+            VisualElement backgroundImage = _root.Q<VisualElement>("BackgroundImage");
+            if (backgroundImage == null)
+            {
+                Debug.LogError("MapSelect の背景画像要素（BackgroundImage）が見つかりませんでした。");
+                return;
+            }
+
+            Sprite background = await _spriteLoader.TryLoadAsync(BackgroundAddress, "ステージ選択背景画像", ct);
+            if (background == null || this == null)
+            {
+                return;
+            }
+            backgroundImage.style.backgroundImage = new StyleBackground(background);
         }
 
         private void OnPlayerCountMinusClicked()
@@ -195,6 +221,11 @@ namespace MapSelect.Presenter
             {
                 _playerCountPlus.clicked -= OnPlayerCountPlusClicked;
             }
+        }
+
+        private void OnDestroy()
+        {
+            _spriteLoader.Dispose();
         }
     }
 }

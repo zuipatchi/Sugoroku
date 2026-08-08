@@ -1,6 +1,12 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <Style src="MapSelect.uss" />
     <ui:VisualElement name="MapSelectRoot" class="ms-root">
+        <!-- 固定画像 Image/StageBackground を全画面背景に表示。画像はコードから差し込む。
+             上に暗いスクリムを重ねて前面 UI の視認性を確保する。 -->
+        <ui:VisualElement name="MapSelectBackground" class="ms-bg" picking-mode="Ignore">
+            <ui:VisualElement name="BackgroundImage" class="ms-bg__image" picking-mode="Ignore" />
+            <ui:VisualElement name="BackgroundScrim" class="ms-bg__scrim" picking-mode="Ignore" />
+        </ui:VisualElement>
         <!-- 戻る／決定は画面上部に配置する（右上は Common のオプションアイコンを避けて中央寄せ） -->
         <ui:VisualElement name="Actions" class="ms-actions">
             <ui:Button text="戻る" name="BackButton" class="btn-secondary ms-action" />

@@ -5,6 +5,38 @@
     justify-content: space-between;
 }
 
+/* 全画面背景（Image/StageBackground）--------------------------------------------- */
+
+/* 全画面枠。はみ出しをここで隠す。入力は奪わない。 */
+.ms-bg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+/* ステージ選択の背景画像。全画面をカバーするよう scale-and-crop で敷く。 */
+.ms-bg__image {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+/* 前面 UI を読みやすくする暗いスクリム（幕）。 */
+.ms-bg__scrim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 15, 26, 0.55);
+}
+
 /* 画面上部の操作エリア。中央寄せで右上のオプションアイコンを避ける。 */
 .ms-actions {
     flex-direction: row;
@@ -26,11 +58,14 @@
     justify-content: center;
 }
 
+/* ここの寸法は「基準ボックス」で、実際の枠は MapPickerView が選択マップの縦横比を
+   この中へ内接させた大きさに変える（横長マップなら横長の枠になる）。 */
 .ms-preview {
     width: 320px;
     height: 320px;
     max-width: 80%;
-    background-color: rgba(255, 255, 255, 0.04);
+    /* 背景画像の上でも盤面サムネイルが読めるよう、暗い地色を敷く。 */
+    background-color: rgba(22, 22, 35, 0.75);
     border-left-width: 2px;
     border-right-width: 2px;
     border-top-width: 2px;

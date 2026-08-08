@@ -10,6 +10,8 @@ namespace Main.Board
     /// グリッド一覧し、選ぶと大プレビュー・タイトル・イベント内訳を更新する。選択状態を保持し、
     /// ユーザーがカードを選ぶたびに <see cref="Selected"/> を発火する。サムネイルは
     /// <see cref="BoardSchematicView"/> が Painter2D で描くため非同期ロードは無い。
+    /// 大プレビューの枠は正方形固定ではなく、選択マップの縦横比（<see cref="BoardSchematicView.AspectOf"/>）を
+    /// USS が与えた基準ボックスへ内接させた大きさに変える（横長マップなら横長の枠になる）。
     /// マップ選択シーン（<c>MapSelectPresenter</c>）とオンラインのルーム作成マップ選択で共用する
     /// （どの要素を渡すか・SE・確定/キャンセルの配線は呼び出し側が持つ）。
     /// カード/プレビュー/チップの USS クラスは共用（map-card / map-thumb / map-name /
@@ -17,6 +19,10 @@ namespace Main.Board
     /// </summary>
     public sealed class MapPickerView
     {
+        // 大プレビュー枠の縦横比の下限・上限（一直線のマップなど極端な比率で枠が潰れないように丸める）。
+        private const float MinPreviewAspect = 1f / 4f;
+        private const float MaxPreviewAspect = 4f;
+
         private readonly VisualElement _grid;
         private readonly VisualElement _preview;
         private readonly Label _title;
@@ -25,6 +31,11 @@ namespace Main.Board
 
         private readonly Dictionary<string, VisualElement> _cards = new();
         private BoardDefinition _previewBoard;
+
+        // 大プレビュー枠の基準ボックス（USS が与えた寸法）。ここへ選択マップの縦横比を内接させて
+        // 枠の形をマップに合わせる。レイアウト前は寸法が確定しないので、初回の geometry で 1 度だけ覚える。
+        private Vector2 _previewBox;
+        private bool _previewBoxCaptured;
 
         /// <summary>ユーザーがカードを選んで選択が変わったときに発火する（初期構築では発火しない）。</summary>
         public event Action Selected;
@@ -45,7 +56,41 @@ namespace Main.Board
 
             // 大プレビューは選択マップ（_previewBoard）を毎回読み直して描く。
             _preview.generateVisualContent += ctx => BoardSchematicView.Draw(ctx, _previewBoard);
-            _preview.RegisterCallback<GeometryChangedEvent>(_ => _preview.MarkDirtyRepaint());
+            _preview.RegisterCallback<GeometryChangedEvent>(_ => OnPreviewGeometryChanged());
+        }
+
+        // 初回のレイアウトで基準ボックスを確定し、選択マップの縦横比を枠へ反映する。
+        private void OnPreviewGeometryChanged()
+        {
+            if (!_previewBoxCaptured)
+            {
+                float width = _preview.resolvedStyle.width;
+                float height = _preview.resolvedStyle.height;
+                if (width <= 0f || height <= 0f)
+                {
+                    // まだ表示されていない（オーバーレイが display:none 等）。次の geometry で拾う。
+                    return;
+                }
+                _previewBox = new Vector2(width, height);
+                _previewBoxCaptured = true;
+                ApplyPreviewAspect();
+            }
+            _preview.MarkDirtyRepaint();
+        }
+
+        // 大プレビュー枠の寸法を、選択マップの縦横比を基準ボックスへ内接させた大きさにする
+        // （横長マップなら横長の枠、縦長マップなら縦長の枠になる）。
+        private void ApplyPreviewAspect()
+        {
+            if (!_previewBoxCaptured)
+            {
+                return;
+            }
+            // 一直線のマップ（全マスが同じ行／列）のように極端な比率でも枠が潰れないよう丸める。
+            float aspect = Mathf.Clamp(BoardSchematicView.AspectOf(_previewBoard), MinPreviewAspect, MaxPreviewAspect);
+            float width = Mathf.Min(_previewBox.x, _previewBox.y * aspect);
+            _preview.style.width = width;
+            _preview.style.height = width / aspect;
         }
 
         /// <summary>
@@ -120,6 +165,7 @@ namespace Main.Board
             }
 
             _title.text = _previewBoard != null ? DisplayNameOf(_previewBoard) : string.Empty;
+            ApplyPreviewAspect();
             _preview.MarkDirtyRepaint();
             UpdateStats();
         }

@@ -352,7 +352,8 @@
     margin-bottom: 14px;
 }
 
-/* 選択中マップの大プレビュー（Painter2D 描画）。 */
+/* 選択中マップの大プレビュー（Painter2D 描画）。
+   寸法は「基準ボックス」で、実際の枠は MapPickerView が選択マップの縦横比をこの中へ内接させた大きさに変える。 */
 .mp-preview {
     width: 220px;
     height: 220px;
