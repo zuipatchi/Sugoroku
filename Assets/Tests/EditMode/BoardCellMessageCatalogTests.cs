@@ -11,6 +11,26 @@ namespace Tests.EditMode
         // seed 固定でも全要素がそろう（引けなければ抽選が偏っている＝バグ）。
         private const int Draws = 500;
 
+        // 既定文言を流し込んだ資産（本番の割り当て済みと同じ状態）。テストごとに作り直す。
+        private BoardCellMessageCatalog _catalog;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _catalog = UnityEngine.ScriptableObject.CreateInstance<BoardCellMessageCatalog>();
+            _catalog.ResetToDefaults();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (_catalog != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_catalog);
+                _catalog = null;
+            }
+        }
+
         private static IEnumerable<BoardCellEvent> AllEvents()
         {
             foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
@@ -20,40 +40,82 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void すべてのイベントに文言がある()
+        public void すべてのイベントに既定の文言がある()
         {
             foreach (BoardCellEvent cellEvent in AllEvents())
             {
-                IReadOnlyList<string> pool = BoardCellMessageCatalog.Messages(cellEvent);
-                Assert.IsNotNull(pool, $"{cellEvent} の文言プールが null です。");
-                Assert.Greater(pool.Count, 0, $"{cellEvent} の文言が 1 件もありません。");
-                Assert.IsNotNull(
-                    BoardCellMessageCatalog.Pick(cellEvent, false, new Random(1)),
-                    $"{cellEvent} の文言が選べませんでした。");
+                IReadOnlyList<string> pool = BoardCellMessageDefaults.Messages(cellEvent);
+                Assert.IsNotNull(pool, $"{cellEvent} の既定の文言プールが null です。");
+                Assert.Greater(pool.Count, 0, $"{cellEvent} の既定の文言が 1 件もありません。");
             }
         }
 
         [Test]
         public void スタート専用の文言がある()
         {
-            Assert.Greater(BoardCellMessageCatalog.StartMessages.Count, 0);
-            Assert.IsNotNull(BoardCellMessageCatalog.Pick(BoardCellEvent.None, true, new Random(1)));
+            Assert.Greater(BoardCellMessageDefaults.StartMessages.Count, 0);
+            Assert.Greater(_catalog.StartMessages.Count, 0);
+            Assert.IsNotNull(_catalog.Pick(BoardCellEvent.None, true, new Random(1)));
         }
 
         [Test]
-        public void 文言に空のものが混ざっていない()
+        public void 既定の文言に空のものが混ざっていない()
         {
             foreach (BoardCellEvent cellEvent in AllEvents())
             {
-                foreach (string message in BoardCellMessageCatalog.Messages(cellEvent))
+                foreach (string message in BoardCellMessageDefaults.Messages(cellEvent))
                 {
                     Assert.IsFalse(string.IsNullOrWhiteSpace(message), $"{cellEvent} に空の文言があります。");
                 }
             }
-            foreach (string message in BoardCellMessageCatalog.StartMessages)
+            foreach (string message in BoardCellMessageDefaults.StartMessages)
             {
                 Assert.IsFalse(string.IsNullOrWhiteSpace(message), "スタートに空の文言があります。");
             }
+        }
+
+        [Test]
+        public void 既定に戻した資産は既定の文言と一致する()
+        {
+            CollectionAssert.AreEqual(BoardCellMessageDefaults.StartMessages, _catalog.StartMessages);
+            foreach (BoardCellEvent cellEvent in AllEvents())
+            {
+                CollectionAssert.AreEqual(
+                    BoardCellMessageDefaults.Messages(cellEvent),
+                    _catalog.Messages(cellEvent),
+                    $"{cellEvent} の文言が既定と一致しません。");
+            }
+        }
+
+        [Test]
+        public void 資産が未割り当てなら既定の文言から選ぶ()
+        {
+            // インスペクタ未割り当てでも従来どおり動く（BoardPresenter はこの静的版を呼ぶ）。
+            foreach (BoardCellEvent cellEvent in AllEvents())
+            {
+                string picked = BoardCellMessageCatalog.Pick(null, cellEvent, false, new Random(3));
+                CollectionAssert.Contains(BoardCellMessageDefaults.Messages(cellEvent), picked);
+            }
+            CollectionAssert.Contains(
+                BoardCellMessageDefaults.StartMessages,
+                BoardCellMessageCatalog.Pick(null, BoardCellEvent.None, true, new Random(3)));
+        }
+
+        [Test]
+        public void 資産を割り当てたら資産の文言から選ぶ()
+        {
+            _catalog.SetMessages(BoardCellEvent.MoneyUp, new[] { "資産の文言" });
+            Assert.AreEqual(
+                "資産の文言",
+                BoardCellMessageCatalog.Pick(_catalog, BoardCellEvent.MoneyUp, false, new Random(5)));
+        }
+
+        [Test]
+        public void プールを空にしたマスでは文言が出ない()
+        {
+            // 空プールは「そのマスでは文言を出さない」という意図的な設定なので、既定へは戻さない。
+            _catalog.SetMessages(BoardCellEvent.None, Array.Empty<string>());
+            Assert.IsNull(BoardCellMessageCatalog.Pick(_catalog, BoardCellEvent.None, false, new Random(5)));
         }
 
         [Test]
@@ -62,8 +124,8 @@ namespace Tests.EditMode
             // 乱数源は呼び出し側が渡す規約（MoneyCellRule と同じ）なので、seed を固定すれば再現できる。
             foreach (BoardCellEvent cellEvent in AllEvents())
             {
-                string first = BoardCellMessageCatalog.Pick(cellEvent, false, new Random(20260806));
-                string second = BoardCellMessageCatalog.Pick(cellEvent, false, new Random(20260806));
+                string first = _catalog.Pick(cellEvent, false, new Random(20260806));
+                string second = _catalog.Pick(cellEvent, false, new Random(20260806));
                 Assert.AreEqual(first, second, $"{cellEvent} の抽選が seed 固定で再現しません。");
             }
         }
@@ -73,11 +135,11 @@ namespace Tests.EditMode
         {
             foreach (BoardCellEvent cellEvent in AllEvents())
             {
-                IReadOnlyList<string> pool = BoardCellMessageCatalog.Messages(cellEvent);
+                IReadOnlyList<string> pool = _catalog.Messages(cellEvent);
                 Random rng = new(7);
                 for (int i = 0; i < Draws; i++)
                 {
-                    string picked = BoardCellMessageCatalog.Pick(cellEvent, false, rng);
+                    string picked = _catalog.Pick(cellEvent, false, rng);
                     CollectionAssert.Contains(pool, picked, $"{cellEvent} でプール外の文言が出ました。");
                 }
             }
@@ -89,13 +151,11 @@ namespace Tests.EditMode
             foreach (BoardCellEvent cellEvent in AllEvents())
             {
                 Assert.AreEqual(
-                    BoardCellMessageCatalog.Messages(cellEvent)[0],
-                    BoardCellMessageCatalog.Pick(cellEvent, false, null),
+                    _catalog.Messages(cellEvent)[0],
+                    _catalog.Pick(cellEvent, false, null),
                     $"{cellEvent} で null の乱数源が先頭を返しませんでした。");
             }
-            Assert.AreEqual(
-                BoardCellMessageCatalog.StartMessages[0],
-                BoardCellMessageCatalog.Pick(BoardCellEvent.None, true, null));
+            Assert.AreEqual(_catalog.StartMessages[0], _catalog.Pick(BoardCellEvent.None, true, null));
         }
 
         [Test]
@@ -103,12 +163,12 @@ namespace Tests.EditMode
         {
             foreach (BoardCellEvent cellEvent in AllEvents())
             {
-                IReadOnlyList<string> pool = BoardCellMessageCatalog.Messages(cellEvent);
+                IReadOnlyList<string> pool = _catalog.Messages(cellEvent);
                 HashSet<string> seen = new();
                 Random rng = new(31);
                 for (int i = 0; i < Draws; i++)
                 {
-                    seen.Add(BoardCellMessageCatalog.Pick(cellEvent, false, rng));
+                    seen.Add(_catalog.Pick(cellEvent, false, rng));
                 }
                 Assert.AreEqual(pool.Count, seen.Count, $"{cellEvent} で出ない文言があります（抽選が偏っています）。");
             }
@@ -123,13 +183,39 @@ namespace Tests.EditMode
                 Random rng = new(99);
                 for (int i = 0; i < Draws; i++)
                 {
-                    string picked = BoardCellMessageCatalog.Pick(cellEvent, true, rng);
+                    string picked = _catalog.Pick(cellEvent, true, rng);
                     CollectionAssert.Contains(
-                        BoardCellMessageCatalog.StartMessages,
+                        _catalog.StartMessages,
                         picked,
                         $"{cellEvent} のスタート指定でスタート以外の文言が出ました。");
                 }
             }
+        }
+
+        [Test]
+        public void 編集した文言が資産に残る()
+        {
+            _catalog.SetStartMessages(new[] { "スタートの文言" });
+            _catalog.SetMessages(BoardCellEvent.Item, new[] { "ショップ1", "ショップ2" });
+
+            CollectionAssert.AreEqual(new[] { "スタートの文言" }, _catalog.StartMessages);
+            CollectionAssert.AreEqual(new[] { "ショップ1", "ショップ2" }, _catalog.Messages(BoardCellEvent.Item));
+        }
+
+        [Test]
+        public void 編集欄をそろえても既存の文言は消えない()
+        {
+            // 新しい BoardCellEvent を足した後の古い資産でも、エディタに全種別の編集欄が出るようにする API。
+            // 足りないぶんを空で補うだけで、すでに入っている文言には触らない。
+            _catalog.SetMessages(BoardCellEvent.Territory, new[] { "陣地の文言" });
+
+            _catalog.EnsurePools();
+
+            foreach (BoardCellEvent cellEvent in AllEvents())
+            {
+                Assert.IsNotNull(_catalog.Messages(cellEvent), $"{cellEvent} のプールがありません。");
+            }
+            CollectionAssert.AreEqual(new[] { "陣地の文言" }, _catalog.Messages(BoardCellEvent.Territory));
         }
     }
 }

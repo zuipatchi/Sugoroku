@@ -407,14 +407,14 @@ SpinDecision decision = await decided;
 2. [BoardEventColors.cs](../Assets/Scripts/Main/Board/BoardEventColors.cs) に色を足す（盤面エディタのグリッド・凡例と、マップ選択のサムネイル・内訳が同じ配色を共有する）
 3. [BoardEventLabel.cs](../Assets/Scripts/Main/Board/BoardEventLabel.cs) に日本語名を足す（凡例・内訳チップ・マス説明モーダルの見出し）
 4. [BoardEventDescription.cs](../Assets/Scripts/Main/Board/BoardEventDescription.cs) に説明文を足す（マスをタップしたときの説明モーダル本文）。**金額やマス数のような「ルール側で決まっている数値」は各ルールの定数から組み立てる**（お金マスは `MoneyCellRule.Unit`/`MinN`/`MaxN`、進む/戻るマスは `MoveCellRule.MinSteps`/`MaxSteps`）ので、ルールを変えれば説明も一緒に変わる。足し忘れると通常マスと同じ文言のままになる（EditMode テストが検出する）
-5. [BoardCellMessageCatalog.cs](../Assets/Scripts/Main/Board/BoardCellMessageCatalog.cs) に着地時の文言プールを足す（止まったときにマス画像の下へ出すフレーバーテキスト。**1 種別につき数件並べて着地のたびに 1 つ抽選する**ので、単数形の「説明文」ではなく配列で用意する）。足し忘れると通常マスの文言が出る（EditMode テストが検出する）
+5. [BoardCellMessageDefaults.cs](../Assets/Scripts/Main/Board/BoardCellMessageDefaults.cs) に着地時の既定文言プールを足す（止まったときにマス画像の下へ出すフレーバーテキスト。**1 種別につき数件並べて着地のたびに 1 つ抽選する**ので、単数形の「説明文」ではなく配列で用意する）。足し忘れると通常マスの文言が出る（EditMode テストが検出する）。**実際に使う文言は `BoardCellMessageCatalog` 資産**（`Window > Sugoroku > Cell Message Editor`）なので、既存の資産にはウィンドウで足した種別の欄が空で現れる＝そこにも文言を入れる（空のままだとそのマスでは文言が出ない）
 6. [BoardEventTally.cs](../Assets/Scripts/Main/Board/BoardEventTally.cs) の `DisplayOrder` に足す（マップ選択の内訳に出す順。入れないと内訳に出ない）
 7. マス画像を使うなら [BoardEventArtCatalog.cs](../Assets/Scripts/Main/Board/BoardEventArtCatalog.cs) の `Address` にアドレスを足し、画像を `Assets/AddressableAssets/Image/Board/` に置いて **Addressable アドレスを `Board/<イベント名>`**（＝enum 名。通常マス〔`None`〕だけは素材名のままの `Image/Board/Glass`＝`NoneAddress` という例外）に設定する。画像を用意しないイベントは空文字のままで、`BoardPresenter.EventMarker` の記号表示にフォールバックする。**マスごとのデータで絵を変えたいときは `AddressFor` に分岐を足す**（ミニゲームマスが、マスに設定されたゲームのサムネイル〔`MiniGameCatalog.ImageAddress`〕を使う例）
 8. マスごとに設定する値が要るなら [BoardCellInspector.cs](../Assets/Scripts/Main/Editor/BoardCellInspector.cs) に入力欄を足す（`BoardCellDefinition.MiniGame` がその例）。**汎用の数値パラメータ `Amount` は現在どのイベントからも読まれていない**（マス数も金額も着地のたびのランダムに移行したため）ので、これを使う設計にする前に「本当にマスごとに固定したいのか」を確かめる
 
 盤面エディタの凡例は `Enum.GetValues` で自動生成されるので、1〜3 を足せば勝手に並ぶ。
 
-**イベント種別ごとの静的カタログはこの並び（色・ラベル・説明・文言・画像）で揃えてある**ので、新しい「種別ごとに変わる見せ方」を足すときも `switch` 1 つの静的クラスにして同じ場所に並べる（`BoardDefinition` 側にフィールドを増やさない＝盤面ごとに設定させると全マップぶん手で埋める羽目になる）。マスの絵と同じく**全マップ共通**なのが既定で、盤面ごとに変えたいものだけ `BoardDefinition` が持つ（枠画像・背景画像がその例）。
+**イベント種別ごとの静的カタログはこの並び（色・ラベル・説明・文言・画像）で揃えてある**（文言だけは、再コンパイルなしで直せるよう静的な既定値の上に `BoardCellMessageCatalog` 資産を重ねてある）ので、新しい「種別ごとに変わる見せ方」を足すときも `switch` 1 つの静的クラスにして同じ場所に並べる（`BoardDefinition` 側にフィールドを増やさない＝盤面ごとに設定させると全マップぶん手で埋める羽目になる）。マスの絵と同じく**全マップ共通**なのが既定で、盤面ごとに変えたいものだけ `BoardDefinition` が持つ（枠画像・背景画像がその例）。
 
 ### 着地時の効果を実装する
 

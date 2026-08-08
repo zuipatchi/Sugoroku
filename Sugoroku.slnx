@@ -72,6 +72,7 @@
   <Project Path="Unity.AutoGroupGenerator.Editor.csproj" />
   <Project Path="Unity.VisualScripting.State.csproj" />
   <Project Path="Unity.AI.Navigation.Updater.csproj" />
+  <Project Path="Main.Editor.csproj" />
   <Project Path="UnityEditor.UI.csproj" />
   <Project Path="Unity.Netcode.Editor.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.2D.Editor.Overrides.csproj" />
@@ -117,7 +118,6 @@
   <Project Path="Unity.Services.Core.Analytics.csproj" />
   <Project Path="CFXRRuntime.csproj" />
   <Project Path="CFXRDemo.csproj" />
-  <Project Path="Main.Editor.csproj" />
   <Project Path="Unity.CollabProxy.Editor.csproj" />
   <Project Path="Unity.RenderPipeline.Universal.ShaderLibrary.csproj" />
   <Project Path="MapSelect.csproj" />

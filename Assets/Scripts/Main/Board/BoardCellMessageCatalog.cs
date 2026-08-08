@@ -1,126 +1,72 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Main.Board
 {
     /// <summary>
-    /// マスに止まったときに見せる文言（フレーバーテキスト）のカタログ（ランタイム共通）。
-    /// イベント種別ごとに文言をいくつか用意しておき、着地のたびに 1 つをランダムに選んで
+    /// マスに止まったときに見せる文言（フレーバーテキスト）のカタログ資産。
+    /// イベント種別ごとに文言をいくつか持っておき、着地のたびに 1 つをランダムに選んで
     /// <see cref="BoardPresenter"/> がマス画像の下に表示する。
     ///
-    /// 文言はマスごとの設定ではなくイベント種別ごとに全マップ共通で持つ（マスの画像を種別ごとに解決する
-    /// <see cref="BoardEventArtCatalog"/>・説明文の <see cref="BoardEventDescription"/> と同じ静的カタログ方式）。
-    /// 文言を足すときは該当プールの配列に 1 行足すだけでよい。
+    /// 編集は「Window > Sugoroku > Cell Message Editor」（<c>CellMessageEditorWindow</c>）で行う。
+    /// 資産にしてあるのは、文言を直すたびに再コンパイルが要らないようにするため
+    /// （<see cref="BoardCatalog"/> と同じく <see cref="BoardPresenter"/> へインスペクタで割り当てる）。
+    ///
+    /// 未割り当てのときは <see cref="BoardCellMessageDefaults"/> の既定文言にフォールバックするので、
+    /// 資産を作らなくても従来どおり動く。**割り当てたら資産の中身がそのまま出る**（プールを空にした
+    /// マスでは文言が出ない＝意図的に消せる）。
     ///
     /// 抽選は各クライアントがローカルに行う（見た目だけで盤面の状態には影響しないので、オンラインでも
     /// アクションストリームに載せて配る必要がない）。乱数源は呼び出し側が渡し、null なら先頭を返して
     /// 決定的にふるまう（<see cref="Money.MoneyCellRule"/> と同じ規約）。
     /// </summary>
-    public static class BoardCellMessageCatalog
+    [CreateAssetMenu(menuName = "Sugoroku/Cell Message Catalog", fileName = "BoardCellMessageCatalog")]
+    public sealed class BoardCellMessageCatalog : ScriptableObject
     {
-        // スタート＝ゴール（経路 index 0）はイベント種別ではなく位置で決まるので専用プールを持つ
-        // （BoardEventDescription.StartDescription と同じ扱い）。
-        private static readonly string[] StartPool =
+        /// <summary>イベント種別 1 つぶんの文言プール（資産に保存する単位）。</summary>
+        [Serializable]
+        private sealed class MessagePool
         {
-            "スタート地点に帰ってきた！",
-            "ここが始まりの場所。",
-            "ぐるりと一周してきた。",
-            "旅はまだまだ続く。"
-        };
+            [SerializeField] private BoardCellEvent _event;
+            [SerializeField] private List<string> _messages = new();
 
-        private static readonly string[] NonePool =
-        {
-            "ひと息ついた。",
-            "何事もなく通り過ぎた。",
-            "空を見上げた。いい天気だ。",
-            "足を止めて深呼吸した。"
-        };
+            public MessagePool(BoardCellEvent cellEvent, IReadOnlyList<string> messages)
+            {
+                _event = cellEvent;
+                Assign(messages);
+            }
 
-        private static readonly string[] ForwardPool =
-        {
-            "追い風が吹いた！",
-            "近道を見つけた！",
-            "足が軽い！どんどん行こう！",
-            "風に乗ってひとっ飛び！",
-            "調子に乗って走り出した！"
-        };
+            public BoardCellEvent Event => _event;
 
-        private static readonly string[] BackPool =
-        {
-            "道を間違えた…",
-            "忘れ物を取りに戻った。",
-            "石につまずいて転んだ！",
-            "来た道を引き返すはめに…",
-            "強い向かい風に押し戻された！"
-        };
+            public IReadOnlyList<string> Messages => _messages;
 
-        private static readonly string[] MiniGamePool =
-        {
-            "勝負の時間だ！",
-            "腕の見せどころ！",
-            "挑戦者があらわれた！",
-            "ここで一勝負といこうか。"
-        };
+            public void Assign(IReadOnlyList<string> messages)
+            {
+                _messages.Clear();
+                if (messages == null)
+                {
+                    return;
+                }
+                for (int i = 0; i < messages.Count; i++)
+                {
+                    _messages.Add(messages[i]);
+                }
+            }
+        }
 
-        private static readonly string[] MoneyUpPool =
-        {
-            "道ばたでお金を拾った！",
-            "臨時収入が入った！",
-            "宝箱を見つけた！",
-            "落とし物を届けてお礼をもらった！",
-            "くじが当たった！"
-        };
-
-        private static readonly string[] MoneyDownPool =
-        {
-            "お金を落とした！",
-            "財布に穴が空いていた…",
-            "うっかり買いすぎてしまった…",
-            "通行料を取られた…",
-            "スリに狙われた！"
-        };
-
-        private static readonly string[] TerritoryPool =
-        {
-            "ここは私の土地だ！",
-            "旗を立てて宣言した！",
-            "見晴らしのいい土地を手に入れた！",
-            "この場所、いただき！"
-        };
-
-        private static readonly string[] ItemPool =
-        {
-            "掘り出し物があるかも？",
-            "いらっしゃいませ！",
-            "店主が手招きしている。",
-            "何かいい道具はないだろうか。"
-        };
+        // スタート＝ゴール（経路 index 0）はイベント種別ではなく位置で決まるので別に持つ。
+        [SerializeField] private List<string> _startMessages = new();
+        [SerializeField] private List<MessagePool> _pools = new();
 
         /// <summary>スタート＝ゴール（経路 index 0）の文言プール。</summary>
-        public static IReadOnlyList<string> StartMessages => StartPool;
+        public IReadOnlyList<string> StartMessages => _startMessages;
 
-        /// <summary>イベント <paramref name="cellEvent"/> の文言プール（未定義の種別は通常マスのプール）。</summary>
-        public static IReadOnlyList<string> Messages(BoardCellEvent cellEvent)
+        /// <summary>イベント <paramref name="cellEvent"/> の文言プール（未登録なら空）。</summary>
+        public IReadOnlyList<string> Messages(BoardCellEvent cellEvent)
         {
-            switch (cellEvent)
-            {
-                case BoardCellEvent.Forward:
-                    return ForwardPool;
-                case BoardCellEvent.Back:
-                    return BackPool;
-                case BoardCellEvent.MiniGame:
-                    return MiniGamePool;
-                case BoardCellEvent.MoneyUp:
-                    return MoneyUpPool;
-                case BoardCellEvent.MoneyDown:
-                    return MoneyDownPool;
-                case BoardCellEvent.Territory:
-                    return TerritoryPool;
-                case BoardCellEvent.Item:
-                    return ItemPool;
-                default:
-                    return NonePool;
-            }
+            MessagePool pool = FindPool(cellEvent);
+            return pool != null ? pool.Messages : Array.Empty<string>();
         }
 
         /// <summary>
@@ -128,14 +74,104 @@ namespace Main.Board
         /// イベント種別に依らずスタート専用プールから選ぶ。プールが空のときだけ null を返す。
         /// 乱数源 <paramref name="rng"/> が null のときはプールの先頭を返す（決定的）。
         /// </summary>
-        public static string Pick(BoardCellEvent cellEvent, bool isStart, Random rng)
+        public string Pick(BoardCellEvent cellEvent, bool isStart, System.Random rng)
         {
-            IReadOnlyList<string> pool = isStart ? StartMessages : Messages(cellEvent);
+            return PickFrom(isStart ? StartMessages : Messages(cellEvent), rng);
+        }
+
+        /// <summary>
+        /// <paramref name="catalog"/> 資産（未割り当てなら <see cref="BoardCellMessageDefaults"/> の既定文言）から
+        /// 文言を 1 つ選ぶ。呼び出し側が資産の有無で分岐しなくて済むようにするための入り口。
+        /// </summary>
+        public static string Pick(
+            BoardCellMessageCatalog catalog, BoardCellEvent cellEvent, bool isStart, System.Random rng)
+        {
+            return catalog != null
+                ? catalog.Pick(cellEvent, isStart, rng)
+                : PickFrom(BoardCellMessageDefaults.Pool(cellEvent, isStart), rng);
+        }
+
+        /// <summary>
+        /// プールから 1 件選ぶ共通の規約。空なら null、乱数源が null なら先頭（決定的）。
+        /// </summary>
+        public static string PickFrom(IReadOnlyList<string> pool, System.Random rng)
+        {
             if (pool == null || pool.Count == 0)
             {
                 return null;
             }
             return pool[rng == null ? 0 : rng.Next(pool.Count)];
+        }
+
+        /// <summary>スタート専用プールを差し替える（エディタから編集するため）。</summary>
+        public void SetStartMessages(IReadOnlyList<string> messages)
+        {
+            _startMessages.Clear();
+            if (messages == null)
+            {
+                return;
+            }
+            for (int i = 0; i < messages.Count; i++)
+            {
+                _startMessages.Add(messages[i]);
+            }
+        }
+
+        /// <summary>イベント <paramref name="cellEvent"/> のプールを差し替える（エディタから編集するため）。</summary>
+        public void SetMessages(BoardCellEvent cellEvent, IReadOnlyList<string> messages)
+        {
+            MessagePool pool = FindPool(cellEvent);
+            if (pool == null)
+            {
+                _pools.Add(new MessagePool(cellEvent, messages));
+                return;
+            }
+            pool.Assign(messages);
+        }
+
+        /// <summary>
+        /// 定義済みのイベント種別ぶんのプールを enum の並び順でそろえる（無いものは空で追加）。
+        /// 新しい <see cref="BoardCellEvent"/> を足したときに、既存の資産でも編集欄が出るようにするためのもの。
+        /// </summary>
+        public void EnsurePools()
+        {
+            List<MessagePool> ordered = new();
+            foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
+            {
+                MessagePool pool = FindPool(cellEvent);
+                ordered.Add(pool ?? new MessagePool(cellEvent, Array.Empty<string>()));
+            }
+            _pools = ordered;
+        }
+
+        /// <summary>すべてのプールを <see cref="BoardCellMessageDefaults"/> の既定文言で埋め直す。</summary>
+        public void ResetToDefaults()
+        {
+            SetStartMessages(BoardCellMessageDefaults.StartMessages);
+            _pools.Clear();
+            foreach (BoardCellEvent cellEvent in Enum.GetValues(typeof(BoardCellEvent)))
+            {
+                _pools.Add(new MessagePool(cellEvent, BoardCellMessageDefaults.Messages(cellEvent)));
+            }
+        }
+
+        private MessagePool FindPool(BoardCellEvent cellEvent)
+        {
+            for (int i = 0; i < _pools.Count; i++)
+            {
+                if (_pools[i] != null && _pools[i].Event == cellEvent)
+                {
+                    return _pools[i];
+                }
+            }
+            return null;
+        }
+
+        // 資産を新規作成したときに Unity（エディタ）が呼ぶ。空の資産だと文言が 1 つも出なくなるので、
+        // 既定文言を入れた状態から編集を始められるようにしておく。
+        private void Reset()
+        {
+            ResetToDefaults();
         }
     }
 }

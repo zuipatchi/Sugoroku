@@ -40,6 +40,9 @@ namespace Main.Board
         // 盤面データ（形・経路・イベント・見た目）。カタログで解決できないときのフォールバック。
         // これも未割り当てなら下の _columns/_rows から矩形リングを生成する。
         [SerializeField] private BoardDefinition _definition;
+        // マスに止まったときに見せる文言（フレーバーテキスト）のカタログ資産。全マップ共通なのでマップ選択には依らない。
+        // 編集は「Window > Sugoroku > Cell Message Editor」。未割り当てなら BoardCellMessageDefaults の既定文言を使う。
+        [SerializeField] private BoardCellMessageCatalog _messageCatalog;
         // _definition 未割り当て時のフォールバック用。縦画面向けに幅より高さの大きい縦長リング（列 < 行）。周回マス数は 2*列+2*行-4。
         [SerializeField] private int _columns = 5;
         [SerializeField] private int _rows = 7;
@@ -1446,19 +1449,28 @@ namespace Main.Board
         }
 
         /// <summary>
+        /// マスに止まったときの文言（と、出せるマスではマス画像）を中央に見せておく時間（秒）。
+        /// **止まったマスの種類に依らず同じ長さ**にそろえてある：お金・進む/戻るマスは浮遊テキストと同時に
+        /// 消すので浮遊テキストの時間をここから逆算し、専用演出へ分岐するマス（陣地・アイテム・ミニゲーム）は
+        /// 文言だけをこの長さ見せてから分岐する。
+        /// フェードイン（USS transition 0.18 秒）とフェードアウト（0.2 秒）はこれとは別に前後へ付く。
+        /// </summary>
+        private const float CellMessageSeconds = 2.0f;
+
+        /// <summary>
         /// 着地演出を統括する。止まったマスの画像とそのマスの文言を中央に拡大表示し、着地イベントを反映する。
         /// お金マスでは増減額の浮遊テキストと画像を同じタイミングで消し、それ以外は画像を少し見せてから消す。
         /// 陣地・アイテム・ミニゲームのマスは専用の演出（旗・ショップ・ゲーム起動）へ分岐するので、
-        /// その手前で文言だけを短く見せてから分岐する。
+        /// その手前で文言だけを見せてから分岐する。
+        /// どのマスでも文言を見せる長さは <see cref="CellMessageSeconds"/> にそろえてある。
         /// </summary>
         private async UniTask PlayLandingSequenceAsync(int player, CancellationToken ct)
         {
-            // 画像を出してから浮遊テキストを出すまでの間（0.5 秒）と、浮遊テキストが浮かび上がる時間（1.5 秒）。
-            // お金マスは画像を浮遊テキストと同時に消すので、画像の合計表示は 0.5 + 1.5 = 2.0 秒になる。
+            // 画像を出してから浮遊テキストを出すまでの間（0.5 秒）。
             const float PreHoldSeconds = 0.5f;
-            const float FloatSeconds = 1.5f;
-            // お金・陣地以外のマス（スタート等）は画像を計 1.0 秒表示してから 0.2 秒でフェードアウトさせる。
-            const float CellPopupHoldSeconds = 1.0f;
+            // 浮遊テキスト（お金の増減額・進む/戻るのマス数）が浮かび上がる時間。お金・移動マスは画像と文言を
+            // 浮遊テキストと同時に消すので、文言の表示が他のマスと同じ CellMessageSeconds になるよう逆算する。
+            const float FloatSeconds = CellMessageSeconds - PreHoldSeconds;
 
             // 着地演出はアイテムショップなど別のモーダルを開くことがあるので、見せるだけのマス説明は先に閉じる
             // （重なって見えないだけでなく、SortingOrder の退避が二重になって戻らなくなるのを防ぐ）。
@@ -1521,18 +1533,19 @@ namespace Main.Board
             // 浮遊テキストは FloatSeconds かけて浮かび上がり、画像と同時に消す。
             bool hidPopup = await ApplyLandingEventAsync(player, popupShown, FloatSeconds, ct);
 
-            // お金以外（＝画像がまだ出たまま）は、計 CellPopupHoldSeconds 秒見せてから画像を消す
+            // お金以外（＝画像がまだ出たまま）は、計 CellMessageSeconds 秒見せてから画像を消す
             // （PreHoldSeconds ぶんは経過済みなので残りだけ待つ）。
             if (popupShown && !hidPopup)
             {
-                await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, CellPopupHoldSeconds - PreHoldSeconds)), cancellationToken: ct);
+                await UniTask.Delay(TimeSpan.FromSeconds(Mathf.Max(0f, CellMessageSeconds - PreHoldSeconds)), cancellationToken: ct);
                 await _landing.HideCellPopupAsync(ct);
             }
         }
 
         /// <summary>
         /// 盤面 index <paramref name="position"/> のマスで見せる文言を 1 つ選ぶ（イベント種別ごとに用意した
-        /// <see cref="BoardCellMessageCatalog"/> からの抽選）。盤面外なら null。
+        /// <see cref="BoardCellMessageCatalog"/> 資産からの抽選。未割り当てなら
+        /// <see cref="BoardCellMessageDefaults"/> の既定文言）。盤面外なら null。
         ///
         /// 抽選は各クライアントがローカルに行う。文言は見た目だけで盤面の状態には影響しないので、
         /// オンラインでもアクションストリームに載せて配る必要がない（食い違っても進行は一致する）。
@@ -1544,19 +1557,18 @@ namespace Main.Board
                 return null;
             }
             // 経路 index 0 はスタート＝ゴール。イベント種別ではなく位置で決まるので専用の文言を使う。
-            return BoardCellMessageCatalog.Pick(_boardDef.Cell(position).Event, position == 0, _messageRng);
+            return BoardCellMessageCatalog.Pick(
+                _messageCatalog, _boardDef.Cell(position).Event, position == 0, _messageRng);
         }
 
         /// <summary>
-        /// マスの文言だけを中央に短く見せてから消す。陣地・アイテム・ミニゲームのマスのように、
+        /// マスの文言だけを中央に見せてから消す。陣地・アイテム・ミニゲームのマスのように、
         /// このあと専用の演出（旗・ショップ・ゲーム起動）へ分岐して画像ポップアップを出さない着地で使う。
-        /// 文言が無いときは何もしない（分岐を待たせない）。
+        /// 見せる長さは画像ありの着地と同じ <see cref="CellMessageSeconds"/>（マスの種類で文言の
+        /// 読める時間が変わらないようにそろえてある）。文言が無いときは何もしない（分岐を待たせない）。
         /// </summary>
         private async UniTask ShowCellMessageOnlyAsync(string message, CancellationToken ct)
         {
-            // 読める長さだけ見せる。このあとの演出を待たせるので画像ありの着地（1.0 秒）より短くする。
-            const float MessageOnlySeconds = 0.9f;
-
             if (string.IsNullOrEmpty(message))
             {
                 return;
@@ -1565,7 +1577,7 @@ namespace Main.Board
             {
                 return;
             }
-            await UniTask.Delay(TimeSpan.FromSeconds(MessageOnlySeconds), cancellationToken: ct);
+            await UniTask.Delay(TimeSpan.FromSeconds(CellMessageSeconds), cancellationToken: ct);
             await _landing.HideCellPopupAsync(ct);
         }
 
