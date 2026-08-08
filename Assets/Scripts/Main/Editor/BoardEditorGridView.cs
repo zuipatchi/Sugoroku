@@ -17,8 +17,11 @@ namespace Main.EditorTools
         /// <summary>経路に含まれない空マスの色。</summary>
         public static readonly Color EmptyCellColor = new(0.2f, 0.2f, 0.24f);
 
-        /// <summary>スタート（0＝S/G）マスの専用色（イベントに依らず固定）。</summary>
-        public static readonly Color StartCellColor = new(0.27f, 0.35f, 0.7f);
+        /// <summary>
+        /// スタート（0＝S/G）マスの専用色（イベントに依らず固定）。マップ選択のサムネイルと
+        /// 同じ色を使うため、ランタイム共通の <see cref="BoardEventColors.Start"/> に委譲する。
+        /// </summary>
+        public static Color StartCellColor => BoardEventColors.Start;
 
         private readonly VisualElement _container;
         private readonly Action<Vector2Int> _onCellClicked;

@@ -18,7 +18,6 @@ namespace Main.Board
     public static class BoardSchematicView
     {
         private static readonly Color LineColor = new(1f, 1f, 1f, 0.35f);
-        private static readonly Color StartColor = new(0.92f, 0.78f, 0.35f, 1f);
 
         /// <summary>盤面のマスが占めている方眼上の範囲（1 マス＝1 単位）。</summary>
         public readonly struct CellBounds
@@ -133,7 +132,7 @@ namespace Main.Board
             for (int i = 0; i < board.CellCount; i++)
             {
                 Vector2 c = ToPoint(i);
-                painter.fillColor = i == 0 ? StartColor : BoardEventColors.Of(board.Cell(i).Event);
+                painter.fillColor = i == 0 ? BoardEventColors.Start : BoardEventColors.Of(board.Cell(i).Event);
                 painter.BeginPath();
                 painter.MoveTo(new Vector2(c.x - half, c.y - half));
                 painter.LineTo(new Vector2(c.x + half, c.y - half));

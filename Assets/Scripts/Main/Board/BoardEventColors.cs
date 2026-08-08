@@ -9,6 +9,14 @@ namespace Main.Board
     public static class BoardEventColors
     {
         /// <summary>
+        /// スタート＝ゴール（経路 index 0）のマス色。イベントではなく位置で決まるので
+        /// <see cref="Of"/> とは別に持つが、定義はここに一本化する（盤面エディタのグリッド・凡例と
+        /// マップ選択のサムネイルで別々に持っていたため色が食い違い、エディタ側は陣地の青と
+        /// ほぼ同色になっていた）。どのイベント色とも被らない色相（マゼンタ）を使う。
+        /// </summary>
+        public static readonly Color Start = new(0.86f, 0.26f, 0.86f);
+
+        /// <summary>
         /// イベント種別ごとのマス色。<see cref="BoardCellEvent.None"/>（通常マス）は白＝
         /// 何も起きないマスであることが、色の付いたイベントマスとひと目で見分けられるようにする。
         /// </summary>
