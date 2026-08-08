@@ -2,18 +2,28 @@
     <Style src="Home.uss" />
     <ui:VisualElement name="HomeRoot" class="home-root">
         <!-- 固定画像 Image/HomeBackGround を全画面背景に表示。画像はコードから差し込む。
-             上に暗いスクリムを重ねて前面 UI の視認性を確保する。 -->
+             幕は全画面を均一に覆わず、薄い全面幕＋下へ向かって少しずつ濃くなる帯を重ねて
+             疑似グラデーションにする（USS にグラデーションが無いため段差の小さい帯を積む）。
+             上半分は絵を見せ、ボタンが載る下部だけ濃くして文字を読ませる。 -->
         <ui:VisualElement name="HomeBackground" class="home-bg" picking-mode="Ignore">
             <ui:VisualElement name="HeroImage" class="home-bg__image" picking-mode="Ignore" />
             <ui:VisualElement name="HeroScrim" class="home-bg__scrim" picking-mode="Ignore" />
+            <ui:VisualElement class="home-bg__veil home-bg__veil--b1" picking-mode="Ignore" />
+            <ui:VisualElement class="home-bg__veil home-bg__veil--b2" picking-mode="Ignore" />
+            <ui:VisualElement class="home-bg__veil home-bg__veil--b3" picking-mode="Ignore" />
+            <ui:VisualElement class="home-bg__veil home-bg__veil--b4" picking-mode="Ignore" />
         </ui:VisualElement>
+        <!-- モード選択。主＝一人で遊ぶ（金ベタ）／副＝オンラインプレイ（暗いガラス地＋金枠）／
+             三次＝クレジット（同じ金枠を文字ぶんに詰めた小さいピル）の3段階で押すべき場所を分ける。 -->
         <ui:VisualElement name="ModeButtons" class="mode-buttons">
-            <ui:Button text="一人で遊ぶ" name="SinglePlayerButton" class="btn-accent mode-button" />
-            <ui:Button text="オンラインプレイ" name="OnlineButton" class="btn-accent mode-button" />
-            <ui:Button text="クレジット" name="CreditButton" class="btn-accent mode-button" />
+            <ui:Button text="一人で遊ぶ" name="SinglePlayerButton" class="home-button home-button--primary home-enter home-enter--d1" />
+            <ui:Button text="オンラインプレイ" name="OnlineButton" class="home-button home-button--secondary home-enter home-enter--d2" />
+            <ui:Button text="クレジット" name="CreditButton" class="home-credit-button home-enter home-enter--d3" />
         </ui:VisualElement>
     </ui:VisualElement>
-    <!-- クレジットモーダル。既定は非表示で、CreditButton 押下でコードから display を切り替える -->
+    <!-- クレジットモーダル。既定は非表示で、CreditButton 押下でコードから display と
+         表示クラス（暗幕フェード＋カードのスケールイン）を切り替える。
+         XML のコメントにはハイフン 2 つを書けないので USS クラス名は載せない（Home.uss を参照）。 -->
     <ui:VisualElement name="CreditOverlay" class="credit-overlay">
         <ui:VisualElement name="CreditCard" class="credit-card">
             <ui:Label text="クレジット" class="credit-title" />
@@ -39,7 +49,7 @@
                 <ui:Label text="Noto Sans JP" class="credit-value" />
             </ui:VisualElement>
             <ui:Label text="© 2026 Dragon Family" class="credit-copyright" />
-            <ui:Button text="閉じる" name="CreditCloseButton" class="btn-accent credit-close-button" />
+            <ui:Button text="閉じる" name="CreditCloseButton" class="home-button home-button--secondary credit-close-button" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

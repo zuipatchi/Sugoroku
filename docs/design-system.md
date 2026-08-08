@@ -267,6 +267,51 @@ private static void AddButtonHoverEffect(Button button, Color baseColor)
 
 ---
 
+## 背景イラストの上に UI を載せる（疑似グラデーションの幕）
+
+背景に絵を敷く画面（ホーム・マップ選択など）で、**全画面を均一な暗幕で覆うと絵の色が死ぬ**。UI が載る側だけを濃くしたいが、**USS にグラデーションが無い**ため、薄い全面幕＋高さを変えた同じ薄さの帯を積んで疑似グラデーションにする（1 枚ぶんの段差が小さいので継ぎ目が目立たない）。実装例は [Home.uss](../Assets/Scripts/Home/View/Home.uss) の `.home-bg__scrim` ＋ `.home-bg__veil--b1`〜`--b4`（上端から落とす幕も足すなら、向きが逆なので `bottom` を打ち消さず別クラスにする）。
+
+```css
+/* 全面はごく薄く（絵の色を残す） */
+.home-bg__scrim { position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+                  background-color: rgba(12, 12, 22, 0.1); }
+/* 同じ薄さの帯を高さだけ変えて重ね、下へ向かって濃くする */
+.home-bg__veil    { position: absolute; left: 0; right: 0; bottom: 0;
+                    background-color: rgba(12, 12, 22, 0.16); }
+.home-bg__veil--b1 { height: 52%; }
+.home-bg__veil--b2 { height: 36%; }
+.home-bg__veil--b3 { height: 22%; }
+.home-bg__veil--b4 { height: 11%; }
+```
+
+あわせて、**絵の上に直接載る文字は黒で縁取る**（`-unity-text-outline-width: 1.5px〜4px` / `-unity-text-outline-color: rgba(0, 0, 0, 0.8)`）。幕を薄くしたぶんの可読性はここで確保する（盤面のズームピル・タイトル文言と同じ手法）。
+
+---
+
+## 入場演出（USS transition ＋ `--visible` クラス）
+
+画面を開いた直後に UI を順番に出す演出は、**DOTween を使わず USS の transition と 1 クラスの付け外しで書ける**。初期状態（透明・少し下）を基底クラスに、到達状態を `--visible` に持たせ、要素ごとの `transition-delay` で順番を作る。実装例は [Home.uss](../Assets/Scripts/Home/View/Home.uss) の `.home-enter` と [Title.uss](../Assets/Scripts/Title/GameStartButton/View/Title.uss) の `.title-char`（1 文字ずつ降らせる）。
+
+```css
+.home-enter { opacity: 0; translate: 0 24px;
+              transition-property: opacity, translate;
+              transition-duration: 0.45s, 0.5s;
+              transition-timing-function: ease-out, ease-out-back; }
+.home-enter--d1 { transition-delay: 0.18s, 0.18s; }   /* 遅延で順番を作る */
+.home-enter--visible { opacity: 1; translate: 0 0; }  /* 特異度が同じなので後に定義する */
+```
+
+```csharp
+// 対象をまとめて到達状態へ。1フレーム置いてから付ける（初期状態を描かないと補間されない）
+await UniTask.NextFrame(ct);
+root.Query<VisualElement>(className: "home-enter").ForEach(e => e.AddToClassList("home-enter--visible"));
+```
+
+- **`display` の切り替えと同じフレームでクラスを足しても補間されない。** モーダルのフェードインは `display: Flex` にした次のフレームで `--visible` を足す（`element.schedule.Execute(...)`）。閉じるときは逆順で、`--visible` を外して `ExecuteLater(フェード時間)` で `display: None` にする（その間に開き直された場合に備えてフラグで弾く）。実装例は `HomePresenter` のクレジットモーダル
+- **`ISceneReady` を持つシーンでは、演出の開始を `ReadyAsync` の完了後に置く**と暗幕が開くのと同時に動き出す（`ReadyAsync` に演出を待たせない）。直接起動でも動くよう、起動箇所は `Start` から始まる初期化の後ろに繋ぐ（[patterns.md](patterns.md) 4）
+
+---
+
 ## アイコン
 
 アイコンは SVG を Addressables に配置し、UXML の `background-image` で参照する。

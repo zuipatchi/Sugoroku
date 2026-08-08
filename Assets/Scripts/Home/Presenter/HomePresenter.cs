@@ -15,8 +15,9 @@ namespace Home.Presenter
     // 「一人で遊ぶ」（一人用モード）は CharacterSelect（キャラ選択）へ、「オンラインプレイ」は Matching へ遷移し、
     // 「クレジット」はクレジットモーダルを開く。
     // 背景には固定画像 Image/HomeBackGround を全画面に表示する
-    // （前面 UI が読めるよう上に暗いスクリムを重ねる。未配置は色面プレースホルダ）。
+    // （前面 UI が読めるよう上に幕を重ねる。未配置は色面プレースホルダ）。
     // 表示前に画像のロードを終えるため ISceneReady を実装する。
+    // 背景は動かさず、UI だけを暗幕が開くのに合わせて下から浮かび上がらせる。
     [RequireComponent(typeof(UIDocument))]
     public sealed class HomePresenter : MonoBehaviour, ISceneReady
     {
@@ -24,6 +25,14 @@ namespace Home.Presenter
         private const string BackgroundAddress = "Image/HomeBackGround";
         // 背景画像が未配置のときのフォールバック色（テーマの暗い地色）。
         private static readonly Color BackgroundPlaceholderColor = new(0.086f, 0.086f, 0.14f, 1f);
+
+        // 入場演出。Home.uss の .home-enter を付けた要素へ、遅延ぶんずらして --visible を足す。
+        private const string EnterClass = "home-enter";
+        private const string EnterVisibleClass = "home-enter--visible";
+
+        // クレジットモーダルのフェード。Home.uss の .credit-overlay の transition-duration と揃える。
+        private const string CreditVisibleClass = "credit-overlay--visible";
+        private const long CreditFadeMilliseconds = 180;
 
         private SceneTransitioner _sceneTransitioner;
         private SoundStore _soundStore;
@@ -38,6 +47,7 @@ namespace Home.Presenter
         private Button _creditCloseButton;
         private VisualElement _creditOverlay;
         private bool _transiting;
+        private bool _creditOpen;
 
         private readonly AddressableSpriteLoader _spriteLoader = new();
         private UniTask _backgroundInitTask;
@@ -109,6 +119,7 @@ namespace Home.Presenter
             }
             _backgroundInitStarted = true;
             _backgroundInitTask = BuildBackgroundAsync(destroyCancellationToken).Preserve();
+            PlayEntranceWhenBackgroundReadyAsync(destroyCancellationToken).Forget();
         }
 
         // 固定のホーム背景画像（Image/HomeBackGround）を背景（HeroImage）に表示する。
@@ -152,6 +163,30 @@ namespace Home.Presenter
             }
         }
 
+        // 背景が出そろってから入場演出を始める。ReadyAsync はこれを待たないので、
+        // 遷移の暗幕が開くのと同時に UI が浮かび上がる（各要素の遅延は USS 側で付ける）。
+        private async UniTaskVoid PlayEntranceWhenBackgroundReadyAsync(CancellationToken ct)
+        {
+            try
+            {
+                await _backgroundInitTask;
+                // 初期状態（透明・少し下）を 1 フレーム描いてからクラスを足す（同フレームでは補間されない）。
+                await UniTask.NextFrame(ct);
+
+                VisualElement root = _uiDocument.rootVisualElement;
+                if (root == null)
+                {
+                    return;
+                }
+                root.Query<VisualElement>(className: EnterClass)
+                    .ForEach(element => element.AddToClassList(EnterVisibleClass));
+            }
+            catch (OperationCanceledException)
+            {
+                // シーン破棄時のキャンセル。
+            }
+        }
+
         private void OnSinglePlayerClicked()
         {
             if (_transiting) return;
@@ -173,12 +208,36 @@ namespace Home.Presenter
         {
             if (_transiting) return;
             _soundPlayer.PlaySE(_soundStore.Enter2SE);
+            _creditOpen = true;
             _creditOverlay.style.display = DisplayStyle.Flex;
+            // display を出したフレームでクラスを足しても補間されないので 1 フレーム置く。
+            _creditOverlay.schedule.Execute(ShowCreditIfOpen);
         }
 
         private void OnCreditCloseClicked()
         {
             _soundPlayer.PlaySE(_soundStore.Cancel1SE);
+            _creditOpen = false;
+            _creditOverlay.RemoveFromClassList(CreditVisibleClass);
+            // フェードアウトが終わってから隠す（その間に開き直されたら _creditOpen で弾く）。
+            _creditOverlay.schedule.Execute(HideCreditIfClosed).ExecuteLater(CreditFadeMilliseconds);
+        }
+
+        private void ShowCreditIfOpen()
+        {
+            if (!_creditOpen || _creditOverlay == null)
+            {
+                return;
+            }
+            _creditOverlay.AddToClassList(CreditVisibleClass);
+        }
+
+        private void HideCreditIfClosed()
+        {
+            if (_creditOpen || _creditOverlay == null)
+            {
+                return;
+            }
             _creditOverlay.style.display = DisplayStyle.None;
         }
 

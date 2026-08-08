@@ -1,17 +1,11 @@
+/* ホーム画面。背景イラスト（Image/HomeBackGround）を主役にして、UI は下部へ寄せる。
+   配色はゲーム本体（盤面・アイテムショップ・ズームピル）と同じ「金アクセント＋暗いガラス地」で揃える。 */
+
+/* ボタン群を下部へ寄せ、上半分をイラストの見せ場として空ける。 */
 .home-root {
     flex-grow: 1;
     align-items: center;
-    justify-content: center;
-}
-
-.mode-buttons {
-    align-items: center;
-}
-
-.mode-button {
-    width: 240px;
-    margin-top: 12px;
-    margin-bottom: 12px;
+    justify-content: flex-end;
 }
 
 /* 全画面背景（Image/HomeBackGround）----------------------------------------------- */
@@ -36,52 +30,204 @@
     -unity-background-scale-mode: scale-and-crop;
 }
 
-/* 前面 UI を読みやすくする暗いスクリム（幕）。 */
+/* 全面にかける薄い幕。絵の色を残したいので最小限にとどめる。 */
 .home-bg__scrim {
     position: absolute;
     left: 0;
     top: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(15, 15, 26, 0.55);
+    background-color: rgba(12, 12, 22, 0.1);
 }
 
-/* アクセントボタン（design-system.md 準拠） */
-.btn-accent {
-    background-color: rgb(70, 90, 180);
-    color: rgb(255, 255, 255);
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
+/* 疑似グラデーション用の帯。USS にグラデーションが無いため、同じ薄さの幕を高さを変えて
+   積み重ね、下へ向かって少しずつ濃くする（1 枚ぶんの段差が小さいので継ぎ目が目立たない）。 */
+.home-bg__veil {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(12, 12, 22, 0.16);
+}
+
+.home-bg__veil--b1 {
+    height: 52%;
+}
+
+.home-bg__veil--b2 {
+    height: 36%;
+}
+
+.home-bg__veil--b3 {
+    height: 22%;
+}
+
+.home-bg__veil--b4 {
+    height: 11%;
+}
+
+/* モード選択ボタン ------------------------------------------------------------ */
+
+.mode-buttons {
+    align-items: center;
+    margin-bottom: 48px;
+}
+
+/* 主・副で共通の形。既定テーマが Button へ入れる左右マージンは打ち消す
+   （クレジットモーダルの width:100% のボタンがカードからはみ出さないように）。 */
+.home-button {
+    width: 300px;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: 14px;
+    margin-left: 0;
+    padding-top: 15px;
+    padding-right: 16px;
+    padding-bottom: 15px;
+    padding-left: 16px;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    font-size: 20px;
+    -unity-text-align: middle-center;
+    transition-property: background-color, scale;
+    transition-duration: 0.1s;
+}
+
+/* 「一人で遊ぶ」＝主ボタン。盤面の主ボタン（.item-modal__button--use）と同じ金アクセント。 */
+.home-button--primary {
+    background-color: rgb(235, 200, 90);
+    color: rgb(24, 22, 16);
     border-left-width: 0;
     border-right-width: 0;
     border-top-width: 0;
     border-bottom-width: 0;
-    padding-top: 10px;
-    padding-right: 10px;
-    padding-bottom: 10px;
-    padding-left: 10px;
-    font-size: 14px;
-    -unity-text-align: middle-center;
 }
 
-.btn-accent:hover {
-    background-color: rgb(85, 105, 198);
+.home-button--primary:hover {
+    background-color: rgb(255, 225, 120);
 }
 
-.btn-accent:focus {
-    background-color: rgb(95, 115, 210);
+.home-button--primary:focus {
+    background-color: rgb(255, 225, 120);
 }
 
-.btn-accent:active {
-    background-color: rgb(50, 65, 145);
+.home-button--primary:active {
+    background-color: rgb(255, 225, 120);
     scale: 0.96 0.96;
+}
+
+/* 「オンラインプレイ」＝副ボタン。盤面の副ボタン（.item-modal__button--close）と同じ暗いガラス地＋金枠。 */
+.home-button--secondary {
+    background-color: rgba(18, 18, 30, 0.92);
+    color: rgb(255, 225, 120);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 225, 120, 0.7);
+    border-right-color: rgba(255, 225, 120, 0.7);
+    border-top-color: rgba(255, 225, 120, 0.7);
+    border-bottom-color: rgba(255, 225, 120, 0.7);
+}
+
+.home-button--secondary:hover {
+    background-color: rgba(255, 225, 120, 0.14);
+}
+
+.home-button--secondary:focus {
+    background-color: rgba(255, 225, 120, 0.14);
+}
+
+.home-button--secondary:active {
+    background-color: rgba(255, 225, 120, 0.14);
+    scale: 0.96 0.96;
+}
+
+/* 「クレジット」＝三次アクション。副ボタンと同じ暗いガラス地＋金枠だが、
+   幅を文字ぶんに詰めた小さいピルにして、モード選択の 2 つと同格に見えないようにする
+   （文字だけだと押せるものに見えないので、枠と地は持たせる）。 */
+.home-credit-button {
+    margin-top: 8px;
+    margin-right: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    padding-top: 9px;
+    padding-right: 24px;
+    padding-bottom: 9px;
+    padding-left: 24px;
+    background-color: rgba(18, 18, 30, 0.85);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 225, 120, 0.45);
+    border-right-color: rgba(255, 225, 120, 0.45);
+    border-top-color: rgba(255, 225, 120, 0.45);
+    border-bottom-color: rgba(255, 225, 120, 0.45);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    color: rgba(255, 235, 190, 0.95);
+    font-size: 15px;
+    -unity-text-align: middle-center;
+    transition-property: background-color, color, scale;
+    transition-duration: 0.1s;
+}
+
+.home-credit-button:hover {
+    background-color: rgba(255, 225, 120, 0.14);
+    color: rgb(255, 225, 120);
+}
+
+.home-credit-button:focus {
+    background-color: rgba(255, 225, 120, 0.14);
+    color: rgb(255, 225, 120);
+}
+
+.home-credit-button:active {
+    background-color: rgba(255, 225, 120, 0.14);
+    color: rgb(255, 225, 120);
+    scale: 0.96 0.96;
+}
+
+/* 入場演出 -------------------------------------------------------------------- */
+
+/* 初期は少し下・透明。HomePresenter が背景のロード後に home-enter--visible を付けると、
+   要素ごとの transition-delay ぶん遅れて浮かび上がる（Title の文字降りと同じ方式）。 */
+.home-enter {
+    opacity: 0;
+    translate: 0 24px;
+    transition-property: opacity, translate;
+    transition-duration: 0.45s, 0.5s;
+    transition-timing-function: ease-out, ease-out-back;
+}
+
+/* 遷移の暗幕が開くのに合わせて、主 → 副 → クレジットの順に出す。 */
+.home-enter--d1 {
+    transition-delay: 0.18s, 0.18s;
+}
+
+.home-enter--d2 {
+    transition-delay: 0.28s, 0.28s;
+}
+
+.home-enter--d3 {
+    transition-delay: 0.38s, 0.38s;
+}
+
+/* .home-enter と同じ特異度なので、打ち消せるよう後に定義する。 */
+.home-enter--visible {
+    opacity: 1;
+    translate: 0 0;
 }
 
 /* クレジットモーダル ----------------------------------------------------- */
 
-/* 全画面オーバーレイ（暗幕）。既定は非表示でコードから display を切り替える。 */
+/* 全画面オーバーレイ（暗幕）。既定は非表示・透明で、コードから display と
+   credit-overlay--visible を切り替えてフェードさせる。 */
 .credit-overlay {
     position: absolute;
     left: 0;
@@ -92,9 +238,17 @@
     align-items: center;
     justify-content: center;
     display: none;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.18s;
 }
 
-/* モーダルカード（design-system.md のカード準拠） */
+.credit-overlay--visible {
+    opacity: 1;
+}
+
+/* モーダルカード（design-system.md のカード準拠）。上辺に金のアクセントを載せて
+   盤面のモーダル（.player-detail__card）と揃える。 */
 .credit-card {
     width: 80%;
     max-width: 420px;
@@ -105,21 +259,29 @@
     border-bottom-right-radius: 16px;
     border-left-width: 1px;
     border-right-width: 1px;
-    border-top-width: 1px;
+    border-top-width: 3px;
     border-bottom-width: 1px;
     border-left-color: rgba(255, 255, 255, 0.15);
     border-right-color: rgba(255, 255, 255, 0.15);
-    border-top-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgb(255, 225, 120);
     border-bottom-color: rgba(255, 255, 255, 0.15);
     padding-top: 28px;
     padding-right: 32px;
     padding-bottom: 28px;
     padding-left: 32px;
+    scale: 0.94 0.94;
+    transition-property: scale;
+    transition-duration: 0.18s;
+    transition-timing-function: ease-out-back;
+}
+
+.credit-overlay--visible .credit-card {
+    scale: 1 1;
 }
 
 .credit-title {
     font-size: 20px;
-    color: rgb(240, 240, 255);
+    color: rgb(255, 225, 120);
     -unity-text-align: middle-center;
     margin-bottom: 16px;
 }
@@ -156,6 +318,8 @@
     margin-bottom: 24px;
 }
 
+/* 閉じるボタン。.home-button--secondary の見た目のままカード幅いっぱいに広げる。 */
 .credit-close-button {
     width: 100%;
+    margin-bottom: 0;
 }
