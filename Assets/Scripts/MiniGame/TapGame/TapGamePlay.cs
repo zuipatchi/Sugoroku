@@ -49,7 +49,12 @@ namespace MiniGame.TapGame
         private VisualElement _scoreboard;
         private VisualElement _resultPanel;
         private Label _resultLabel;
+        private VisualElement _resultList;
+        private Label _resultNote;
         private Button _closeButton;
+
+        // 結果パネルの順位表（全参加者ぶん。行の生成・並べ替えは共通ビューが担う）。
+        private MiniGameStandingsView _standings;
 
         // スコアボードの各参加者チップの連打数ラベル（index＝参加者）。毎フレーム更新する。
         private readonly List<Label> _scoreCountLabels = new();
@@ -91,13 +96,18 @@ namespace MiniGame.TapGame
             _scoreboard = root.Q<VisualElement>("Scoreboard");
             _resultPanel = root.Q<VisualElement>("ResultPanel");
             _resultLabel = root.Q<Label>("ResultLabel");
+            _resultList = root.Q<VisualElement>("ResultList");
+            _resultNote = root.Q<Label>("ResultNote");
             _closeButton = root.Q<Button>("CloseButton");
             if (_timerLabel == null || _countLabel == null || _centerLabel == null || _tapButton == null
-                || _scoreboard == null || _resultPanel == null || _resultLabel == null || _closeButton == null)
+                || _scoreboard == null || _resultPanel == null || _resultLabel == null || _resultList == null
+                || _resultNote == null || _closeButton == null)
             {
                 Debug.LogError("TapGame の UI 要素が見つかりませんでした。");
                 return;
             }
+
+            _standings = new MiniGameStandingsView(_resultList, "tap-standing");
 
             // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけソロ（1 人）へ。
             int playerCount = _session != null && _session.PlayerCount > 0 ? _session.PlayerCount : 1;
@@ -137,10 +147,12 @@ namespace MiniGame.TapGame
 
         // 参加者数ぶんのスコアボードチップ（キャラアイコン＋連打数）を生成し、アイコンを並列ロードして貼る。
         // 連打数ラベルは _scoreCountLabels に控え、進行中は毎フレーム更新する。
+        // 同じ参加者の並びで結果パネルの順位表の行も作っておく（中身は RefreshStandings で埋める）。
         private async UniTask BuildScoreboardAsync(CancellationToken ct)
         {
             _scoreboard.Clear();
             _scoreCountLabels.Clear();
+            _standings.Clear();
 
             int count = _model.ParticipantCount;
             IReadOnlyList<CharacterId> characters = _session?.Characters;
@@ -170,6 +182,7 @@ namespace MiniGame.TapGame
 
                 _scoreboard.Add(chip);
                 _scoreCountLabels.Add(countLabel);
+                _standings.AddParticipant(CharacterCatalog.Find(id).DisplayName, isPlayer);
                 loads.Add(ApplyChipIconAsync(icon, id, ct));
             }
 
@@ -276,32 +289,45 @@ namespace MiniGame.TapGame
 
             int playerTaps = _model.TapCount.CurrentValue;
             bool win = _model.IsPlayerWin;
-            // オンライン対戦では最後の数回ぶんが届いていないことがあるので順位を断定しない
-            // （正式な勝敗は全員の結果値が揃ってから盤面側が発表する）。
-            _resultLabel.text = OpponentsSimulated
-                ? win
-                    ? $"1位！　タップ数 {playerTaps} 回"
-                    : $"{PlayerRank()}位　タップ数 {playerTaps} 回"
-                : $"タップ数 {playerTaps} 回　結果はこのあと発表！";
+            RefreshStandings();
 
             await _closeSource.Task.AttachExternalCancellation(ct);
             // 結果値はタップ数。オンラインでは全員ぶんを持ち寄って最多の人が勝ちになる。
             return (win ? 1 : 0, playerTaps);
         }
 
-        // プレイヤーの順位（1 位＝自分より多い参加者が 0 人）。同数は同順で自分を上に見なす。
-        private int PlayerRank()
+        /// <summary>
+        /// 全参加者の連打数を順位表へ渡して組み直す（見出しは自分の順位）。オンライン対戦では最後の
+        /// 数回ぶんが届いていないことがあるので**暫定順位**として注記を添える（正式な勝敗は全員の
+        /// 結果値が揃ってから盤面側が発表する）。
+        /// </summary>
+        private void RefreshStandings()
         {
-            int playerTaps = _model.TapCountOf(0);
-            int rank = 1;
-            for (int p = 1; p < _model.ParticipantCount; p++)
+            int count = _model.ParticipantCount;
+            List<int> taps = new(count);
+            for (int p = 0; p < count; p++)
             {
-                if (_model.TapCountOf(p) > playerTaps)
+                taps.Add(_model.TapCountOf(p));
+            }
+
+            IReadOnlyList<ScoreStanding> ordered = ScoreRanking.Order(taps);
+            List<StandingLine> lines = new(ordered.Count);
+            int myRank = 1;
+            foreach (ScoreStanding standing in ordered)
+            {
+                lines.Add(new StandingLine(
+                    standing.Participant, $"{standing.Rank}位", $"{taps[standing.Participant]} 回"));
+                if (standing.Participant == 0)
                 {
-                    rank++;
+                    myRank = standing.Rank;
                 }
             }
-            return rank;
+            _standings.Refresh(lines);
+
+            bool provisional = !OpponentsSimulated;
+            _resultLabel.text = !provisional && myRank == 1 ? "1位！" : $"{myRank}位 / {count}人";
+            _resultNote.text = provisional ? "ほかのプレイヤーの結果を集計中…（暫定）" : string.Empty;
+            _resultNote.style.display = provisional ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private static int NextSeed()

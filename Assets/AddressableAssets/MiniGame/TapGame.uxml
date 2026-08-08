@@ -18,6 +18,9 @@
         </ui:VisualElement>
         <ui:VisualElement name="ResultPanel" class="tap-result">
             <ui:Label text="結果" name="ResultLabel" class="tap-result-label" />
+            <!-- 順位の行（参加者ぶん）は TapGamePlay が動的生成し、連打数の多い順に並べ替える -->
+            <ui:VisualElement name="ResultList" class="tap-standings" picking-mode="Ignore" />
+            <ui:Label text="" name="ResultNote" class="tap-result-note" />
             <ui:Button name="CloseButton" text="進む" class="tap-close-button" />
         </ui:VisualElement>
     </ui:VisualElement>

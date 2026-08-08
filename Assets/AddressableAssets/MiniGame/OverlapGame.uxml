@@ -11,6 +11,8 @@
 
         <ui:VisualElement name="ResultPanel" class="overlap-result">
             <ui:Label text="結果" name="ResultLabel" class="overlap-result__label" />
+            <!-- 全参加者の結果（獲得／かぶり／時間切れ＋選んだアイテム）の行は OverlapGamePlay が動的生成する -->
+            <ui:VisualElement name="ResultList" class="overlap-standings" picking-mode="Ignore" />
             <ui:Button name="CloseButton" text="進む" class="overlap-close-button" />
         </ui:VisualElement>
     </ui:VisualElement>

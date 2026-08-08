@@ -171,6 +171,53 @@
     color: rgb(226, 120, 130);
 }
 
+/* 結果パネルの一覧（全参加者ぶん）。パネル幅は中身依存なので、行が潰れないよう最小幅を持たせる
+   （左右のパディング 48px×2 を足しても基準解像度 540px に収まる幅にする） */
+.overlap-standings {
+    min-width: 400px;
+    margin-bottom: 20px;
+}
+
+.overlap-standing {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+}
+
+/* 自分の行は金枠で強調して、どれが自分か分かるようにする */
+.overlap-standing--you {
+    background-color: rgba(255, 214, 102, 0.18);
+    border-color: rgba(255, 214, 102, 0.7);
+}
+
+/* 「時間切れ」まで入る列なので、順位表より広めに取る */
+.overlap-standing__rank {
+    width: 110px;
+    color: rgb(240, 240, 255);
+    font-size: 26px;
+}
+
+.overlap-standing__name {
+    flex-grow: 1;
+    color: rgb(225, 228, 245);
+    font-size: 24px;
+}
+
+.overlap-standing__value {
+    width: 170px;
+    color: rgb(190, 200, 230);
+    font-size: 22px;
+    -unity-text-align: middle-right;
+}
+
 .overlap-close-button {
     background-color: rgb(70, 90, 180);
     color: rgb(255, 255, 255);

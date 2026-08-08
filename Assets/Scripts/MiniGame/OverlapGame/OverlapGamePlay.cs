@@ -39,6 +39,11 @@ namespace MiniGame.OverlapGame
         // 途中経過は整数 1 つしか運べず 0 が「未送信」を意味するので、選択 index に下駄を履かせて送る
         // （未送信=0 / 無効票(-1)=1 / index 0=2 …）。
         private const int ChoiceValueOffset = 2;
+        // 結果一覧の並び順にもなる結果の区分（獲得 → 未確定 → かぶり → 時間切れ）。
+        private const int OutcomeWon = 0;
+        private const int OutcomeUnknown = 1;
+        private const int OutcomeOverlapped = 2;
+        private const int OutcomeInvalid = 3;
 
         private readonly OverlapGameModel _model;
         private readonly MiniGameSessionModel _session;
@@ -60,7 +65,11 @@ namespace MiniGame.OverlapGame
         private Label _timerLabel;
         private VisualElement _resultPanel;
         private Label _resultLabel;
+        private VisualElement _resultList;
         private Button _closeButton;
+
+        // 結果パネルに出す全参加者ぶんの一覧（行の生成・並べ替えは共通ビューが担う）。
+        private MiniGameStandingsView _standings;
 
         private UniTaskCompletionSource _closeSource;
 
@@ -89,13 +98,17 @@ namespace MiniGame.OverlapGame
             _timerLabel = root.Q<Label>("TimerLabel");
             _resultPanel = root.Q<VisualElement>("ResultPanel");
             _resultLabel = root.Q<Label>("ResultLabel");
+            _resultList = root.Q<VisualElement>("ResultList");
             _closeButton = root.Q<Button>("CloseButton");
             if (_titleLabel == null || _hintLabel == null || _choiceRow == null || _countdownLabel == null
-                || _timerLabel == null || _resultPanel == null || _resultLabel == null || _closeButton == null)
+                || _timerLabel == null || _resultPanel == null || _resultLabel == null || _resultList == null
+                || _closeButton == null)
             {
                 Debug.LogError("OverlapGame の UI 要素が見つかりませんでした。");
                 return;
             }
+
+            _standings = new MiniGameStandingsView(_resultList, "overlap-standing");
 
             // 参加者数はセッション（起動側が指定）から取る。未設定（0 以下）のときだけ既定へフォールバック。
             int playerCount = _session.PlayerCount > 0 ? _session.PlayerCount : OverlapGameConfig.DefaultPlayerCount;
@@ -104,9 +117,12 @@ namespace MiniGame.OverlapGame
             _model.Setup(playerCount, _session.ResolveSeed(), _session.SimulateOpponents);
 
             _choices.Clear();
+            _standings.Clear();
             for (int i = 0; i < _model.PlayerCount; i++)
             {
                 _choices.Add(UnknownChoice);
+                // 結果パネルの一覧も参加者と同じ並びで作っておく（中身は RefreshStandings で埋める）。
+                _standings.AddParticipant(LabelForParticipant(i), i == 0);
             }
             _allChoicesKnown = false;
 
@@ -281,13 +297,22 @@ namespace MiniGame.OverlapGame
         /// <summary>自分の選んだカードが他の誰かと被っているか（未着の参加者は判定に含めない）。</summary>
         private bool IsPlayerOverlapped()
         {
-            if (_choices.Count == 0 || _choices[0] < 0)
+            return IsOverlapped(0);
+        }
+
+        /// <summary>
+        /// <paramref name="participant"/> の選んだカードが他の誰かと被っているか。
+        /// 選べていない（無効票・未着）参加者は被りようがないので false。
+        /// </summary>
+        private bool IsOverlapped(int participant)
+        {
+            if (participant >= _choices.Count || _choices[participant] < 0)
             {
                 return false;
             }
-            for (int participant = 1; participant < _choices.Count; participant++)
+            for (int other = 0; other < _choices.Count; other++)
             {
-                if (_choices[participant] == _choices[0])
+                if (other != participant && _choices[other] == _choices[participant])
                 {
                     return true;
                 }
@@ -463,6 +488,7 @@ namespace MiniGame.OverlapGame
                         : "結果はこのあと発表！";
             _resultLabel.EnableInClassList("overlap-result__label--win", win);
             _resultLabel.EnableInClassList("overlap-result__label--lose", invalid || overlapped);
+            RefreshStandings();
             SetDisplay(_resultPanel, true);
 
             // 勝敗が確定していないときは結果音を鳴らさない（オープンの Enter3SE だけで受ける）。
@@ -474,6 +500,79 @@ namespace MiniGame.OverlapGame
             {
                 _soundPlayer.PlaySafe(_soundStore?.Cancel1SE);
             }
+        }
+
+        /// <summary>
+        /// 全参加者の結果（獲得／かぶり／時間切れ＋選んだアイテム）を一覧へ並べる。順位ではなく区分で
+        /// 並べ、同じ区分の中は参加者 index 順。オンライン対戦で選択が届かなかった相手は「？」のままにする
+        /// （正式な勝敗は結果値を突き合わせる盤面側が決める）。
+        /// </summary>
+        private void RefreshStandings()
+        {
+            List<StandingLine> lines = new(_choices.Count);
+            for (int outcome = OutcomeWon; outcome <= OutcomeInvalid; outcome++)
+            {
+                for (int participant = 0; participant < _choices.Count; participant++)
+                {
+                    if (OutcomeOf(participant) != outcome)
+                    {
+                        continue;
+                    }
+                    lines.Add(new StandingLine(participant, RankTextOf(outcome), ValueTextOf(participant)));
+                }
+            }
+            _standings.Refresh(lines);
+        }
+
+        private int OutcomeOf(int participant)
+        {
+            int choice = _choices[participant];
+            if (choice == UnknownChoice)
+            {
+                return OutcomeUnknown;
+            }
+            if (choice < 0)
+            {
+                return OutcomeInvalid;
+            }
+            if (IsOverlapped(participant))
+            {
+                return OutcomeOverlapped;
+            }
+            // 「誰とも被らなかった」は全員ぶん揃って初めて言えるので、揃うまでは断定しない。
+            return _allChoicesKnown ? OutcomeWon : OutcomeUnknown;
+        }
+
+        private static string RankTextOf(int outcome)
+        {
+            return outcome switch
+            {
+                OutcomeWon => "獲得！",
+                OutcomeOverlapped => "かぶり",
+                OutcomeInvalid => "時間切れ",
+                _ => "？",
+            };
+        }
+
+        // 選んだアイテム名。無効票は「えらべず」、まだ届いていない相手は「—」。
+        private string ValueTextOf(int participant)
+        {
+            int choice = _choices[participant];
+            if (choice == UnknownChoice)
+            {
+                return "—";
+            }
+            if (choice < 0)
+            {
+                return "えらべず";
+            }
+
+            IReadOnlyList<ItemId> offered = _model.OfferedItems;
+            if (choice >= offered.Count)
+            {
+                return "—";
+            }
+            return ItemCatalog.Find(offered[choice])?.DisplayName ?? offered[choice].ToString();
         }
 
         private void SetCardsEnabled(bool enabled)

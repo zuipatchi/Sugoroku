@@ -221,7 +221,7 @@
     font-size: 24px;
 }
 
-.race-standing__time {
+.race-standing__value {
     width: 130px;
     color: rgb(190, 200, 230);
     font-size: 24px;
