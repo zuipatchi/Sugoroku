@@ -71,8 +71,10 @@
     scale: 0.96 0.96;
 }
 
+/* 無効（カウントダウン中・オープン待ち・結果表示中）でもアイテムの絵とカードはそのまま見せる
+   ＝まだ選べないだけで薄くしない（opacity は既定テーマの半透明化を打ち消すため明示する）。 */
 .overlap-card:disabled {
-    opacity: 0.7;
+    opacity: 1;
 }
 
 .overlap-card--safe {
