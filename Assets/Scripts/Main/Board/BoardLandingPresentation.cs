@@ -59,12 +59,22 @@ namespace Main.Board
 
         /// <summary>
         /// マスの文言 <paramref name="message"/> だけを画面中央に拡大表示する（画像は出さない・消さない）。
-        /// 陣地・アイテム・ミニゲームのように、このあと専用の演出へ分岐して画像を出さない着地で使う。
+        /// アイテム・ミニゲームのように、このあと専用の演出へ分岐して画像を出さない着地で使う。
         /// 表示できたら true。消すのは呼び出し側（<see cref="HideCellPopupAsync"/>）。
         /// </summary>
         public UniTask<bool> ShowCellMessageAsync(string message, CancellationToken ct)
         {
-            return ShowCellPopupAsync(null, message, ct);
+            return ShowCellMessageAsync(message, true, ct);
+        }
+
+        /// <summary>
+        /// マスの文言 <paramref name="message"/> だけを拡大表示する（画像は出さない・消さない）。
+        /// <paramref name="centered"/> が false なら画面中央ではなくマス画像と同じ「中央の少し下」に置く。
+        /// 陣地マスのように、中央を別の演出（旗ポップ）が使っていて同時に見せたいときに使う。
+        /// </summary>
+        public UniTask<bool> ShowCellMessageAsync(string message, bool centered, CancellationToken ct)
+        {
+            return ShowCellPopupAsync(null, message, centered, ct);
         }
 
         /// <summary>
@@ -74,7 +84,18 @@ namespace Main.Board
         /// 消すのは呼び出し側（<see cref="HideCellPopupAsync"/> / <see cref="ShowMoneyFloatAsync"/>）で、
         /// 画像と文言は常に足並みをそろえて出入りする。
         /// </summary>
-        public async UniTask<bool> ShowCellPopupAsync(Sprite sprite, string message, CancellationToken ct)
+        public UniTask<bool> ShowCellPopupAsync(Sprite sprite, string message, CancellationToken ct)
+        {
+            return ShowCellPopupAsync(sprite, message, true, ct);
+        }
+
+        /// <summary>
+        /// <see cref="ShowCellPopupAsync(Sprite, string, CancellationToken)"/> の本体。
+        /// <paramref name="centerWhenAlone"/> は「画像が出ず文言だけになったときに画面中央へ寄せるか」。
+        /// 画像と一緒に出すときは常に画像の下なのでこの指定は効かない。
+        /// </summary>
+        private async UniTask<bool> ShowCellPopupAsync(
+            Sprite sprite, string message, bool centerWhenAlone, CancellationToken ct)
         {
             bool showPopup = _cellPopup != null && sprite != null;
             bool showMessage = _cellMessage != null && !string.IsNullOrEmpty(message);
@@ -94,9 +115,10 @@ namespace Main.Board
             {
                 _cellMessage.text = message;
                 _cellMessage.RemoveFromClassList(CellMessageVisibleClass);
-                // 画像を出さない着地（陣地・アイテム・ミニゲーム）は文言だけが宙に浮くので、
+                // 画像を出さない着地（アイテム・ミニゲーム）は文言だけが宙に浮くので、
                 // 画像の下ではなく画面中央へ寄せる（位置決めは親の行が持つ）。
-                _cellMessageRow?.EnableInClassList(CellMessageAloneClass, !showPopup);
+                // 陣地マスは中央を旗ポップが使うので、寄せずに画像と同じ「中央の少し下」に置く。
+                _cellMessageRow?.EnableInClassList(CellMessageAloneClass, centerWhenAlone && !showPopup);
                 _cellMessage.style.display = DisplayStyle.Flex;
                 _messageShown = true;
             }

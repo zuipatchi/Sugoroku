@@ -1453,8 +1453,8 @@ namespace Main.Board
         /// <summary>
         /// マスに止まったときの文言（と、出せるマスではマス画像）を中央に見せておく時間（秒）。
         /// **止まったマスの種類に依らず同じ長さ**にそろえてある：お金・進む/戻るマスは浮遊テキストと同時に
-        /// 消すので浮遊テキストの時間をここから逆算し、専用演出へ分岐するマス（陣地・アイテム・ミニゲーム）は
-        /// 文言だけをこの長さ見せてから分岐する。
+        /// 消すので浮遊テキストの時間をここから逆算し、専用演出へ分岐するマス（アイテム・ミニゲーム）は
+        /// 文言だけをこの長さ見せてから分岐する。陣地マスは旗の占拠演出と同時に見せる（長さは同じ）。
         /// フェードイン（USS transition 0.18 秒）とフェードアウト（0.2 秒）はこれとは別に前後へ付く。
         /// </summary>
         private const float CellMessageSeconds = 2f;
@@ -1462,8 +1462,8 @@ namespace Main.Board
         /// <summary>
         /// 着地演出を統括する。止まったマスの画像とそのマスの文言を中央に拡大表示し、着地イベントを反映する。
         /// お金マスでは増減額の浮遊テキストと画像を同じタイミングで消し、それ以外は画像を少し見せてから消す。
-        /// 陣地・アイテム・ミニゲームのマスは専用の演出（旗・ショップ・ゲーム起動）へ分岐するので、
-        /// その手前で文言だけを見せてから分岐する。
+        /// アイテム・ミニゲームのマスは専用の演出（ショップ・ゲーム起動）へ分岐するので、その手前で
+        /// 文言だけを見せてから分岐する。陣地マスは文言と旗の占拠演出を同時に走らせる。
         /// どのマスでも文言を見せる長さは <see cref="CellMessageSeconds"/> にそろえてある。
         /// </summary>
         private async UniTask PlayLandingSequenceAsync(int player, CancellationToken ct)
@@ -1485,7 +1485,8 @@ namespace Main.Board
             int position = _model.Position(player).CurrentValue;
             string message = PickCellMessage(position);
 
-            // 陣地マスは専用の旗演出（中央に旗を表示→縮小しながらマスへ重ねて占拠）に置き換える。
+            // 陣地マスは専用の旗演出（中央に旗を表示→縮小しながらマスへ重ねて占拠）に置き換え、
+            // マスの文言はその演出と同時に見せる。
             // 旗がマスに重なった瞬間の占拠確定（ロジック）はコールバックでここから渡す。
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.Territory)
@@ -1496,10 +1497,14 @@ namespace Main.Board
                 {
                     return;
                 }
-                await ShowCellMessageOnlyAsync(message, ct);
                 Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
                 VisualElement targetCell = _cells != null && position < _cells.Length ? _cells[position] : null;
-                await _landing.PlayTerritoryFlagSequenceAsync(flag, targetCell, () => ApplyTerritoryLanding(player, position), ct);
+                // 文言と旗の占拠演出は同時に見せる（順に見せると陣地マスだけ着地が長く感じるため）。
+                // 中央は旗ポップが使うので、文言は画面中央へ寄せず「中央の少し下」に置いて重ならないようにする。
+                UniTask messageTask = ShowCellMessageOnlyAsync(message, false, ct);
+                UniTask flagTask = _landing.PlayTerritoryFlagSequenceAsync(
+                    flag, targetCell, () => ApplyTerritoryLanding(player, position), ct);
+                await UniTask.WhenAll(messageTask, flagTask);
                 return;
             }
 
@@ -1569,13 +1574,23 @@ namespace Main.Board
         /// 見せる長さは画像ありの着地と同じ <see cref="CellMessageSeconds"/>（マスの種類で文言の
         /// 読める時間が変わらないようにそろえてある）。文言が無いときは何もしない（分岐を待たせない）。
         /// </summary>
-        private async UniTask ShowCellMessageOnlyAsync(string message, CancellationToken ct)
+        private UniTask ShowCellMessageOnlyAsync(string message, CancellationToken ct)
+        {
+            return ShowCellMessageOnlyAsync(message, true, ct);
+        }
+
+        /// <summary>
+        /// <see cref="ShowCellMessageOnlyAsync(string, CancellationToken)"/> の本体。
+        /// <paramref name="centered"/> が false なら文言を画面中央ではなくマス画像と同じ「中央の少し下」に置く
+        /// （陣地マスのように中央を別の演出＝旗ポップが使っていて、文言と同時に見せたいとき）。
+        /// </summary>
+        private async UniTask ShowCellMessageOnlyAsync(string message, bool centered, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(message))
             {
                 return;
             }
-            if (!await _landing.ShowCellMessageAsync(message, ct))
+            if (!await _landing.ShowCellMessageAsync(message, centered, ct))
             {
                 return;
             }
