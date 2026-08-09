@@ -86,5 +86,62 @@ namespace Tests.EditMode
             Assert.AreEqual(0, MiniGameRanking.Resolve(MiniGameId.Tap, new int[0]).Length);
             Assert.AreEqual(0, MiniGameRanking.Resolve(MiniGameId.Tap, null).Length);
         }
+        [Test]
+        public void 連打の順位は連打数の多い順に付く()
+        {
+            int[] ranks = MiniGameRanking.RanksOf(MiniGameId.Tap, new[] { 30, 50, 10 });
+
+            Assert.AreEqual(2, ranks[0]);
+            Assert.AreEqual(1, ranks[1]);
+            Assert.AreEqual(3, ranks[2]);
+        }
+
+        [Test]
+        public void レースの順位はタイムの短い順に付く()
+        {
+            int[] ranks = MiniGameRanking.RanksOf(MiniGameId.Race, new[] { 9000, 7000, 8000 });
+
+            Assert.AreEqual(3, ranks[0]);
+            Assert.AreEqual(1, ranks[1]);
+            Assert.AreEqual(2, ranks[2]);
+        }
+
+        [Test]
+        public void 同着は同じ順位になり次の順位は人数ぶん飛ぶ()
+        {
+            // 賞金は順位で決まるので、同着に別々の額を配ってしまわないこと（1, 1, 3 位）。
+            int[] ranks = MiniGameRanking.RanksOf(MiniGameId.Tap, new[] { 50, 50, 10 });
+
+            Assert.AreEqual(1, ranks[0]);
+            Assert.AreEqual(1, ranks[1]);
+            Assert.AreEqual(3, ranks[2]);
+        }
+
+        [Test]
+        public void ゴールできなかった走者は順位が付かない()
+        {
+            // タイムが無いので順位を付けようがない＝0（圏外）。賞金も 0 になる。
+            int[] ranks = MiniGameRanking.RanksOf(
+                MiniGameId.Race, new[] { MiniGameRanking.NotFinished, 7000 });
+
+            Assert.AreEqual(0, ranks[0]);
+            Assert.AreEqual(1, ranks[1]);
+        }
+
+        [Test]
+        public void 順位が定義できないゲームは全員圏外になる()
+        {
+            // 被っちゃやーよは順位を使わない（呼び出し側が HasRanking で振り分ける）。
+            int[] ranks = MiniGameRanking.RanksOf(MiniGameId.Overlap, new[] { 0, 1, 2 });
+
+            Assert.AreEqual(new[] { 0, 0, 0 }, ranks);
+        }
+
+        [Test]
+        public void 参加者が居なければ順位も無い()
+        {
+            Assert.AreEqual(0, MiniGameRanking.RanksOf(MiniGameId.Tap, new int[0]).Length);
+            Assert.AreEqual(0, MiniGameRanking.RanksOf(MiniGameId.Tap, null).Length);
+        }
     }
 }

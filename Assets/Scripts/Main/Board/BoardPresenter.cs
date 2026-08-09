@@ -1831,35 +1831,75 @@ namespace Main.Board
         /// 一人用モードのミニゲーム。**着地したのが自分でも CPU でも自分が CPU 相手に遊ぶ**
         /// （オンラインで全員が同時に遊ぶのと同じ体験にするため）。
         ///
-        /// 報酬は次の 1 人が受け取る:
+        /// 賞金の配り方はオンラインと同じ:
         /// <list type="bullet">
-        /// <item>自分が勝った → 自分（CPU が着地したミニゲームなら報酬を横取りする）</item>
-        /// <item>自分が負けた → 着地した CPU（<paramref name="starter"/>）</item>
-        /// <item>自分が着地して負けた → 勝者なし（誰も受け取らない）</item>
+        /// <item>順位が付くゲーム（タップ連打・2Dレース）→ **自分も CPU も順位別**（<see cref="MiniGamePrize"/>）。
+        /// CPU の順位を知っているのはゲーム側だけなので <see cref="MiniGameResult.Ranks"/> で受け取る</item>
+        /// <item>順位が定義できない被っちゃやーよ → 勝った人へ一律。自分が負けたときは着地した CPU
+        /// （<paramref name="starter"/>）が受け取り、自分が着地して負けたときだけ勝者なし</item>
         /// </list>
         /// </summary>
         private async UniTask RunLocalMiniGameAsync(int starter, MiniGameId game, CancellationToken ct)
         {
+            int[] order = MiniGameSeatOrder();
             bool iWon;
+            IReadOnlyList<int> ranks = Array.Empty<int>();
             if (_launcher != null)
             {
                 // 相手はゲーム内の CPU が務めるので、参加者ぶんの盤面キャラをそのまま渡して
-                // 勝敗はゲームの判定（DetermineMiniGameWin）に任せる。
-                int[] order = MiniGameSeatOrder();
+                // 勝敗と順位はゲーム側の判定に任せる。
                 MiniGameResult result = await _launcher.PlayAsync(
                     game, ct, order.Length, MiniGameCharacters(order));
                 iWon = DetermineMiniGameWin(result);
+                ranks = result.Ranks;
             }
             else
             {
-                // ランチャーが無い（注入に失敗した）ときは遊ばせるものが無いので勝敗を抽選する。
+                // ランチャーが無い（注入に失敗した）ときは遊ばせるものが無いので勝敗を抽選する
+                // （順位は分からないので、下の「勝った人へ一律」で配る）。
                 iWon = _itemRng.Next(2) == 0;
             }
 
-            // 負けたときの勝者は着地した CPU。自分が着地して負けたときだけ勝者なし（誰も報酬を得ない）。
+            int[] prizeBySeat = new int[_pieceCount];
+            if (ranks.Count > 0)
+            {
+                for (int i = 0; i < ranks.Count && i < order.Length; i++)
+                {
+                    prizeBySeat[order[i]] = MiniGamePrize.ForRank(ranks[i]);
+                }
+                // 帯に出す勝者は 1 位（同着なら全員）。
+                await AwardMiniGameAsync(prizeBySeat, SeatsWithTopRank(order, ranks), ct);
+                return;
+            }
+
+            // 順位が付かないゲーム。負けたときの勝者は着地した CPU で、
+            // 自分が着地して負けたときだけ勝者なし（誰も受け取らない）。
             int winner = iWon ? _humanPlayer : starter;
             bool noWinner = !iWon && starter == _humanPlayer;
-            await AwardMiniGameAsync(noWinner ? Array.Empty<int>() : new[] { winner }, ct);
+            List<int> winners = new();
+            if (!noWinner)
+            {
+                winners.Add(winner);
+                prizeBySeat[winner] = MiniGamePrize.Win;
+            }
+            await AwardMiniGameAsync(prizeBySeat, winners, ct);
+        }
+
+        /// <summary>
+        /// 参加者の並び <paramref name="order"/> のうち 1 位の席を集める（同着なら全員）。
+        /// 順位が付かなかった参加者（0＝圏外）は含めない。
+        /// </summary>
+        private static List<int> SeatsWithTopRank(IReadOnlyList<int> order, IReadOnlyList<int> ranks)
+        {
+            List<int> seats = new();
+            for (int i = 0; i < ranks.Count && i < order.Count; i++)
+            {
+                if (ranks[i] == 1)
+                {
+                    seats.Add(order[i]);
+                }
+            }
+            return seats;
         }
 
         /// <summary>
@@ -1944,41 +1984,74 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 集めた結果値から勝者を決めて報酬を配り、誰が勝ったかを帯で知らせる。
-        /// 判定は純粋関数（<see cref="MiniGameRanking.Resolve"/>）なので全クライアントで同じ結果になる。
+        /// 集めた結果値から賞金を決めて配り、誰が勝ったかを帯で知らせる（オンライン）。
+        /// 順位付けも勝敗も純粋関数（<see cref="MiniGameRanking"/>）なので全クライアントで同じ結果になる。
+        /// **順位が付くゲーム（タップ連打・2Dレース）は順位別の賞金**、
+        /// 順位が定義できない被っちゃやーよは勝った人へ一律（<see cref="MiniGamePrize"/>）。
         /// </summary>
         private UniTask ApplyMiniGameWinnersAsync(
             MiniGameId game, IReadOnlyList<int> order, IReadOnlyList<int> values, CancellationToken ct)
         {
             bool[] wins = MiniGameRanking.Resolve(game, values);
-            List<int> winners = new();
-            for (int i = 0; i < wins.Length; i++)
+            int[] ranks = MiniGameRanking.RanksOf(game, values);
+            bool ranked = MiniGamePrize.HasRanking(game);
+            int[] prizeBySeat = new int[_pieceCount];
+            for (int i = 0; i < order.Count && i < ranks.Length; i++)
             {
-                if (wins[i])
-                {
-                    winners.Add(order[i]);
-                }
+                // 順位が付くゲームは順位別、付かないゲーム（被っちゃやーよ）は勝った人へ一律。
+                prizeBySeat[order[i]] = ranked
+                    ? MiniGamePrize.ForRank(ranks[i])
+                    : (wins[i] ? MiniGamePrize.Win : 0);
             }
-            return AwardMiniGameAsync(winners, ct);
+
+            return AwardMiniGameAsync(prizeBySeat, SeatsWhere(order, wins), ct);
         }
 
         /// <summary>
-        /// ミニゲームの勝者 <paramref name="winnerSeats"/> に報酬を配り、誰が勝ったかを帯で知らせる
-        /// （オンライン・一人用の共通処理）。自分が勝ったときだけ増額の浮遊テキストも出す。
+        /// 参加者の並び <paramref name="order"/> のうち <paramref name="flags"/> が立っている席を集める
+        /// （勝者の帯に出す名前の材料）。
         /// </summary>
-        private async UniTask AwardMiniGameAsync(IReadOnlyList<int> winnerSeats, CancellationToken ct)
+        private static List<int> SeatsWhere(IReadOnlyList<int> order, IReadOnlyList<bool> flags)
         {
-            List<string> winnerNames = new();
-            bool iWon = false;
-
-            for (int i = 0; i < winnerSeats.Count; i++)
+            List<int> seats = new();
+            for (int i = 0; i < flags.Count && i < order.Count; i++)
             {
-                int seat = winnerSeats[i];
-                _money.Add(seat, MiniGameRewardMoney);
-                winnerNames.Add(CharacterNameOf(seat));
-                iWon |= seat == _humanPlayer;
+                if (flags[i])
+                {
+                    seats.Add(order[i]);
+                }
+            }
+            return seats;
+        }
+
+        /// <summary>
+        /// ミニゲームの賞金 <paramref name="prizeBySeat"/>（index＝席・0 なら払わない）を配り、
+        /// 勝者 <paramref name="winnerSeats"/>（＝1 位／被っちゃやーよは獲得した人）を帯で知らせる
+        /// （オンライン・一人用の共通処理）。自分がもらえたときだけ増額の浮遊テキストも出す。
+        /// </summary>
+        private async UniTask AwardMiniGameAsync(
+            IReadOnlyList<int> prizeBySeat, IReadOnlyList<int> winnerSeats, CancellationToken ct)
+        {
+            int myPrize = 0;
+            for (int seat = 0; seat < prizeBySeat.Count; seat++)
+            {
+                int prize = prizeBySeat[seat];
+                if (prize == 0)
+                {
+                    continue;
+                }
+                _money.Add(seat, prize);
+                if (seat == _humanPlayer)
+                {
+                    myPrize = prize;
+                }
             }
 
+            List<string> winnerNames = new(winnerSeats.Count);
+            for (int i = 0; i < winnerSeats.Count; i++)
+            {
+                winnerNames.Add(CharacterNameOf(winnerSeats[i]));
+            }
             ShowBannerText(winnerNames.Count == 0
                 ? "ミニゲーム 勝者なし"
                 : $"ミニゲーム {string.Join("・", winnerNames)} の勝ち！");
@@ -1987,9 +2060,9 @@ namespace Main.Board
             {
                 _soundPlayer.PlaySafe(_soundStore?.MoneySE);
             }
-            if (iWon)
+            if (myPrize > 0)
             {
-                await ShowItemMoneyFloatAsync(MiniGameRewardMoney, ct);
+                await ShowItemMoneyFloatAsync(myPrize, ct);
             }
         }
 
@@ -2508,11 +2581,6 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// ミニゲームアイテムで勝ったときに得る所持金報酬。
-        /// </summary>
-        private const int MiniGameRewardMoney = 500;
-
-        /// <summary>
         /// アイテム効果による所持金の増減を見せる浮遊テキストの表示時間（秒）。
         /// </summary>
         private const float ItemMoneyFloatSeconds = 1.5f;
@@ -2926,7 +2994,7 @@ namespace Main.Board
             string title = isStart ? BoardEventDescription.StartLabel : BoardEventLabel.Of(definition.Event);
             string description = isStart
                 ? BoardEventDescription.StartDescription
-                : BoardEventDescription.Of(definition.Event, definition.MiniGame, MiniGameRewardMoney);
+                : BoardEventDescription.Of(definition.Event, definition.MiniGame);
             Sprite sprite = _cellIcons != null && index < _cellIcons.Length ? _cellIcons[index] : null;
 
             _cellInfo.Open(title, description, TerritoryStatusOf(index, definition), sprite);

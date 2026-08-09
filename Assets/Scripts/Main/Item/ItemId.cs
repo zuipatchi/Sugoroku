@@ -14,7 +14,7 @@ namespace Main.Item
         /// <summary>相手の所持金の一部（ランダムな割合）を奪って自分に足すアイテム。</summary>
         StealMoney = 1,
 
-        /// <summary>好きなミニゲームを選んで遊び、勝てば所持金報酬をもらえるアイテム。</summary>
+        /// <summary>好きなミニゲームを選んで遊び、順位に応じた所持金の賞金をもらえるアイテム。</summary>
         MiniGame = 2,
 
         /// <summary>使った瞬間にゲームに勝利するアイテム（一発逆転）。</summary>

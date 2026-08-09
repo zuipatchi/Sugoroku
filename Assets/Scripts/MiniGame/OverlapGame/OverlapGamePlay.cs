@@ -144,11 +144,11 @@ namespace MiniGame.OverlapGame
         /// カウントダウン → 選択待ち → オープン → 結果表示を駆動し、「進む」クリックで
         /// スコア（獲得＝被らなかった=1／被った=0）を返す。フェードイン後に呼ばれる想定で Forget して走らせる。
         /// </summary>
-        public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)
+        public async UniTask<MiniGameOutcome> RunAsync(CancellationToken ct)
         {
             if (_closeSource == null)
             {
-                return (0, MiniGameRanking.NoChoice);
+                return new MiniGameOutcome(0, MiniGameRanking.NoChoice);
             }
 
             SetDisplay(_countdownLabel, true);
@@ -179,7 +179,9 @@ namespace MiniGame.OverlapGame
             await _closeSource.Task.AttachExternalCancellation(ct);
             _model.Finish();
             // 結果値は選んだカードの index（未選択は NoChoice）。オンラインでは誰とも被らなければ勝ち。
-            return (IsLocalWin ? 1 : 0, _model.PlayerChoiceIndex);
+            // 「誰とも被らなければ勝ち」は複数人が同時に勝ちうるので順位が定義できない＝順位は返さない
+            // （賞金は勝った人へ一律＝MiniGamePrize.Win）。
+            return new MiniGameOutcome(IsLocalWin ? 1 : 0, _model.PlayerChoiceIndex);
         }
 
         // 制限時間 ChoiceSeconds の間だけプレイヤーの選択を待つ。クリックで Model が Revealed へ進むとループを抜ける。

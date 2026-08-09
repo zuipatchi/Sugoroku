@@ -270,12 +270,12 @@ namespace MiniGame.TapGame
         /// 自動連打させ、オンラインは互いの連打数を配り合って表示する）。
         /// フェードイン後に呼ばれる想定で、Forget して走らせる。
         /// </summary>
-        public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)
+        public async UniTask<MiniGameOutcome> RunAsync(CancellationToken ct)
         {
             if (_closeSource == null)
             {
                 // UI 構築に失敗している。従来どおり結果は報告せず、キャンセル（シーンアンロード）まで待機する。
-                return await UniTask.Never<(int Score, int Value)>(ct);
+                return await UniTask.Never<MiniGameOutcome>(ct);
             }
 
             _centerLabel.text = "準備…";
@@ -321,19 +321,20 @@ namespace MiniGame.TapGame
 
             int playerTaps = _model.TapCount.CurrentValue;
             bool win = _model.IsPlayerWin;
-            RefreshStandings();
+            int[] ranks = RefreshStandings();
 
             await _closeSource.Task.AttachExternalCancellation(ct);
             // 結果値はタップ数。オンラインでは全員ぶんを持ち寄って最多の人が勝ちになる。
-            return (win ? 1 : 0, playerTaps);
+            // 順位は一人用の賞金に使う（オンラインでは相手の最後のぶんが届いていないので盤面側が出し直す）。
+            return new MiniGameOutcome(win ? 1 : 0, playerTaps, ranks);
         }
 
         /// <summary>
-        /// 全参加者の連打数を順位表へ渡して組み直す（見出しは自分の順位）。オンライン対戦では最後の
-        /// 数回ぶんが届いていないことがあるので**暫定順位**として注記を添える（正式な勝敗は全員の
-        /// 結果値が揃ってから盤面側が発表する）。
+        /// 全参加者の連打数を順位表へ渡して組み直し、**参加者ごとの 1 始まりの順位**（index＝参加者）を返す。
+        /// 見出しは自分の順位。オンライン対戦では最後の数回ぶんが届いていないことがあるので
+        /// **暫定順位**として注記を添える（正式な勝敗は全員の結果値が揃ってから盤面側が発表する）。
         /// </summary>
-        private void RefreshStandings()
+        private int[] RefreshStandings()
         {
             int count = _model.ParticipantCount;
             List<int> taps = new(count);
@@ -344,11 +345,13 @@ namespace MiniGame.TapGame
 
             IReadOnlyList<ScoreStanding> ordered = ScoreRanking.Order(taps);
             List<StandingLine> lines = new(ordered.Count);
+            int[] ranks = new int[count];
             int myRank = 1;
             foreach (ScoreStanding standing in ordered)
             {
                 lines.Add(new StandingLine(
                     standing.Participant, $"{standing.Rank}位", $"{taps[standing.Participant]} 回"));
+                ranks[standing.Participant] = standing.Rank;
                 if (standing.Participant == 0)
                 {
                     myRank = standing.Rank;
@@ -360,6 +363,7 @@ namespace MiniGame.TapGame
             _resultLabel.text = !provisional && myRank == 1 ? "1位！" : $"{myRank}位 / {count}人";
             _resultNote.text = provisional ? "ほかのプレイヤーの結果を集計中…（暫定）" : string.Empty;
             _resultNote.style.display = provisional ? DisplayStyle.Flex : DisplayStyle.None;
+            return ranks;
         }
 
         private static int NextSeed()

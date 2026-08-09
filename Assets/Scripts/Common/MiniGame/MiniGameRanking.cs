@@ -56,6 +56,61 @@ namespace Common.MiniGame
             return wins;
         }
 
+        /// <summary>
+        /// 参加者ごとの結果値 <paramref name="values"/>（index＝参加者）から、**1 始まりの順位**を参加者ごとに返す。
+        /// 同値は同じ順位で、その次の順位は人数ぶん飛ぶ（1, 2, 2, 4）。賞金を順位別に配るのに使う
+        /// （<see cref="MiniGamePrize.ForRank"/>）。
+        ///
+        /// 順位が付かない参加者は 0（圏外）を返す：2D レースでゴールできなかった走者
+        /// （<see cref="NotFinished"/>＝タイムが無いので順位を付けようがない）。
+        /// 順位が定義できないゲーム（被っちゃやーよ）に呼ぶと全員 0 になるので、
+        /// 呼ぶ前に <see cref="MiniGamePrize.HasRanking"/> で振り分ける。
+        ///
+        /// これは**オンライン用**（各自が配った結果値から盤面側が出す）。一人用モードは相手が
+        /// ゲーム内の CPU で結果値が集まらないため、ゲーム側が結果パネルの順位表を組むときに算出した
+        /// ものを <see cref="MiniGameOutcome.Ranks"/> で返す（<c>ScoreRanking.Order</c> /
+        /// <c>RaceRanking.Order</c>）。**同点の扱い（同順位・次は人数ぶん飛ぶ）はそちらと合わせてある**ので、
+        /// 片方を変えるときは両方を直す（結果パネルの順位と賞金がずれてしまう）。
+        /// </summary>
+        public static int[] RanksOf(MiniGameId game, IReadOnlyList<int> values)
+        {
+            int count = values?.Count ?? 0;
+            int[] ranks = new int[count];
+            if (count == 0 || !MiniGamePrize.HasRanking(game))
+            {
+                return ranks;
+            }
+
+            bool lowerIsBetter = game == MiniGameId.Race;
+
+            // 順位の付く参加者だけを良い順に並べる（並びは参加者 index で安定させる）。
+            List<int> ordered = new(count);
+            for (int i = 0; i < count; i++)
+            {
+                if (!lowerIsBetter || values[i] != NotFinished)
+                {
+                    ordered.Add(i);
+                }
+            }
+            ordered.Sort((a, b) =>
+            {
+                int order = lowerIsBetter ? values[a].CompareTo(values[b]) : values[b].CompareTo(values[a]);
+                return order != 0 ? order : a.CompareTo(b);
+            });
+
+            int rank = 1;
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                // 前の人と同値ならその順位を引き継ぎ、違えば「i+1 位」に飛ぶ。
+                if (i > 0 && values[ordered[i - 1]] != values[ordered[i]])
+                {
+                    rank = i + 1;
+                }
+                ranks[ordered[i]] = rank;
+            }
+            return ranks;
+        }
+
         // 他の誰とも同じ値でなければ勝ち（無効票＝負値は勝てない）。
         private static void ResolveUnique(IReadOnlyList<int> values, bool[] wins)
         {

@@ -38,14 +38,17 @@ namespace MiniGame.RaceGame
         }
 
         /// <summary>
-        /// <paramref name="entries"/> を順位順に並べ替えて表示する。<paramref name="provisional"/> が true の
-        /// ときは**暫定順位**（まだ走っている相手がいる）として注記を添える。
+        /// <paramref name="entries"/> を順位順に並べ替えて表示し、**走者ごとの 1 始まりの順位**
+        /// （index＝走者）を返す（一人用モードの順位別の賞金に使う）。
+        /// <paramref name="provisional"/> が true のときは**暫定順位**（まだ走っている相手がいる）として
+        /// 注記を添える。
         /// </summary>
-        public void Refresh(IReadOnlyList<RaceEntry> entries, bool provisional)
+        public int[] Refresh(IReadOnlyList<RaceEntry> entries, bool provisional)
         {
             IReadOnlyList<RaceStanding> ordered = RaceRanking.Order(entries);
 
             List<StandingLine> lines = new(ordered.Count);
+            int[] ranks = new int[entries?.Count ?? 0];
             int myRank = 1;
             foreach (RaceStanding standing in ordered)
             {
@@ -53,6 +56,10 @@ namespace MiniGame.RaceGame
                     standing.Entry.Runner,
                     $"{standing.Rank}位",
                     TimeTextOf(standing.Entry, provisional)));
+                if (standing.Entry.Runner >= 0 && standing.Entry.Runner < ranks.Length)
+                {
+                    ranks[standing.Entry.Runner] = standing.Rank;
+                }
                 if (standing.Entry.Runner == 0)
                 {
                     myRank = standing.Rank;
@@ -63,6 +70,7 @@ namespace MiniGame.RaceGame
             _headline.text = !provisional && myRank == 1 ? "1位！" : $"{myRank}位 / {_standings.Count}人";
             _note.text = provisional ? "他のプレイヤーが走行中…（暫定）" : string.Empty;
             _note.style.display = provisional ? DisplayStyle.Flex : DisplayStyle.None;
+            return ranks;
         }
 
         // タイム欄。ゴール済みならタイム（分からなければ「ゴール」＝一人用モードの CPU は先着決着で

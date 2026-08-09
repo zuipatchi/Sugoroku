@@ -226,10 +226,11 @@ namespace MiniGame.RaceGame
         }
 
         /// <summary>
-        /// いまの状況を順位表へ渡して組み直す。オンラインで相手がまだ走っているうちは**暫定順位**
-        /// （ゴールした人＋走行中の人の位置で並べる）になり、全員がゴールしたら確定順位に変わる。
+        /// いまの状況を順位表へ渡して組み直し、**走者ごとの 1 始まりの順位**（index＝走者）を返す。
+        /// オンラインで相手がまだ走っているうちは**暫定順位**（ゴールした人＋走行中の人の位置で並べる）
+        /// になり、全員がゴールしたら確定順位に変わる。
         /// </summary>
-        private void RefreshStandings()
+        private int[] RefreshStandings()
         {
             List<RaceEntry> entries = new(_runners.Count);
             for (int runner = 0; runner < _runners.Count; runner++)
@@ -238,7 +239,7 @@ namespace MiniGame.RaceGame
                     runner, IsFinished(runner), MillisOf(runner), _model.Progress(runner)));
             }
 
-            _standings.Refresh(entries, provisional: !OpponentsSimulated && !AllFinished());
+            return _standings.Refresh(entries, provisional: !OpponentsSimulated && !AllFinished());
         }
 
         // 走者がゴールしたか。一人用モードは先着で決着するので、決着した走者だけがゴール済み。
@@ -347,11 +348,11 @@ namespace MiniGame.RaceGame
         /// カウントダウン → レース進行 → 結果表示を駆動し、「進む」クリックでスコア（勝ち=1／負け=0）を返す。
         /// フェードイン後に呼ばれる想定で、Forget して走らせる。
         /// </summary>
-        public async UniTask<(int Score, int Value)> RunAsync(CancellationToken ct)
+        public async UniTask<MiniGameOutcome> RunAsync(CancellationToken ct)
         {
             if (_closeSource == null)
             {
-                return (0, MiniGameRanking.NotFinished);
+                return new MiniGameOutcome(0, MiniGameRanking.NotFinished);
             }
 
             SetDisplay(_countdownLabel, true);
@@ -417,12 +418,13 @@ namespace MiniGame.RaceGame
             SetDisplay(_meterPanel, false);
             SetDisplay(_judgeLabel, false);
 
-            RevealResult();
+            int[] ranks = RevealResult();
             _soundPlayer.PlaySafe(_soundStore?.DecisionSE);
 
             await WaitForCloseAsync(ct);
             // 結果値はゴールまでのミリ秒（未ゴールは NotFinished）。オンラインでは最短の人が勝ち。
-            return (_model.IsPlayerWin ? 1 : 0, _playerFinishMillis);
+            // 順位は一人用の賞金に使う（一人用は先着で決着するので、CPU は進んだ順に 2 位以下が付く）。
+            return new MiniGameOutcome(_model.IsPlayerWin ? 1 : 0, _playerFinishMillis, ranks);
         }
 
         /// <summary>
@@ -502,11 +504,13 @@ namespace MiniGame.RaceGame
             SetDisplay(_judgeLabel, true);
         }
 
-        private void RevealResult()
+        // 結果パネルを出し、そのとき組んだ走者ごとの順位を返す（一人用の賞金に使う）。
+        private int[] RevealResult()
         {
             _titleLabel.text = "結果";
-            RefreshStandings();
+            int[] ranks = RefreshStandings();
             SetDisplay(_resultPanel, true);
+            return ranks;
         }
 
         // Good/Great の帯を config の幅どおりにメーターバー上へ配置する（見た目と判定を一致させる）。

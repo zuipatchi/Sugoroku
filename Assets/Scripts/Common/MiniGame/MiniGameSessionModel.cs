@@ -72,12 +72,19 @@ namespace Common.MiniGame
         }
 
         /// <summary>
-        /// ホストが呼ぶ。勝敗（<paramref name="score"/>）と生の結果値（<paramref name="value"/>）を
-        /// 確定して結果待ちを完了させる。値を省略した場合は勝敗をそのまま結果値として扱う。
+        /// ホストが呼ぶ。ゲーム側の結果（<paramref name="outcome"/>＝勝敗・生の結果値・参加者ごとの順位）を
+        /// 確定して結果待ちを完了させる。
         /// </summary>
+        public void Report(MiniGameOutcome outcome)
+        {
+            _resultSource?.TrySetResult(
+                new MiniGameResult(CurrentGame, outcome.Score, outcome.Value, outcome.Ranks));
+        }
+
+        /// <summary>ホストが呼ぶ。勝敗と生の結果値だけを返す版（順位なし）。</summary>
         public void Report(int score, int value)
         {
-            _resultSource?.TrySetResult(new MiniGameResult(CurrentGame, score, value));
+            Report(new MiniGameOutcome(score, value));
         }
 
         /// <summary>ホストが呼ぶ。勝敗だけを返す互換版（結果値は勝敗と同じ）。</summary>

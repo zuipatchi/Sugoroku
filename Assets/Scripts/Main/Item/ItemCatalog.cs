@@ -43,7 +43,7 @@ namespace Main.Item
         {
             new ItemDefinition(ItemId.StealTerritory, "陣地獲得", "好きな陣地マスを 1 つ選んで自分のものにする（相手の陣地も奪える）。", "Image/Item/StealTerritory", 800),
             new ItemDefinition(ItemId.StealMoney, "お金よこどり", "相手の所持金の一部を奪う。", "Image/Item/StealMoney", 500),
-            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "好きなミニゲームを選んで遊び、勝てば所持金がもらえる。", "Image/Item/MiniGame", 300),
+            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "好きなミニゲームを選んで遊び、順位に応じて所持金がもらえる。", "Image/Item/MiniGame", 300),
             new ItemDefinition(ItemId.InstantWin, "勝利", "使った瞬間にゲームに勝利する。", "Image/Item/Victory", 2500),
         };
 

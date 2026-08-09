@@ -19,11 +19,12 @@ namespace Main.Board
             "スタート地点。ここを通過しても止まらず、そのまま盤面を回り続ける。";
 
         /// <summary>
-        /// マスの説明文。<paramref name="game"/> はミニゲームマスで遊ぶゲーム、
-        /// <paramref name="miniGameReward"/> はミニゲームに勝ったときの報酬額。
-        /// 進む／戻るマス数とお金の増減額はマスごとの設定ではなくルール側の定数から組み立てるので引数に取らない。
+        /// マスの説明文。<paramref name="game"/> はミニゲームマスで遊ぶゲーム。
+        /// 進む／戻るマス数・お金の増減額・ミニゲームの賞金はマスごとの設定ではなくルール側の定数
+        /// （<see cref="MoveCellRule"/> / <see cref="MoneyCellRule"/> / <see cref="MiniGamePrize"/>）から
+        /// 組み立てるので引数に取らない。
         /// </summary>
-        public static string Of(BoardCellEvent cellEvent, MiniGameId game, int miniGameReward)
+        public static string Of(BoardCellEvent cellEvent, MiniGameId game)
         {
             switch (cellEvent)
             {
@@ -35,7 +36,7 @@ namespace Main.Board
                         + "戻った先のマスの効果もそのまま発動する。";
                 case BoardCellEvent.MiniGame:
                     return $"止まるとミニゲーム「{MiniGameCatalog.Find(game).DisplayName}」に挑戦する。"
-                        + $"勝つと所持金が {miniGameReward} 増える。";
+                        + PrizeText(game);
                 case BoardCellEvent.MoneyUp:
                     return $"止まると所持金が {MoneyRangeText()} 増える（止まるたびにランダム）。";
                 case BoardCellEvent.MoneyDown:
@@ -49,6 +50,23 @@ namespace Main.Board
                 default:
                     return "特に何も起こらないマス。";
             }
+        }
+
+        // ミニゲームの賞金の説明（ルール側＝MiniGamePrize から組み立てる）。
+        // 順位が付くゲームは「1位 500 / 2位 300 …」、順位が定義できないゲームは勝ったときの一律額。
+        private static string PrizeText(MiniGameId game)
+        {
+            if (!MiniGamePrize.HasRanking(game))
+            {
+                return $"勝つと所持金が {MiniGamePrize.Win} 増える。";
+            }
+
+            string[] parts = new string[MiniGamePrize.PaidRanks];
+            for (int rank = 1; rank <= MiniGamePrize.PaidRanks; rank++)
+            {
+                parts[rank - 1] = $"{rank}位 {MiniGamePrize.ForRank(rank)}";
+            }
+            return $"順位に応じて所持金がもらえる（{string.Join(" / ", parts)}・それ以下は 0）。";
         }
 
         // お金マスの増減額の範囲（ルール側の定数から組み立てる）。
