@@ -29,24 +29,22 @@ namespace Main.Board
             switch (cellEvent)
             {
                 case BoardCellEvent.Forward:
-                    return $"止まるとさらに {MoveRangeText()} マス進む（止まるたびにランダム）。"
+                    return $"このマスに止まると、ランダムで {MoveRangeText()} マス進む。"
                         + "進んだ先のマスの効果もそのまま発動する。";
                 case BoardCellEvent.Back:
-                    return $"止まると {MoveRangeText()} マス戻る（止まるたびにランダム）。"
+                    return $"このマスに止まると、ランダムで {MoveRangeText()} マス戻る。"
                         + "戻った先のマスの効果もそのまま発動する。";
                 case BoardCellEvent.MiniGame:
-                    return $"止まるとミニゲーム「{MiniGameCatalog.Find(game).DisplayName}」に挑戦する。"
+                    return $"このマスに止まると、ミニゲーム「{MiniGameCatalog.Find(game).DisplayName}」に挑戦する。"
                         + PrizeText(game);
                 case BoardCellEvent.MoneyUp:
-                    return $"止まると所持金が {MoneyRangeText()} 増える（止まるたびにランダム）。";
+                    return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 増える。";
                 case BoardCellEvent.MoneyDown:
-                    return $"止まると所持金が {MoneyRangeText()} 減る（止まるたびにランダム）。所持金はマイナスにもなる。";
+                    return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 減る。";
                 case BoardCellEvent.Territory:
-                    return "止まると自分の陣地になる。相手の陣地でも上書きして奪える。"
-                        + "盤面の陣地マスを決められた数だけ先に集めた人が勝ち。";
+                    return "このマスに止まると、自分の陣地になる。相手の陣地なら上書きして奪う。";
                 case BoardCellEvent.Item:
-                    return "止まるとアイテムショップが開き、所持金でアイテムを買える。"
-                        + "買ったアイテムは手札に入り、自分の手番に使える。";
+                    return "このマスに止まると、アイテムショップに訪れる。";
                 default:
                     return "特に何も起こらないマス。";
             }
