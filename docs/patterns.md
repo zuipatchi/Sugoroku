@@ -225,6 +225,7 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 7. ホストは表示前に UXML をロードするため `ISceneReady` を実装している（ロード完了まで暗幕を維持）。`Report` で結果を返すとランチャーがシーンをアンロードする
 
 > **ゲーム内からの起動は 2 経路**：ミニゲームマス（`BoardCellEvent.MiniGame`・マスごとに種類を設定）への着地と、ミニゲームアイテム（遊ぶゲームをモーダルで選ぶ）。どちらも勝てば所持金報酬（+500）。
+> **マスへの着地は遊ぶゲームを選べないので、起動の前に告知して全員の「はじめる」を待つ**（`BoardPresenter.ShowMiniGameAnnounceAsync` → `WaitForAllMiniGameReadyAsync`）。アイテム経由は選択モーダルで何を遊ぶか分かっているので待たない。
 > **一人用モードでも、ミニゲームマスに止まったのが CPU のときは自分が CPU 相手に遊ぶ**（`BoardPresenter.RunLocalMiniGameAsync`＝自分が勝てば自分、負ければ着地した CPU が報酬を得る）。報酬の加算と勝者発表の帯はオンラインと共通の `AwardMiniGameAsync`。
 
 **オンライン対戦に対応させるとき**（新しいゲームを足したら必ず通す）:
