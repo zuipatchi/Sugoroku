@@ -536,19 +536,23 @@
 /* 止まったマスの文言（「お金を落とした！」等）のピル。画像と同じ transition でポップさせる。
    浮遊テキスト（.money-float）は中央から上へ動くので重ならない。
    薄黒い長方形の地を敷いて盤面の上でも読めるようにする（幅は文字なりで、長い文言は max-width で折り返す
-   ＝参照解像度 540 の 90% から左右パディング 24px×2 を引いた 438px に入るぶん＝全角およそ 14 文字で改行される。
-   max-width か font-size を変えたら、Cell Message Editor のプレビュー定数 PreviewMaxWidthPx／PreviewFontSizePx も合わせる）。
+   ＝参照解像度 540 の 94% から左右パディング 20px×2 を引いた 467.6px に入るぶん。全角 1 文字は font-size 28px に
+   -unity-text-outline-width 2px が左右へ足されて 32px 占めるので、1 行に入るのは全角 14 文字
+   ＝14 文字で 448px。**この寸法は「全角 14 文字を 1 行に収める」ために逆算してある**ので、
+   max-width・font-size・-unity-text-outline-width のどれかを変えたら 14 文字が入るか計算し直し、
+   Cell Message Editor のプレビュー定数 PreviewMaxWidthPx／PreviewFontSizePx／PreviewPaddingXPx／
+   PreviewOutlineWidthPx も合わせる）。
    表示中だけ display:flex にする（BoardLandingPresentation が制御）。 */
 .cell-message {
-    max-width: 90%;
+    max-width: 94%;
     padding-top: 8px;
-    padding-right: 24px;
+    padding-right: 20px;
     padding-bottom: 8px;
-    padding-left: 24px;
+    padding-left: 20px;
     display: none;
     opacity: 0;
     scale: 0.8 0.8;
-    font-size: 30px;
+    font-size: 28px;
     color: rgb(255, 245, 215);
     background-color: rgba(0, 0, 0, 0.82);
     white-space: normal;

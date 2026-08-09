@@ -38,16 +38,21 @@ namespace Main.EditorTools
 
         // プレビューをゲーム画面と同じ折り返しにするための寸法。**実機のレイアウトからそのまま持ってくる**：
         // 幅 = 540（Panel Settings の ReferenceResolution.x。ScreenMatchMode は幅合わせなので端末に依らず一定）
-        //      × 90%（Board.uss の .cell-message の max-width）＝ 486px。UI Toolkit は border-box なので
-        //      左右パディング（24px×2）はこの内側に入る。
+        //      × 94%（Board.uss の .cell-message の max-width）＝ 507.6px。UI Toolkit は border-box なので
+        //      左右パディング（20px×2）はこの内側に入る。
         // これらを変えたときはここも合わせる（ずれるとプレビューの折り返しが実機と食い違う）。
-        private const float PreviewMaxWidthPx = 486f;
-        private const float PreviewFontSizePx = 30f;
-        private const float PreviewPaddingXPx = 24f;
+        private const float PreviewMaxWidthPx = 507.6f;
+        private const float PreviewFontSizePx = 28f;
+        private const float PreviewPaddingXPx = 20f;
         private const float PreviewPaddingYPx = 8f;
-        // 全角は 1em＝文字サイズと同じ幅なので、1 行に入るのは (最大幅 - 左右パディング) ÷ 文字サイズ 文字。
+        // .cell-message の -unity-text-outline-width。**字送りに効く**（縁取りのぶん 1 文字が左右へ太るので、
+        // 1 行に入る文字数がそのぶん減る）ので、プレビューにも同じ値を当てないと折り返しが実機とずれる。
+        private const float PreviewOutlineWidthPx = 2f;
+        // 全角 1 文字が占める幅。字幅は 1em＝文字サイズだが、縁取りが左右へ出るぶん広がる。
+        private const float FullWidthAdvancePx = PreviewFontSizePx + (PreviewOutlineWidthPx * 2f);
+        // 1 行に入るのは (最大幅 - 左右パディング) ÷ 全角 1 文字ぶんの幅 文字。
         private const int FullWidthCharsPerLine =
-            (int)((PreviewMaxWidthPx - (PreviewPaddingXPx * 2f)) / PreviewFontSizePx);
+            (int)((PreviewMaxWidthPx - (PreviewPaddingXPx * 2f)) / FullWidthAdvancePx);
         // ゲームの既定フォント（Panel Settings の PanelTextSettings が参照しているものと同じ資産）。
         private const string GameFontPath = "Assets/Font/NotoSansJP-Bold SDF.asset";
 
@@ -75,6 +80,32 @@ namespace Main.EditorTools
             window.titleContent = new GUIContent("Cell Message Editor");
             // プレビューを実機と同じ幅（PreviewMaxWidthPx）で出すので、プール一覧と並べても切れない幅を確保する。
             window.minSize = new Vector2(780f, 460f);
+        }
+
+        private void OnEnable()
+        {
+            Undo.undoRedoPerformed += OnUndoRedo;
+        }
+
+        private void OnDisable()
+        {
+            Undo.undoRedoPerformed -= OnUndoRedo;
+        }
+
+        /// <summary>
+        /// Ctrl+Z / Ctrl+Y は資産（<see cref="_target"/>）だけを巻き戻すので、作業コピー（<see cref="_working"/>）と
+        /// それを元に組んだ行は古いまま残る。そのまま次の編集をすると古い作業コピーが資産へ書き戻され（<see cref="Apply"/>）、
+        /// 取り消したはずの変更が復活してしまう。巻き戻しのたびに資産から読み直して組み直す。
+        /// </summary>
+        private void OnUndoRedo()
+        {
+            // CreateGUI より前（UI 未構築）なら何もしなくてよい。次の CreateGUI が資産から読み直す。
+            if (_infoLabel == null)
+            {
+                return;
+            }
+            LoadWorking();
+            Rebuild();
         }
 
         private void CreateGUI()
@@ -454,6 +485,9 @@ namespace Main.EditorTools
                 ? new Color(0.55f, 0.55f, 0.55f)
                 : new Color(1f, 0.96f, 0.84f);
             preview.style.backgroundColor = new Color(0f, 0f, 0f, 0.82f);
+            // 縁取りは見た目だけでなく字送りにも効くので、実機と同じ折り返しにするには外せない。
+            preview.style.unityTextOutlineWidth = PreviewOutlineWidthPx;
+            preview.style.unityTextOutlineColor = new Color(0f, 0f, 0f, 0.85f);
 
             // 折り返し位置は字幅で決まるので、ゲームと同じフォントを当てないと実機とずれる。
             FontAsset font = LoadGameFont();
@@ -464,7 +498,7 @@ namespace Main.EditorTools
             bounds.Add(preview);
 
             Label caption = new(font != null
-                ? $"実機と同じ幅 {PreviewMaxWidthPx:0}px・文字サイズ {PreviewFontSizePx:0}px・NotoSansJP Bold で折り返します（全角およそ{FullWidthCharsPerLine}文字/行）。"
+                ? $"実機と同じ幅 {PreviewMaxWidthPx:0.#}px・文字サイズ {PreviewFontSizePx:0}px・縁取り {PreviewOutlineWidthPx:0}px・NotoSansJP Bold で折り返します（全角{FullWidthCharsPerLine}文字/行）。"
                 : $"実機と同じ寸法で折り返しますが、{GameFontPath} が見つからないためフォントは代用です（位置は目安）。");
             caption.style.whiteSpace = WhiteSpace.Normal;
             caption.style.fontSize = 10f;
