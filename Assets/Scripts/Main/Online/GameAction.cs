@@ -105,6 +105,11 @@ namespace Main.Online
         /// <summary>ミニゲームの生の結果値（<see cref="GameActionType.MiniGameScore"/>）。</summary>
         public int MiniGameValue => ArgAt(0);
 
+        /// <summary>
+        /// 見せるマスの文言のプール内 index（<see cref="GameActionType.CellMessage"/>）。負値なら文言なし。
+        /// </summary>
+        public int CellMessageIndex => ArgAt(0, -1);
+
         /// <summary>待機表示の理由（<see cref="GameActionType.Busy"/>）。<see cref="BusyReason"/> の値。</summary>
         public int BusyReasonId => ArgAt(0);
 
@@ -193,6 +198,15 @@ namespace Main.Online
         public static GameAction MiniGameReady(int seat)
         {
             return new GameAction(GameActionType.MiniGameReady, seat, EmptyArgs);
+        }
+
+        /// <summary>
+        /// 着地したマスで見せる文言の抽選結果（<paramref name="index"/> = プール内 index・負値なら文言なし）。
+        /// 着地した人ではなく**ホストが決めて配る**ので、全員の画面に同じ文言が出る。
+        /// </summary>
+        public static GameAction CellMessage(int seat, int index)
+        {
+            return new GameAction(GameActionType.CellMessage, seat, new[] { index });
         }
 
         /// <summary>ミニゲームの自分の結果値（<paramref name="value"/> の意味はゲームごと）。</summary>

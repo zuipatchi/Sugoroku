@@ -200,9 +200,9 @@ namespace Main.Board
         private const string SelectableGlowClass = "board-cell__glow";
         // アイテム抽選の乱数源（ゲーム内の見た目のランダム性用。抽選ロジック自体は ItemCatalog にある）。
         private readonly System.Random _itemRng = new();
-        // 着地時に見せるマスの文言（BoardCellMessageCatalog）を選ぶ乱数源。演出専用に _itemRng と分けてあるのは、
-        // _itemRng が「決めて配る側」の値（お金の増減額など）を決めるのに対し、文言は各クライアントが
-        // ローカルに選ぶ見た目だけの値で、消費回数が席によって変わるため（混ぜると決定値の再現性が読みにくくなる）。
+        // 着地時に見せるマスの文言（BoardCellMessageCatalog）を選ぶ乱数源。_itemRng と分けてあるのは
+        // 引く人が違うため：_itemRng は「着地した人」が着地のたびの値（お金の増減額など）を決めるのに対し、
+        // こちらは「ホスト」だけが引いて結果を配る（混ぜると引く側が入れ替わって消費回数が読みにくくなる）。
         private readonly System.Random _messageRng = new();
         // 直前の着地で決まった「続けて動くマス数」（進む＝正／戻る＝負・0 なら連鎖しない）。
         // マス数は着地のたびのランダムなので、演出で使った値をそのまま連鎖の移動にも使う
@@ -1512,20 +1512,29 @@ namespace Main.Board
             _pendingChainSteps = 0;
 
             int position = _model.Position(player).CurrentValue;
-            string message = PickCellMessage(position);
+            bool isTerritoryCell = _boardDef != null && position >= 0 && position < _boardDef.CellCount
+                && _boardDef.Cell(position).Event == BoardCellEvent.Territory;
 
-            // 陣地マスは専用の旗演出（中央に旗を表示→縮小しながらマスへ重ねて占拠）に置き換え、
-            // マスの文言はその演出と同時に見せる。
-            // 旗がマスに重なった瞬間の占拠確定（ロジック）はコールバックでここから渡す。
-            if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
-                && _boardDef.Cell(position).Event == BoardCellEvent.Territory)
+            // すでに自分が占拠している陣地マスなら、占拠状態は変わらないので演出ごとスキップする。
+            // **文言をホストに配ってもらう前に判定する**：スキップの条件（盤面・占拠状況）は全員が同じ値を
+            // 持つので判定も一致し、誰も受け取らない CellMessage がストリームに残らない。
+            if (isTerritoryCell)
             {
-                // すでに自分が占拠している陣地マスなら、占拠状態は変わらないので旗演出をスキップする。
                 ReadOnlyReactiveProperty<int> currentOwner = _territory?.Owner(position);
                 if (currentOwner != null && currentOwner.CurrentValue == player)
                 {
                     return;
                 }
+            }
+
+            // 見せる文言はホストが 1 つ選んで全員へ配る（席ごとに違う文言が出ないように）。
+            string message = await ResolveCellMessageAsync(position, ct);
+
+            // 陣地マスは専用の旗演出（中央に旗を表示→縮小しながらマスへ重ねて占拠）に置き換え、
+            // マスの文言はその演出と同時に見せる。
+            // 旗がマスに重なった瞬間の占拠確定（ロジック）はコールバックでここから渡す。
+            if (isTerritoryCell)
+            {
                 Sprite flag = _flagIcons != null && player >= 0 && player < _flagIcons.Length ? _flagIcons[player] : null;
                 VisualElement targetCell = _cells != null && position < _cells.Length ? _cells[position] : null;
                 // 文言と旗の占拠演出は同時に見せる（順に見せると陣地マスだけ着地が長く感じるため）。
@@ -1578,22 +1587,36 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 盤面 index <paramref name="position"/> のマスで見せる文言を 1 つ選ぶ（イベント種別ごとに用意した
-        /// <see cref="BoardCellMessageCatalog"/> 資産からの抽選。未割り当てなら
-        /// <see cref="BoardCellMessageDefaults"/> の既定文言）。盤面外なら null。
+        /// 盤面 index <paramref name="position"/> のマスで見せる文言を 1 つに決める（イベント種別ごとに
+        /// 用意した <see cref="BoardCellMessageCatalog"/> 資産からの抽選。未割り当てなら
+        /// <see cref="BoardCellMessageDefaults"/> の既定文言）。盤面外なら配らず null。
         ///
-        /// 抽選は各クライアントがローカルに行う。文言は見た目だけで盤面の状態には影響しないので、
-        /// オンラインでもアクションストリームに載せて配る必要がない（食い違っても進行は一致する）。
+        /// **抽選するのはホストだけ**で、選んだプール内 index を <see cref="GameActionType.CellMessage"/> で
+        /// 配り、全員が受信した index から同じ文言を取り出す（見た目だけの値だが、同じマスに止まったのに
+        /// 席ごとに違う文言が出ると同じ画面を見ている感じが崩れるため）。着地した人ではなくホストが決めるのは、
+        /// 誰が着地したかに関係なく 1 人が選べば足りるから。一人用モードは自分がホスト扱い
+        /// （<see cref="OnlineGameSync.IsHost"/>）なので、発行が即ローカルのキューへ積まれるだけで同じ経路を通る。
         /// </summary>
-        private string PickCellMessage(int position)
+        private async UniTask<string> ResolveCellMessageAsync(int position, CancellationToken ct)
         {
             if (_boardDef == null || position < 0 || position >= _boardDef.CellCount)
             {
                 return null;
             }
+
+            BoardCellEvent cellEvent = _boardDef.Cell(position).Event;
             // 経路 index 0 はスタート＝ゴール。イベント種別ではなく位置で決まるので専用の文言を使う。
-            return BoardCellMessageCatalog.Pick(
-                _messageCatalog, _boardDef.Cell(position).Event, position == 0, _messageRng);
+            bool isStart = position == 0;
+            if (_sync.IsHost)
+            {
+                _sync.Publish(GameAction.CellMessage(
+                    _sync.MySeat,
+                    BoardCellMessageCatalog.PickIndex(_messageCatalog, cellEvent, isStart, _messageRng)));
+            }
+
+            GameAction decided = await WaitForActionAsync(GameActionType.CellMessage, ct);
+            return BoardCellMessageCatalog.MessageAt(
+                _messageCatalog, cellEvent, isStart, decided.CellMessageIndex);
         }
 
         /// <summary>

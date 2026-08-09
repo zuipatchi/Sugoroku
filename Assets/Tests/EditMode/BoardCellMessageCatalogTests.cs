@@ -211,6 +211,61 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void PickIndexで選んだindexをMessageAtに渡すと同じ文言に戻る()
+        {
+            // オンラインはホストが PickIndex で引いた index を配り、受信側が MessageAt で文言に戻す。
+            // ここがずれると席ごとに違う文言が出るので、同じ抽選と同じ復元になること。
+            foreach (BoardCellEvent cellEvent in AllEvents())
+            {
+                Random pickRng = new(20260809);
+                Random expectRng = new(20260809);
+                for (int i = 0; i < Draws; i++)
+                {
+                    int index = BoardCellMessageCatalog.PickIndex(_catalog, cellEvent, false, pickRng);
+                    Assert.AreEqual(
+                        _catalog.Pick(cellEvent, false, expectRng),
+                        BoardCellMessageCatalog.MessageAt(_catalog, cellEvent, false, index),
+                        $"{cellEvent} で index からの復元が抽選と一致しません。");
+                }
+            }
+        }
+
+        [Test]
+        public void PickIndexとMessageAtは資産が未割り当てでも既定の文言でそろう()
+        {
+            // 資産の有無は各クライアントで同じ（同じビルド）だが、未割り当てのフォールバックでも
+            // index → 文言の対応が保たれること。
+            int index = BoardCellMessageCatalog.PickIndex(null, BoardCellEvent.MoneyUp, false, new Random(11));
+            Assert.AreEqual(
+                BoardCellMessageDefaults.Messages(BoardCellEvent.MoneyUp)[index],
+                BoardCellMessageCatalog.MessageAt(null, BoardCellEvent.MoneyUp, false, index));
+
+            int startIndex = BoardCellMessageCatalog.PickIndex(null, BoardCellEvent.None, true, new Random(11));
+            Assert.AreEqual(
+                BoardCellMessageDefaults.StartMessages[startIndex],
+                BoardCellMessageCatalog.MessageAt(null, BoardCellEvent.None, true, startIndex));
+        }
+
+        [Test]
+        public void 空のプールはPickIndexが負値を返しMessageAtは文言なしになる()
+        {
+            // 空プール＝そのマスでは文言を出さない設定。配る値が負値になり、受信側も文言なしになること。
+            _catalog.SetMessages(BoardCellEvent.None, Array.Empty<string>());
+
+            int index = BoardCellMessageCatalog.PickIndex(_catalog, BoardCellEvent.None, false, new Random(5));
+            Assert.Less(index, 0);
+            Assert.IsNull(BoardCellMessageCatalog.MessageAt(_catalog, BoardCellEvent.None, false, index));
+        }
+
+        [Test]
+        public void 範囲外のindexは文言なしになる()
+        {
+            // 壊れた値や資産の食い違いが届いても落ちず、文言が出ないだけで進行は続く。
+            Assert.IsNull(BoardCellMessageCatalog.MessageAt(_catalog, BoardCellEvent.MoneyUp, false, 9999));
+            Assert.IsNull(BoardCellMessageCatalog.MessageAt(_catalog, BoardCellEvent.MoneyUp, false, -1));
+        }
+
+        [Test]
         public void 編集した文言が資産に残る()
         {
             _catalog.SetStartMessages(new[] { "スタートの文言" });

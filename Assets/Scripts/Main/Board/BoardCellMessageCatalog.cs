@@ -17,9 +17,12 @@ namespace Main.Board
     /// 資産を作らなくても従来どおり動く。**割り当てたら資産の中身がそのまま出る**（プールを空にした
     /// マスでは文言が出ない＝意図的に消せる）。
     ///
-    /// 抽選は各クライアントがローカルに行う（見た目だけで盤面の状態には影響しないので、オンラインでも
-    /// アクションストリームに載せて配る必要がない）。乱数源は呼び出し側が渡し、null なら先頭を返して
-    /// 決定的にふるまう（<see cref="Money.MoneyCellRule"/> と同じ規約）。
+    /// **オンラインでは抽選をホストが 1 回だけ行い、選んだ文言の index を配って全員が同じ文言を出す**
+    /// （<see cref="Online.GameActionType.CellMessage"/>）。そのため抽選
+    /// （<see cref="PickIndex(BoardCellEvent, bool, System.Random)"/>）と
+    /// index からの取り出し（<see cref="MessageAt"/>）を分けてある（文字列そのものは配らない＝
+    /// 全クライアントが同じ資産を持つので index だけで復元できる）。乱数源は呼び出し側が渡し、
+    /// null なら先頭を返して決定的にふるまう（<see cref="Money.MoneyCellRule"/> と同じ規約）。
     /// </summary>
     [CreateAssetMenu(menuName = "Sugoroku/Cell Message Catalog", fileName = "BoardCellMessageCatalog")]
     public sealed class BoardCellMessageCatalog : ScriptableObject
@@ -76,7 +79,7 @@ namespace Main.Board
         /// </summary>
         public string Pick(BoardCellEvent cellEvent, bool isStart, System.Random rng)
         {
-            return PickFrom(isStart ? StartMessages : Messages(cellEvent), rng);
+            return PickFrom(PoolOf(cellEvent, isStart), rng);
         }
 
         /// <summary>
@@ -86,9 +89,7 @@ namespace Main.Board
         public static string Pick(
             BoardCellMessageCatalog catalog, BoardCellEvent cellEvent, bool isStart, System.Random rng)
         {
-            return catalog != null
-                ? catalog.Pick(cellEvent, isStart, rng)
-                : PickFrom(BoardCellMessageDefaults.Pool(cellEvent, isStart), rng);
+            return PickFrom(PoolOf(catalog, cellEvent, isStart), rng);
         }
 
         /// <summary>
@@ -96,11 +97,80 @@ namespace Main.Board
         /// </summary>
         public static string PickFrom(IReadOnlyList<string> pool, System.Random rng)
         {
+            return At(pool, PickIndexFrom(pool, rng));
+        }
+
+        /// <summary>
+        /// <see cref="PickFrom"/> と同じ抽選で、選んだ文言そのものではなく**プール内の index** を返す
+        /// （空なら -1）。オンラインでホストが選んだ文言を配るために使う（文字列ではなく index を送る）。
+        /// </summary>
+        public static int PickIndexFrom(IReadOnlyList<string> pool, System.Random rng)
+        {
             if (pool == null || pool.Count == 0)
+            {
+                return -1;
+            }
+            return rng == null ? 0 : rng.Next(pool.Count);
+        }
+
+        /// <summary>
+        /// 着地したマスで見せる文言を 1 つ選び、**プール内の index** を返す（空なら -1）。
+        /// 引数の意味は <see cref="Pick(BoardCellEvent, bool, System.Random)"/> と同じ。
+        /// </summary>
+        public int PickIndex(BoardCellEvent cellEvent, bool isStart, System.Random rng)
+        {
+            return PickIndexFrom(PoolOf(cellEvent, isStart), rng);
+        }
+
+        /// <summary>
+        /// <paramref name="catalog"/> 資産（未割り当てなら既定文言）から文言を 1 つ選び、
+        /// **プール内の index** を返す（空なら -1）。<see cref="MessageAt"/> と対で使う。
+        /// </summary>
+        public static int PickIndex(
+            BoardCellMessageCatalog catalog, BoardCellEvent cellEvent, bool isStart, System.Random rng)
+        {
+            return PickIndexFrom(PoolOf(catalog, cellEvent, isStart), rng);
+        }
+
+        /// <summary>
+        /// プールの <paramref name="index"/> 番目の文言（範囲外・空プールなら null）。
+        /// <see cref="PickIndex(BoardCellMessageCatalog, BoardCellEvent, bool, System.Random)"/> で
+        /// 選んだ index を全クライアントで同じ文言に戻すための取り出し口。
+        /// </summary>
+        public static string MessageAt(
+            BoardCellMessageCatalog catalog, BoardCellEvent cellEvent, bool isStart, int index)
+        {
+            return At(PoolOf(catalog, cellEvent, isStart), index);
+        }
+
+        /// <summary>
+        /// この資産で <paramref name="cellEvent"/>（スタート指定ならスタート専用）に使うプール。
+        /// </summary>
+        private IReadOnlyList<string> PoolOf(BoardCellEvent cellEvent, bool isStart)
+        {
+            return isStart ? StartMessages : Messages(cellEvent);
+        }
+
+        /// <summary>
+        /// <paramref name="catalog"/>（未割り当てなら既定文言）で使うプール。抽選・取り出しの
+        /// どちらも同じプールを見るように、資産の有無の分岐はここ 1 か所に閉じ込める。
+        /// </summary>
+        private static IReadOnlyList<string> PoolOf(
+            BoardCellMessageCatalog catalog, BoardCellEvent cellEvent, bool isStart)
+        {
+            return catalog != null
+                ? catalog.PoolOf(cellEvent, isStart)
+                : BoardCellMessageDefaults.Pool(cellEvent, isStart);
+        }
+
+        /// <summary>プールの <paramref name="index"/> 番目（範囲外なら null）。</summary>
+        private static string At(IReadOnlyList<string> pool, int index)
+        {
+            if (pool == null || index < 0 || index >= pool.Count)
             {
                 return null;
             }
-            return pool[rng == null ? 0 : rng.Next(pool.Count)];
+            return pool[index];
         }
 
         /// <summary>スタート専用プールを差し替える（エディタから編集するため）。</summary>

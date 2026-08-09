@@ -131,6 +131,23 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void CellMessageは文言のindexと文言なしが往復する()
+        {
+            // マスの文言はホストだけが抽選し、選んだプール内 index を配って全員が同じ文言を出す。
+            // プールが空のときは負値＝文言なしとして運ぶ。
+            string picked = GameActionCodec.Encode(GameAction.CellMessage(0, 6));
+            string none = GameActionCodec.Encode(GameAction.CellMessage(0, -1));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(picked, out GameAction pickedAction));
+            Assert.AreEqual(GameActionType.CellMessage, pickedAction.Type);
+            Assert.AreEqual(0, pickedAction.Seat);
+            Assert.AreEqual(6, pickedAction.CellMessageIndex);
+
+            Assert.IsTrue(GameActionCodec.TryDecode(none, out GameAction noneAction));
+            Assert.AreEqual(-1, noneAction.CellMessageIndex);
+        }
+
+        [Test]
         public void Busyは待機理由と解除の両方が往復する()
         {
             // 他プレイヤーの操作待ち表示のお知らせ。None は「待機表示の解除」を意味する。

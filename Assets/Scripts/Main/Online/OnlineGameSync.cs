@@ -116,6 +116,13 @@ namespace Main.Online
         }
 
         /// <summary>
+        /// このクライアントがホストか（一人用モードは配る相手がいないので常に true＝自分がホスト扱い）。
+        /// 席に紐づかない決定＝**誰が着地したかに関係なく 1 人だけが決めればよい抽選**
+        /// （<see cref="GameActionType.CellMessage"/> のマスの文言）をホストに任せるために使う。
+        /// </summary>
+        public bool IsHost => !IsOnline || _gameSession.IsHost;
+
+        /// <summary>
         /// 接続確立後に呼ぶ。名前付きメッセージのハンドラを登録し、切断を監視し始める。
         /// 復帰したときも（NGO が作り直されるので）登録し直す。一人用モードでは何もしない。
         /// </summary>
