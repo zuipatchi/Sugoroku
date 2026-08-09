@@ -1,5 +1,4 @@
 using System;
-using Common.MiniGame;
 using Main.Board;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -63,20 +62,9 @@ namespace Main.EditorTools
             });
             _container.Add(eventField);
 
-            // 数値（マス数・金額）の入力欄は意図的に無い。進む/戻るのマス数は MoveCellRule、
-            // お金の増減額は MoneyCellRule が着地のたびにランダムで決めるので、マスごとに設定できる値ではない。
-
-            if (cell.Event == BoardCellEvent.MiniGame)
-            {
-                EnumField miniGameField = new("ミニゲーム", cell.MiniGame);
-                miniGameField.RegisterValueChangedCallback(evt =>
-                {
-                    Undo.RecordObject(target, "ミニゲーム変更");
-                    cell.SetMiniGame((MiniGameId)evt.newValue);
-                    EditorUtility.SetDirty(target);
-                });
-                _container.Add(miniGameField);
-            }
+            // 数値（マス数・金額）とミニゲームの種類の入力欄は意図的に無い。進む/戻るのマス数は MoveCellRule、
+            // お金の増減額は MoneyCellRule、遊ぶミニゲームは MiniGameCatalog.RandomGame が着地のたびに
+            // ランダムで決めるので、どれもマスごとに設定できる値ではない。
 
             ColorField colorField = new("色") { value = cell.HasCustomColor ? cell.Color : BoardCellDefinition.UnsetColor };
             colorField.RegisterValueChangedCallback(evt =>

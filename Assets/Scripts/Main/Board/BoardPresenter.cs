@@ -165,6 +165,8 @@ namespace Main.Board
         private VisualElement _itemHand;
         // ロード済みアイテム絵のキャッシュ（取得マスで抽選するたびに使い回す）。
         private readonly Dictionary<ItemId, Sprite> _itemSprites = new();
+        // ロード済みミニゲームのサムネイルのキャッシュ（着地のたびの抽選で使い回す）。
+        private readonly Dictionary<MiniGameId, Sprite> _miniGameThumbnails = new();
         // 手札に並べたカード（同じアイテムはカードを増やさず 1 枚にまとめる）と、その所持枚数。
         private readonly Dictionary<ItemId, VisualElement> _handCards = new();
         private readonly Dictionary<ItemId, int> _handCounts = new();
@@ -1544,14 +1546,11 @@ namespace Main.Board
                 return;
             }
 
-            // ミニゲームマスは、これから遊ぶミニゲームを見せてから起動し、勝てば所持金報酬をもらう。
-            // マスの絵はそのゲームのサムネイルなので、通常のマスと同じく画像＋文言で見せられる。
+            // ミニゲームマスは、抽選で決まった遊ぶミニゲームを見せてから起動し、順位に応じた賞金をもらう。
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.MiniGame)
             {
-                Sprite thumbnail = _cellIcons != null && position < _cellIcons.Length ? _cellIcons[position] : null;
-                await PlayMiniGameCellSequenceAsync(
-                    player, _boardDef.Cell(position).MiniGame, thumbnail, message, ct);
+                await PlayMiniGameCellSequenceAsync(player, message, ct);
                 return;
             }
 
@@ -1628,42 +1627,46 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// ミニゲームマスの演出。そのマスに設定されたミニゲーム（<paramref name="game"/>＝盤面エディタで選ぶ）を
+        /// ミニゲームマスの演出。**遊ぶゲームは着地のたびの抽選**（<see cref="MiniGameCatalog.RandomGame"/>）で、
+        /// マスには設定されていない。着地した本人が「遊ぶゲーム」と「内容を組み立てる種」を配り
+        /// （<see cref="GameActionType.MiniGameLanding"/>）、全員が受信した値で同じゲームの同じ内容を
         /// <see cref="RunMiniGameAsync"/> で遊ぶ（オンラインは全員が同時に・一人用は自分が CPU 相手に）。
-        /// ゲームの内容をそろえる種だけは着地した本人が配り、全員が受信した種で同じ内容を組み立てる。
-        /// ミニゲームアイテムと違って**遊ぶゲームは選べない**（マスごとに決まっている）ので、
-        /// 何が始まるのか分からないまま画面が切り替わらないよう、起動の前に遊ぶゲームを見せて
+        /// 何が始まるのか分からないまま画面が切り替わらないよう、起動の前に抽選結果を見せて
         /// 全員の「はじめる」を待つ（<see cref="ShowMiniGameAnnounceAsync"/>）。
         /// </summary>
-        private async UniTask PlayMiniGameCellSequenceAsync(
-            int player, MiniGameId game, Sprite thumbnail, string message, CancellationToken ct)
+        private async UniTask PlayMiniGameCellSequenceAsync(int player, string message, CancellationToken ct)
         {
-            // ゲームの内容（被っちゃやーよのカード構成など）を全員でそろえるため、着地した人が種を配る。
-            // 遊ぶゲームの種類はマスのデータから全員が導けるので配らない。
+            // 遊ぶゲームと、その内容（被っちゃやーよのカード構成など）をそろえる種を、着地した人が配る。
+            // どちらも着地のたびの抽選で盤面データからは導けないので、受信した値だけを使う。
             if (_sync.IsLocalDecider(player))
             {
-                _sync.Publish(GameAction.MiniGameLanding(player, NextMiniGameSeed()));
+                _sync.Publish(GameAction.MiniGameLanding(
+                    player, (int)MiniGameCatalog.RandomGame(_itemRng), NextMiniGameSeed()));
             }
 
-            // 種を先に受け取ってから告知する。告知は全員が「はじめる」を押すまで続くので、
-            // 待っている間に届く種を告知側の待ち受け（MiniGameReady 待ち）が読み飛ばしてしまわないように。
+            // 抽選結果を先に受け取ってから告知する。告知は全員が「はじめる」を押すまで続くので、
+            // 待っている間に届く抽選結果を告知側の待ち受け（MiniGameReady 待ち）が読み飛ばしてしまわないように。
             GameAction start = await WaitForActionAsync(GameActionType.MiniGameLanding, ct);
+            MiniGameId game = (MiniGameId)start.MiniGameKind;
 
-            await ShowMiniGameAnnounceAsync(game, thumbnail, message, ct);
+            await ShowMiniGameAnnounceAsync(game, message, ct);
             await RunMiniGameAsync(start.Seat, game, start.MiniGameSeed, ct);
         }
 
         /// <summary>
-        /// これから遊ぶミニゲームを見せ、**参加者全員が「はじめる」を押すまで待つ**演出。
-        /// マスの絵（＝そのゲームのサムネイル <see cref="MiniGameDefinition.ImageAddress"/>）とマスの文言を
+        /// 抽選で決まったミニゲームを見せ、**参加者全員が「はじめる」を押すまで待つ**演出。
+        /// そのゲームのサムネイル（<see cref="MiniGameDefinition.ImageAddress"/>）とマスの文言を
         /// 中央に出し、「ミニゲーム「〇〇」！」の帯と「はじめる」ボタンを添える。
+        /// **マスの絵ではなく抽選で決まったゲームの絵を出す**（マスの絵はどのゲームが来るか分からないので
+        /// 全マス共通の「ミニゲーム」の絵＝<see cref="BoardEventArtCatalog.MiniGameAddress"/>）。
         /// 全員そろったら（<see cref="WaitForAllMiniGameReadyAsync"/>）ボタンと絵を消してから起動へ進む。
         /// </summary>
-        private async UniTask ShowMiniGameAnnounceAsync(
-            MiniGameId game, Sprite thumbnail, string message, CancellationToken ct)
+        private async UniTask ShowMiniGameAnnounceAsync(MiniGameId game, string message, CancellationToken ct)
         {
-            ShowBannerText($"ミニゲーム「{MiniGameCatalog.Find(game).DisplayName}」！");
+            MiniGameDefinition definition = MiniGameCatalog.Find(game);
+            ShowBannerText($"ミニゲーム「{definition.DisplayName}」！");
 
+            Sprite thumbnail = await LoadMiniGameThumbnailAsync(definition, ct);
             bool popupShown = await _landing.ShowCellPopupAsync(thumbnail, message, ct);
             await WaitForAllMiniGameReadyAsync(ct);
             HideMiniGameStart();
@@ -2188,6 +2191,29 @@ namespace Main.Board
                 return null;
             }
             return affordable[_itemRng.Next(affordable.Count)].Id;
+        }
+
+        /// <summary>
+        /// ミニゲームのサムネイルをロードしてキャッシュから返す。未配置なら null
+        /// （着地の告知はゲーム名の帯と文言だけになる）。
+        /// マスの絵は全マス共通なので、**どのゲームが当たったかを見せられるのはこの絵だけ**。
+        /// </summary>
+        private async UniTask<Sprite> LoadMiniGameThumbnailAsync(MiniGameDefinition game, CancellationToken ct)
+        {
+            if (game == null)
+            {
+                return null;
+            }
+            if (_miniGameThumbnails.TryGetValue(game.Id, out Sprite cached))
+            {
+                return cached;
+            }
+            Sprite sprite = await _iconLoader.LoadSpriteAsync(game.ImageAddress, "ミニゲーム画像", ct);
+            if (sprite != null)
+            {
+                _miniGameThumbnails[game.Id] = sprite;
+            }
+            return sprite;
         }
 
         /// <summary>アイテム絵をロードしてキャッシュから返す。未配置なら null（手札は文字プレースホルダになる）。</summary>
@@ -2994,7 +3020,7 @@ namespace Main.Board
             string title = isStart ? BoardEventDescription.StartLabel : BoardEventLabel.Of(definition.Event);
             string description = isStart
                 ? BoardEventDescription.StartDescription
-                : BoardEventDescription.Of(definition.Event, definition.MiniGame);
+                : BoardEventDescription.Of(definition.Event);
             Sprite sprite = _cellIcons != null && index < _cellIcons.Length ? _cellIcons[index] : null;
 
             _cellInfo.Open(title, description, TerritoryStatusOf(index, definition), sprite);

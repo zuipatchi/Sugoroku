@@ -93,8 +93,14 @@ namespace Main.Online
         /// <summary>使ったアイテム（<see cref="GameActionType.ItemUse"/>）。</summary>
         public int UsedItemId => ArgAt(0, -1);
 
+        /// <summary>
+        /// 遊ぶミニゲーム（<see cref="GameActionType.MiniGameLanding"/>）。
+        /// <c>Common.MiniGame.MiniGameId</c> の値で、着地のたびの抽選なので盤面データからは導けない。
+        /// </summary>
+        public int MiniGameKind => ArgAt(0);
+
         /// <summary>ミニゲームの内容を組み立てる種（<see cref="GameActionType.MiniGameLanding"/>）。</summary>
-        public int MiniGameSeed => ArgAt(0);
+        public int MiniGameSeed => ArgAt(1);
 
         /// <summary>ミニゲームの生の結果値（<see cref="GameActionType.MiniGameScore"/>）。</summary>
         public int MiniGameValue => ArgAt(0);
@@ -170,10 +176,15 @@ namespace Main.Online
             return new GameAction(GameActionType.ItemUse, seat, args);
         }
 
-        /// <summary>ミニゲームマスへの着地（<paramref name="seed"/> でゲームの内容を全員そろえる）。</summary>
-        public static GameAction MiniGameLanding(int seat, int seed)
+        /// <summary>
+        /// ミニゲームマスへの着地。<paramref name="game"/> は着地のたびに抽選する**遊ぶゲーム**
+        /// （<c>Common.MiniGame.MiniGameId</c> の値）、<paramref name="seed"/> はその内容を全員そろえる種。
+        /// どちらも盤面データからは導けないので配る（引数の並びは <see cref="ItemUse"/> の
+        /// ミニゲーム効果とそろえてある）。
+        /// </summary>
+        public static GameAction MiniGameLanding(int seat, int game, int seed)
         {
-            return new GameAction(GameActionType.MiniGameLanding, seat, new[] { seed });
+            return new GameAction(GameActionType.MiniGameLanding, seat, new[] { game, seed });
         }
 
         /// <summary>

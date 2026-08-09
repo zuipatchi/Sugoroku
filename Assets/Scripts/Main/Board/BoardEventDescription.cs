@@ -19,12 +19,12 @@ namespace Main.Board
             "スタート地点。ここを通過しても止まらず、そのまま盤面を回り続ける。";
 
         /// <summary>
-        /// マスの説明文。<paramref name="game"/> はミニゲームマスで遊ぶゲーム。
+        /// マスの説明文。**文章はどれも「このマスに止まると、〜」で始める**。
         /// 進む／戻るマス数・お金の増減額・ミニゲームの賞金はマスごとの設定ではなくルール側の定数
         /// （<see cref="MoveCellRule"/> / <see cref="MoneyCellRule"/> / <see cref="MiniGamePrize"/>）から
-        /// 組み立てるので引数に取らない。
+        /// 組み立てるので引数に取らない（遊ぶミニゲームも着地のたびの抽選なのでマスからは決まらない）。
         /// </summary>
-        public static string Of(BoardCellEvent cellEvent, MiniGameId game)
+        public static string Of(BoardCellEvent cellEvent)
         {
             switch (cellEvent)
             {
@@ -35,8 +35,7 @@ namespace Main.Board
                     return $"このマスに止まると、ランダムで {MoveRangeText()} マス戻る。"
                         + "戻った先のマスの効果もそのまま発動する。";
                 case BoardCellEvent.MiniGame:
-                    return $"このマスに止まると、ミニゲーム「{MiniGameCatalog.Find(game).DisplayName}」に挑戦する。"
-                        + PrizeText(game);
+                    return "このマスに止まると、ランダムに選ばれたミニゲームに挑戦する。" + PrizeText();
                 case BoardCellEvent.MoneyUp:
                     return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 増える。";
                 case BoardCellEvent.MoneyDown:
@@ -51,14 +50,10 @@ namespace Main.Board
         }
 
         // ミニゲームの賞金の説明（ルール側＝MiniGamePrize から組み立てる）。
-        // 順位が付くゲームは「1位 500 / 2位 300 …」、順位が定義できないゲームは勝ったときの一律額。
-        private static string PrizeText(MiniGameId game)
+        // 遊ぶゲームは着地のたびの抽選なので、どのゲームでも共通の「順位別」だけを書く
+        // （順位が定義できない被っちゃやーよは勝てば 1 位と同額なので、この説明から外れない）。
+        private static string PrizeText()
         {
-            if (!MiniGamePrize.HasRanking(game))
-            {
-                return $"勝つと所持金が {MiniGamePrize.Win} 増える。";
-            }
-
             string[] parts = new string[MiniGamePrize.PaidRanks];
             for (int rank = 1; rank <= MiniGamePrize.PaidRanks; rank++)
             {

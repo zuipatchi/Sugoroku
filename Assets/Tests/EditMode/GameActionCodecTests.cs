@@ -1,3 +1,4 @@
+using Common.MiniGame;
 using Main.Online;
 using NUnit.Framework;
 
@@ -91,14 +92,17 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void MiniGameLandingはゲームの内容をそろえる種が往復する()
+        public void MiniGameLandingは遊ぶゲームと内容をそろえる種が往復する()
         {
-            // 種がずれると被っちゃやーよの提示カードが食い違うので、負値も含めてそのまま運べること。
-            string json = GameActionCodec.Encode(GameAction.MiniGameLanding(1, -123456));
+            // どちらも着地のたびの抽選で盤面データからは導けない。遊ぶゲームがずれれば別のゲームが
+            // 始まり、種がずれれば被っちゃやーよの提示カードが食い違うので、負値も含めてそのまま運べること。
+            string json = GameActionCodec.Encode(
+                GameAction.MiniGameLanding(1, (int)MiniGameId.Overlap, -123456));
 
             Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
             Assert.AreEqual(GameActionType.MiniGameLanding, decoded.Type);
             Assert.AreEqual(1, decoded.Seat);
+            Assert.AreEqual((int)MiniGameId.Overlap, decoded.MiniGameKind);
             Assert.AreEqual(-123456, decoded.MiniGameSeed);
         }
 

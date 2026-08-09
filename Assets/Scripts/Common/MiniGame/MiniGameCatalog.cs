@@ -55,5 +55,18 @@ namespace Common.MiniGame
             }
             return All[0];
         }
+
+        /// <summary>
+        /// 一覧からランダムに 1 つ選ぶ。**ミニゲームマスに止まったときに遊ぶゲームを決める**のに使う
+        /// （マスごとの設定ではなく着地のたびの抽選）。乱数源は呼び出し側が渡す（テストで seed 固定できる）。
+        /// <paramref name="rng"/> が null なら先頭を返して決定的（<c>MoneyCellRule</c> などと同じ規約）。
+        ///
+        /// **決めた結果はオンラインで配る必要がある**（盤面データから導けなくなったため
+        /// ＝<c>GameAction.MiniGameLanding</c>）。
+        /// </summary>
+        public static MiniGameId RandomGame(System.Random rng)
+        {
+            return rng == null ? All[0].Id : All[rng.Next(All.Count)].Id;
+        }
     }
 }

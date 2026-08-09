@@ -45,7 +45,13 @@ namespace Main.Board
         /// </summary>
         public int Amount => _amount;
 
-        /// <summary>イベントが <see cref="BoardCellEvent.MiniGame"/> のとき起動するミニゲーム。</summary>
+        /// <summary>
+        /// かつて「このマスで起動するミニゲーム」だった値。**現在は誰も読まない**。
+        /// 遊ぶゲームは <see cref="MiniGameCatalog.RandomGame"/> が着地のたびに抽選するようになり、
+        /// マスごとに設定する値ではなくなった（盤面エディタからも入力欄と編集 API を外してある）。
+        /// マスの絵も全マス共通の <see cref="BoardEventArtCatalog.MiniGameAddress"/> になった。
+        /// <see cref="Amount"/> と同じく、保存済みアセットに書かれている値を捨てないようフィールドだけ残してある。
+        /// </summary>
         public MiniGameId MiniGame => _miniGame;
 
         /// <summary>マスの塗り色。<see cref="HasCustomColor"/> が false のときは USS の既定色を使う。</summary>
@@ -64,11 +70,6 @@ namespace Main.Board
         public void SetEvent(BoardCellEvent value)
         {
             _event = value;
-        }
-
-        public void SetMiniGame(MiniGameId id)
-        {
-            _miniGame = id;
         }
 
         public void SetColor(Color color)

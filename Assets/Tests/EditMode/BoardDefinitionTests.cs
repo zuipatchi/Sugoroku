@@ -1,4 +1,3 @@
-using Common.MiniGame;
 using Main.Board;
 using NUnit.Framework;
 using UnityEngine;
@@ -59,11 +58,10 @@ namespace Tests.EditMode
         [Test]
         public void イベント値はSetで更新される()
         {
+            // 遊ぶミニゲームは着地のたびの抽選になったので、マスに設定するのはイベント種別だけ。
             BoardCellDefinition cell = new(Vector2Int.zero);
             cell.SetEvent(BoardCellEvent.MiniGame);
-            cell.SetMiniGame(MiniGameId.Tap);
             Assert.AreEqual(BoardCellEvent.MiniGame, cell.Event);
-            Assert.AreEqual(MiniGameId.Tap, cell.MiniGame);
         }
 
         [Test]

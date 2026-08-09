@@ -5,7 +5,7 @@ namespace Main.Board
     /// 保持し、盤面エディタで編集する。お金イベント（<see cref="MoneyUp"/> / <see cref="MoneyDown"/>）は
     /// 着地時に所持金を増減し、陣地マス（<see cref="Territory"/>）は着地時に占拠して勝敗を決める。
     /// コマ移動（<see cref="Forward"/> / <see cref="Back"/>）は着地時にそのマス数ぶん続けて動く（連鎖する）。
-    /// ミニゲーム起動（<see cref="MiniGame"/>）は着地時にそのマスに設定されたミニゲームを遊び、勝てば所持金報酬をもらう。
+    /// ミニゲーム起動（<see cref="MiniGame"/>）は着地時にランダムに選ばれたミニゲームを遊び、順位に応じた賞金をもらう。
     ///
     /// 値は <see cref="BoardDefinition"/> アセットに int で保存されるので、**既存の値は変えない**
     /// （3 は廃止した「休み」の欠番。詰めると保存済みの盤面のイベントがずれる）。
@@ -23,7 +23,10 @@ namespace Main.Board
 
         // 3 は廃止した「休み」の欠番（既存アセットとの互換のため詰めない）。
 
-        /// <summary>止まるとそのマスに設定されたミニゲーム（<see cref="BoardCellDefinition.MiniGame"/>）が始まる。勝つと所持金報酬。</summary>
+        /// <summary>
+        /// 止まるとミニゲームが始まる（遊ぶゲームは着地のたびの抽選＝
+        /// <see cref="Common.MiniGame.MiniGameCatalog.RandomGame"/>。順位に応じた賞金がもらえる）。
+        /// </summary>
         MiniGame = 4,
 
         /// <summary>止まると所持金が N（= 着地のたびにランダム＝<see cref="Money.MoneyCellRule"/>）増える。</summary>

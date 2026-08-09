@@ -1,4 +1,3 @@
-using Common.MiniGame;
 using Main.Board;
 using NUnit.Framework;
 
@@ -12,17 +11,11 @@ namespace Tests.EditMode
         [TestCase(BoardCellEvent.MoneyDown, "Board/MoneyDown")]
         [TestCase(BoardCellEvent.Territory, "Board/Territory")]
         [TestCase(BoardCellEvent.Item, "Board/Item")]
+        [TestCase(BoardCellEvent.MiniGame, "Image/MiniGame/Minigame")]
         [TestCase(BoardCellEvent.None, "Image/Board/Glass")]
         public void Addressは画像のあるイベントの共通アドレスを返す(BoardCellEvent cellEvent, string expected)
         {
             Assert.AreEqual(expected, BoardEventArtCatalog.Address(cellEvent));
-        }
-
-        [TestCase(BoardCellEvent.MiniGame)]
-        public void Addressは画像の無いイベントで空文字を返す(BoardCellEvent cellEvent)
-        {
-            // ミニゲームだけはマスごとに絵が違うので、共通アドレスは持たず AddressFor が解決する。
-            Assert.AreEqual(string.Empty, BoardEventArtCatalog.Address(cellEvent));
         }
 
         [Test]
@@ -41,20 +34,19 @@ namespace Tests.EditMode
             Assert.AreEqual("Board/Start", BoardEventArtCatalog.AddressFor(cell, 0));
         }
 
-        [TestCase(MiniGameId.Tap, "Image/MiniGame/Renda")]
-        [TestCase(MiniGameId.Race, "Image/MiniGame/Lace")]
-        public void AddressForはミニゲームマスにそのゲームのサムネイルを使う(MiniGameId game, string expected)
+        [Test]
+        public void AddressForはミニゲームマスに全マス共通の絵を使う()
         {
-            // どのゲームが始まるマスかを盤面で見分けられるよう、イベント共通ではなくゲーム別の画像を貼る。
+            // 遊ぶゲームは着地のたびの抽選なので、マスの絵で特定のゲームを指すことはできない
+            // （どのゲームが当たったかは着地の告知でサムネイルを出して見せる）。
             BoardCellDefinition cell = new();
             cell.SetEvent(BoardCellEvent.MiniGame);
-            cell.SetMiniGame(game);
 
-            Assert.AreEqual(expected, BoardEventArtCatalog.AddressFor(cell, 1));
+            Assert.AreEqual(BoardEventArtCatalog.MiniGameAddress, BoardEventArtCatalog.AddressFor(cell, 1));
         }
 
         [Test]
-        public void AddressForはミニゲーム以外をイベント種別の共通画像で解決する()
+        public void AddressForはイベント種別の共通画像で解決する()
         {
             BoardCellDefinition cell = new();
             cell.SetEvent(BoardCellEvent.Item);

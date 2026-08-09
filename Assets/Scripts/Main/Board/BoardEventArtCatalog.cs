@@ -26,12 +26,18 @@ namespace Main.Board
         public const string NoneAddress = "Image/Board/Glass";
 
         /// <summary>
+        /// ミニゲームマス（<see cref="BoardCellEvent.MiniGame"/>）に貼る画像アドレス。
+        /// **遊ぶゲームは着地のたびにランダムで決まる**ので、どのゲームを指すこともできない＝
+        /// 全マス共通の「ミニゲーム」の絵を貼る（ゲーム別のサムネイルは着地の告知で見せる）。
+        /// 他のイベントの <c>Board/&lt;イベント名&gt;</c> 規約ではなく、ミニゲームの絵と同じ
+        /// <c>Image/MiniGame/</c> 配下に置く。
+        /// </summary>
+        public const string MiniGameAddress = "Image/MiniGame/Minigame";
+
+        /// <summary>
         /// マス <paramref name="cell"/>（経路 index <paramref name="index"/>）に貼る画像のアドレス。
-        /// 優先順位は (1) スタート＝ゴール（index 0）は固定の <see cref="StartAddress"/>、
-        /// (2) ミニゲームマスは**そのマスに設定されたミニゲームのサムネイル**
-        /// （<see cref="MiniGameCatalog"/> の <see cref="MiniGameDefinition.ImageAddress"/>＝
-        /// タップ連打なら <c>Image/MiniGame/Renda</c>。どのゲームが始まるマスかを盤面で見分けられるようにする）、
-        /// (3) それ以外はイベント種別ごとの共通画像（<see cref="Address"/>）。
+        /// スタート＝ゴール（index 0）だけは固定の <see cref="StartAddress"/>、
+        /// それ以外はイベント種別ごとの共通画像（<see cref="Address"/>）。
         /// </summary>
         public static string AddressFor(BoardCellDefinition cell, int index)
         {
@@ -39,15 +45,7 @@ namespace Main.Board
             {
                 return StartAddress;
             }
-            if (cell == null)
-            {
-                return string.Empty;
-            }
-            if (cell.Event == BoardCellEvent.MiniGame)
-            {
-                return MiniGameCatalog.Find(cell.MiniGame).ImageAddress;
-            }
-            return Address(cell.Event);
+            return cell == null ? string.Empty : Address(cell.Event);
         }
 
         /// <summary>
@@ -70,10 +68,11 @@ namespace Main.Board
                     return "Board/Territory";
                 case BoardCellEvent.Item:
                     return "Board/Item";
+                case BoardCellEvent.MiniGame:
+                    return MiniGameAddress;
                 case BoardCellEvent.None:
                     return NoneAddress;
                 default:
-                    // ミニゲームはマスごとに絵が違うので、ここではなく AddressFor が解決する。
                     return string.Empty;
             }
         }
