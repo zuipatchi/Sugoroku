@@ -27,7 +27,7 @@ UI Toolkit の `PanelSettings` デフォルトは `ScreenSpaceOverlay` モード
 エフェクト専用カメラで RenderTexture に描画し、uGUI の Screen Space Overlay Canvas 上の `RawImage` でカスタムシェーダーを使って合成する（UI Toolkit より手前に重ねるための限定的な uGUI 併用）。
 
 ```
-[エフェクト専用カメラ] → RenderTexture → RawImage（加算ブレンド）→ Canvas（SortingOrder=100）
+[エフェクト専用カメラ] → RenderTexture → RawImage（加算ブレンド）→ Canvas（SortingOrder=200）
                                                                         ↑ UI Toolkit より上に描画される
 ```
 
@@ -59,7 +59,7 @@ camObj.transform.SetPositionAndRotation(mainCam.transform.position, mainCam.tran
 GameObject canvasObj = new GameObject("EffectCanvas");
 Canvas canvas = canvasObj.AddComponent<Canvas>();
 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-canvas.sortingOrder = 100; // UI Toolkit より上
+canvas.sortingOrder = 200; // UI Toolkit より上（PanelSettings の sortingOrder は最大 100）
 
 // 5. RawImage で RT を表示（加算ブレンドのカスタムシェーダー必須・下記2参照）
 // ※ Shader.Find はビルドに含まれないため [SerializeField] で参照を保持すること
