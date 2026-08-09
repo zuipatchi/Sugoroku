@@ -29,11 +29,9 @@ namespace Main.Board
             switch (cellEvent)
             {
                 case BoardCellEvent.Forward:
-                    return $"このマスに止まると、ランダムで {MoveRangeText()} マス進む。"
-                        + "進んだ先のマスの効果もそのまま発動する。";
+                    return $"このマスに止まると、ランダムで {MoveRangeText()} マス進む。";
                 case BoardCellEvent.Back:
-                    return $"このマスに止まると、ランダムで {MoveRangeText()} マス戻る。"
-                        + "戻った先のマスの効果もそのまま発動する。";
+                    return $"このマスに止まると、ランダムで {MoveRangeText()} マス戻る。";
                 case BoardCellEvent.MiniGame:
                     return "このマスに止まると、ランダムに選ばれたミニゲームに挑戦する。" + PrizeText();
                 case BoardCellEvent.MoneyUp:
@@ -54,12 +52,15 @@ namespace Main.Board
         // （順位が定義できない被っちゃやーよは勝てば 1 位と同額なので、この説明から外れない）。
         private static string PrizeText()
         {
-            string[] parts = new string[MiniGamePrize.PaidRanks];
-            for (int rank = 1; rank <= MiniGamePrize.PaidRanks; rank++)
+            // 賞金の出る順位に「その次の順位（＝0 円）」まで並べる。「それ以下は 0」と書くより、
+            // 4 人対戦の全順位がそのまま並ぶほうが読み取りやすい。
+            int lastRank = MiniGamePrize.PaidRanks + 1;
+            string[] parts = new string[lastRank];
+            for (int rank = 1; rank <= lastRank; rank++)
             {
                 parts[rank - 1] = $"{rank}位 {MiniGamePrize.ForRank(rank)}";
             }
-            return $"順位に応じて所持金がもらえる（{string.Join(" / ", parts)}・それ以下は 0）。";
+            return $"順位に応じて所持金がもらえる（{string.Join(" / ", parts)}）。";
         }
 
         // お金マスの増減額の範囲（ルール側の定数から組み立てる）。
