@@ -513,18 +513,34 @@
     scale: 1 1;
 }
 
-/* 止まったマスの文言（「お金を落とした！」等）。マス画像ポップアップの真下（中央 + 画像の半分 110px + 余白）に
-   出し、画像と同じ transition でポップさせる。浮遊テキスト（.money-float）は中央から上へ動くので重ならない。
+/* 文言のピルを置く位置を決めるだけの全幅の行。マス画像ポップアップの真下（中央 + 画像の半分 110px + 余白）。
+   **ピル（.cell-message）自体を絶対配置にしてはいけない**：絶対配置の要素は幅の制約なしで測られるので
+   テキストは 1 行として高さが決まり、そのあと max-width で幅だけ縮められる＝2 行に折り返したときに
+   背景（薄黒い地）が 1 行ぶんのままで、2 行目が地の外へはみ出す。全幅の行の中の通常フローの子にすると
+   折り返しを含めた高さが正しく測られる（.board-clear／.turn-banner と同じ形）。 */
+.cell-message-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    translate: 0 132px;
+    align-items: center;
+}
+
+/* マス画像を出さない着地（陣地・アイテム・ミニゲーム）で文言だけを見せるときは、
+   画像の下ではなく画面中央に置く（上に何も無いまま下寄りに浮くのを避ける）。 */
+.cell-message-row--alone {
+    translate: 0 -50%;
+}
+
+/* 止まったマスの文言（「お金を落とした！」等）のピル。画像と同じ transition でポップさせる。
+   浮遊テキスト（.money-float）は中央から上へ動くので重ならない。
    薄黒い長方形の地を敷いて盤面の上でも読めるようにする（幅は文字なりで、長い文言は max-width で折り返す
    ＝参照解像度 540 の 90% から左右パディング 24px×2 を引いた 438px に入るぶん＝全角およそ 14 文字で改行される。
    max-width か font-size を変えたら、Cell Message Editor のプレビュー定数 PreviewMaxWidthPx／PreviewFontSizePx も合わせる）。
    表示中だけ display:flex にする（BoardLandingPresentation が制御）。 */
 .cell-message {
-    position: absolute;
-    left: 50%;
-    top: 50%;
     max-width: 90%;
-    translate: -50% 132px;
     padding-top: 8px;
     padding-right: 24px;
     padding-bottom: 8px;
@@ -549,12 +565,6 @@
 .cell-message--visible {
     opacity: 1;
     scale: 1 1;
-}
-
-/* マス画像を出さない着地（陣地・アイテム・ミニゲーム）で文言だけを見せるときは、
-   画像の下ではなく画面中央に置く（上に何も無いまま下寄りに浮くのを避ける）。 */
-.cell-message--alone {
-    translate: -50% -50%;
 }
 
 /* 陣地マス占拠時に表示するキャラの旗。中央に出したあと対象マスへ縮小移動する演出のカード。
@@ -1439,14 +1449,19 @@
 
 /* 勝敗テキストのピル。マスの絵の上でも読めるよう、手番アナウンス（.turn-banner__label）と
    同じ暗いガラス地＋金枠に載せる（あちらより一回り大きく・文字にも黒の縁取りを足す）。
-   文言が入るまで（＝勝敗が決まるまで）はピルごと隠し、BoardPresenter.ShowClearMessage が開ける。 */
+   文言が入るまで（＝勝敗が決まるまで）はピルごと隠し、BoardPresenter.ShowClearMessage が開ける。
+   **「〔キャラ名〕の勝ち！」が 1 行に収まる寸法にしてある**：いちばん長いキャラ名は 6 文字
+   （ザニザニマン・シャカパッチ）なので全角 10 文字ぶん＝400px が要る。参照解像度 540 の 94% から
+   左右パディング 22px×2 と枠線 2px×2 を引いた 459px に収まる（1 文字ぶん以上の余裕を残してある。
+   以前は max-width 88% ／ font-size 44px で 9 文字ぶんしか入らず「のらどっくの勝ち！」が 2 行になっていた）。
+   max-width・font-size・padding を触るときはこの計算をやり直す。 */
 .board-clear__label {
     display: none;
-    max-width: 88%;
+    max-width: 94%;
     padding-top: 14px;
-    padding-right: 28px;
+    padding-right: 22px;
     padding-bottom: 14px;
-    padding-left: 28px;
+    padding-left: 22px;
     background-color: rgba(14, 14, 24, 0.94);
     border-left-width: 2px;
     border-right-width: 2px;
@@ -1462,7 +1477,7 @@
     border-bottom-right-radius: 16px;
     -unity-text-align: middle-center;
     white-space: normal;
-    font-size: 44px;
+    font-size: 40px;
     color: rgb(255, 225, 120);
     -unity-text-outline-width: 1.5px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.85);

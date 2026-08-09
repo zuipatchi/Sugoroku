@@ -219,8 +219,7 @@ namespace Main.EditorTools
             {
                 return;
             }
-            PoolRef pool = _pools[_selected];
-            IReadOnlyList<string> messages = pool.IsStart ? _target.StartMessages : _target.Messages(pool.Event);
+            IReadOnlyList<string> messages = MessagesOf(_pools[_selected]);
             for (int i = 0; i < messages.Count; i++)
             {
                 _working.Add(messages[i]);
@@ -261,7 +260,7 @@ namespace Main.EditorTools
             {
                 int index = i;
                 PoolRef pool = _pools[i];
-                int count = CountOf(pool);
+                int count = MessagesOf(pool).Count;
 
                 Button button = new(() =>
                 {
@@ -305,13 +304,17 @@ namespace Main.EditorTools
             }
         }
 
-        private int CountOf(PoolRef pool)
+        /// <summary>
+        /// プール <paramref name="pool"/> の文言一覧（スタート専用プールも一覧の 1 件として混ぜてあるので、
+        /// 「スタートか、イベント種別か」の振り分けはここに一本化する）。資産が無いときは空。
+        /// </summary>
+        private IReadOnlyList<string> MessagesOf(PoolRef pool)
         {
             if (_target == null)
             {
-                return 0;
+                return Array.Empty<string>();
             }
-            return pool.IsStart ? _target.StartMessages.Count : _target.Messages(pool.Event).Count;
+            return pool.IsStart ? _target.StartMessages : _target.Messages(pool.Event);
         }
 
         private void RebuildDetail()
@@ -369,6 +372,27 @@ namespace Main.EditorTools
                 _detail.Add(BuildNote("同じ文言が複数あります（その文言だけ出やすくなります）。",
                     new Color(0.95f, 0.6f, 0.35f)));
             }
+            int overflow = CountOverflow(_working);
+            if (overflow > 0)
+            {
+                _detail.Add(BuildNote(
+                    $"{overflow} 件が全角 {FullWidthCharsPerLine} 文字を超えています（2 行で表示されます）。",
+                    new Color(0.95f, 0.6f, 0.35f)));
+            }
+        }
+
+        /// <summary>1 行に収まらない（＝2 行に折り返す）文言の件数。</summary>
+        private static int CountOverflow(IReadOnlyList<string> messages)
+        {
+            int count = 0;
+            for (int i = 0; i < messages.Count; i++)
+            {
+                if (messages[i] != null && messages[i].Length > FullWidthCharsPerLine)
+                {
+                    count++;
+                }
+            }
+            return count;
         }
 
         /// <summary>プールの意味を 1 行で添える（どのマスで出る文言かを取り違えないように）。</summary>
@@ -501,6 +525,21 @@ namespace Main.EditorTools
             }
             row.Add(field);
 
+            // 文字数（1 行に収まる数との対比）。何文字まで 1 行かは見ただけでは分からないので数字で添える。
+            int length = _working[index] == null ? 0 : _working[index].Length;
+            Label counter = new($"{length} / {FullWidthCharsPerLine}");
+            counter.style.width = 56f;
+            counter.style.flexShrink = 0f;
+            counter.style.fontSize = 10f;
+            counter.style.unityTextAlign = TextAnchor.MiddleRight;
+            counter.style.marginRight = 4f;
+            counter.style.color = length > FullWidthCharsPerLine
+                ? new Color(0.95f, 0.6f, 0.35f)
+                : new Color(0.6f, 0.6f, 0.6f);
+            counter.tooltip = $"文字数 / 1 行に収まる文字数（全角 {FullWidthCharsPerLine} 文字）。"
+                + "超えると 2 行に折り返す（半角は幅が半分なのでもう少し入る）";
+            row.Add(counter);
+
             Button remove = new(() =>
             {
                 _working.RemoveAt(index);
@@ -554,18 +593,29 @@ namespace Main.EditorTools
 
             int total = 0;
             int empty = 0;
+            int overflow = 0;
             for (int i = 0; i < _pools.Count; i++)
             {
-                int count = CountOf(_pools[i]);
-                total += count;
-                if (count == 0)
+                IReadOnlyList<string> messages = MessagesOf(_pools[i]);
+                total += messages.Count;
+                if (messages.Count == 0)
                 {
                     empty++;
                 }
+                overflow += CountOverflow(messages);
             }
-            _infoLabel.text = empty > 0
-                ? $"文言 {total} 件／空のプール {empty} 件（そのマスでは文言が出ません）"
-                : $"文言 {total} 件";
+
+            // 全プールを見渡した集計。プールを開かなくても「直すところが残っているか」が分かるようにする。
+            string text = $"文言 {total} 件（全角 {FullWidthCharsPerLine} 文字までが 1 行）";
+            if (empty > 0)
+            {
+                text += $"／空のプール {empty} 件（そのマスでは文言が出ません）";
+            }
+            if (overflow > 0)
+            {
+                text += $"／2 行になる文言 {overflow} 件";
+            }
+            _infoLabel.text = text;
         }
     }
 }

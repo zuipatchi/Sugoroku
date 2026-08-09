@@ -18,12 +18,15 @@ namespace Main.Board
     {
         private const string CellPopupVisibleClass = "cell-popup--visible";
         private const string CellMessageVisibleClass = "cell-message--visible";
-        private const string CellMessageAloneClass = "cell-message--alone";
+        // 「画像を出さない着地では画面中央へ寄せる」は位置決めなので、ピルではなくそれを載せる行に付ける。
+        private const string CellMessageAloneClass = "cell-message-row--alone";
 
         private readonly VisualElement _cellPopup;
         private readonly VisualElement _flagPopup;
         private readonly Label _moneyFloat;
         private readonly Label _cellMessage;
+        // 文言のピルを載せる全幅の行（位置決めを持つ親）。ピルの折り返しを含めた高さを正しく測るために挟んである。
+        private readonly VisualElement _cellMessageRow;
 
         // 中央ポップアップの表示状態。画像と文言は片方だけ出ることがある（画像未配置・文言だけ見せるマス）ので
         // 別々に覚え、消すときに出していたものだけを対象にする。
@@ -31,12 +34,17 @@ namespace Main.Board
         private bool _messageShown;
 
         public BoardLandingPresentation(
-            VisualElement cellPopup, VisualElement flagPopup, Label moneyFloat, Label cellMessage)
+            VisualElement cellPopup,
+            VisualElement flagPopup,
+            Label moneyFloat,
+            Label cellMessage,
+            VisualElement cellMessageRow)
         {
             _cellPopup = cellPopup;
             _flagPopup = flagPopup;
             _moneyFloat = moneyFloat;
             _cellMessage = cellMessage;
+            _cellMessageRow = cellMessageRow;
         }
 
         /// <summary>
@@ -87,8 +95,8 @@ namespace Main.Board
                 _cellMessage.text = message;
                 _cellMessage.RemoveFromClassList(CellMessageVisibleClass);
                 // 画像を出さない着地（陣地・アイテム・ミニゲーム）は文言だけが宙に浮くので、
-                // 画像の下ではなく画面中央へ寄せる。
-                _cellMessage.EnableInClassList(CellMessageAloneClass, !showPopup);
+                // 画像の下ではなく画面中央へ寄せる（位置決めは親の行が持つ）。
+                _cellMessageRow?.EnableInClassList(CellMessageAloneClass, !showPopup);
                 _cellMessage.style.display = DisplayStyle.Flex;
                 _messageShown = true;
             }

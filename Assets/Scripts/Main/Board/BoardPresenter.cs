@@ -605,7 +605,8 @@ namespace Main.Board
                 root.Q<VisualElement>("CellPopup"),
                 root.Q<VisualElement>("FlagPopup"),
                 root.Q<Label>("MoneyFloat"),
-                root.Q<Label>("CellMessage"));
+                root.Q<Label>("CellMessage"),
+                root.Q<VisualElement>("CellMessageRow"));
             if (_boardArea == null || _clearLabel == null)
             {
                 Debug.LogError("Board の UI 要素が見つかりませんでした。");
@@ -1456,7 +1457,7 @@ namespace Main.Board
         /// 文言だけをこの長さ見せてから分岐する。
         /// フェードイン（USS transition 0.18 秒）とフェードアウト（0.2 秒）はこれとは別に前後へ付く。
         /// </summary>
-        private const float CellMessageSeconds = 2.0f;
+        private const float CellMessageSeconds = 2.5f;
 
         /// <summary>
         /// 着地演出を統括する。止まったマスの画像とそのマスの文言を中央に拡大表示し、着地イベントを反映する。

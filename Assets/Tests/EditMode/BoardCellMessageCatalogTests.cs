@@ -75,6 +75,24 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void 既定の文言は句点で終わらない()
+        {
+            // 文末の「。」は使わない決まり（言い切り・「！」・「…」・「？」で終える）。テンポを出すためと、
+            // 小さい帯に載せる短文なので終止符が間延びして見えるため。文言を足すときの取り違えを検出する。
+            foreach (BoardCellEvent cellEvent in AllEvents())
+            {
+                foreach (string message in BoardCellMessageDefaults.Messages(cellEvent))
+                {
+                    Assert.IsFalse(message.EndsWith("。"), $"{cellEvent} の「{message}」が句点で終わっています。");
+                }
+            }
+            foreach (string message in BoardCellMessageDefaults.StartMessages)
+            {
+                Assert.IsFalse(message.EndsWith("。"), $"スタートの「{message}」が句点で終わっています。");
+            }
+        }
+
+        [Test]
         public void 既定に戻した資産は既定の文言と一致する()
         {
             CollectionAssert.AreEqual(BoardCellMessageDefaults.StartMessages, _catalog.StartMessages);
