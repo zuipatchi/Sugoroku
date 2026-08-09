@@ -1,0 +1,140 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76f0efe3619fd7340a77117a15c7b458, type: 3}
+  m_Name: BoardDefinition3
+  m_EditorClassIdentifier: Main::Main.Board.BoardDefinition
+  _displayName: "\u3044\u308D\u3044\u308D"
+  _gridColumns: 6
+  _gridRows: 5
+  _frameAddress: Board/Frame
+  _backgroundAddress: Board/Background/Map3
+  _cells:
+  - _grid: {x: 0, y: 0}
+    _event: 0
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 0, y: 1}
+    _event: 4
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 0, y: 2}
+    _event: 7
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 0, y: 3}
+    _event: 5
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 0, y: 4}
+    _event: 5
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 1, y: 4}
+    _event: 7
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 2, y: 4}
+    _event: 5
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 3, y: 4}
+    _event: 6
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 4, y: 4}
+    _event: 5
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 5, y: 4}
+    _event: 7
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 5, y: 3}
+    _event: 1
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 5, y: 2}
+    _event: 1
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 5, y: 1}
+    _event: 8
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 5, y: 0}
+    _event: 7
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 4, y: 0}
+    _event: 5
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 3, y: 0}
+    _event: 5
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 2, y: 0}
+    _event: 7
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 2, y: 1}
+    _event: 0
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 2, y: 2}
+    _event: 7
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 2, y: 3}
+    _event: 8
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 1, y: 3}
+    _event: 2
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 1, y: 2}
+    _event: 2
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 1, y: 1}
+    _event: 7
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
+  - _grid: {x: 1, y: 0}
+    _event: 4
+    _amount: 1
+    _miniGame: 0
+    _color: {r: 0, g: 0, b: 0, a: 0}
