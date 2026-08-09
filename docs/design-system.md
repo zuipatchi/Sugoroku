@@ -108,6 +108,33 @@ USS クラス定義の実装例は以下を参照。
 }
 ```
 
+### 折り返すテキストの帯・ピル（絶対配置にしない）
+
+画面中央などに重ねて出す「地の付いたテキスト」（勝敗テキスト・手番アナウンス・マスの文言）は、**ピル自身を `position: absolute` にしてはいけない**。絶対配置の要素は幅の制約なしで測られるので、テキストは 1 行として高さが決まり、そのあと `max-width` で幅だけ縮められる。結果、**2 行に折り返したときに地が 1 行ぶんのままで 2 行目がはみ出す**。
+
+位置決めは「全幅の行」に持たせ、ピルはその中の通常フローの子にする。こうすると折り返しを含めた高さが正しく測られる。
+
+```css
+/* 位置決めだけを持つ全幅の行 */
+.xxx-row {
+    position: absolute;
+    left: 0; right: 0; top: 50%;   /* left/right を両方 0 にして幅を確定させる */
+    translate: 0 132px;            /* 縦位置の微調整はここで */
+    align-items: center;           /* ピルを横中央へ */
+}
+
+/* 地の付いたテキスト本体。幅は文字なり、長い文言だけ折り返す */
+.xxx-pill {
+    max-width: 90%;
+    white-space: normal;
+    background-color: rgba(0, 0, 0, 0.82);
+}
+```
+
+実装例は `.cell-message-row`／`.cell-message`・`.board-clear`／`.board-clear__label`・`.turn-banner`／`.turn-banner__label`（すべて [Board.uss](../Assets/Scripts/Main/Board/View/Board.uss)）。
+
+**1 行に入る文字数は計算できる**ので、収めたい文言があるなら寸法を先に決める。参照解像度の幅（540）× `max-width` − 左右パディング − 枠線 ÷ `font-size` ＝ 全角の文字数（UI Toolkit は border-box なのでパディングと枠線は `max-width` の内側）。例：540 × 90% − 24px×2 = 438px ÷ 30px = 全角 14 文字。**この余裕が 1 文字未満だと、フォントの字幅のわずかな差で折り返してしまう**（勝敗ピルが「のらどっくの勝ち！」で 2 行になったのがこれ）。
+
 ### 区切り線（`.divider`）
 
 ```css
