@@ -27,7 +27,7 @@ namespace Tests.EditMode
         public void Addは正の値で加算する()
         {
             using MoneyModel money = TwoPlayerMoney();
-            money.Add(0, 300);
+            Assert.AreEqual(300, money.Add(0, 300));
             Assert.AreEqual(MoneyModel.InitialMoney + 300, money.Money(0).CurrentValue);
         }
 
@@ -35,16 +35,26 @@ namespace Tests.EditMode
         public void Addは負の値で減算する()
         {
             using MoneyModel money = TwoPlayerMoney();
-            money.Add(0, -200);
+            Assert.AreEqual(-200, money.Add(0, -200));
             Assert.AreEqual(MoneyModel.InitialMoney - 200, money.Money(0).CurrentValue);
         }
 
         [Test]
-        public void 所持金はマイナスまで減れる()
+        public void 所持金はマイナスにならず0で止まる()
         {
             using MoneyModel money = TwoPlayerMoney();
-            money.Add(0, -(MoneyModel.InitialMoney + 500));
-            Assert.AreEqual(-500, money.Money(0).CurrentValue);
+            // 減額が所持金を上回っても、実際に減るのは残高ぶんだけ（返り値もその額）。
+            Assert.AreEqual(-MoneyModel.InitialMoney, money.Add(0, -(MoneyModel.InitialMoney + 500)));
+            Assert.AreEqual(MoneyModel.MinMoney, money.Money(0).CurrentValue);
+        }
+
+        [Test]
+        public void 所持金0からの減額は何も動かさない()
+        {
+            using MoneyModel money = TwoPlayerMoney();
+            money.Add(0, -MoneyModel.InitialMoney);
+            Assert.AreEqual(0, money.Add(0, -300));
+            Assert.AreEqual(MoneyModel.MinMoney, money.Money(0).CurrentValue);
         }
 
         [Test]

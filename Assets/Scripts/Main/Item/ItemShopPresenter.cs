@@ -26,7 +26,6 @@ namespace Main.Item
         private const string CardDisabledClass = "item-shop-card--disabled";
         private const string PriceUnaffordableClass = "item-shop-card__price--unaffordable";
         private const string DotActiveClass = "item-shop__dot--active";
-        private const string WalletNegativeClass = "item-shop__wallet-value--negative";
         // コイン画像を貼れたバッジに付けて USS 描画の下地（色・枠）を消すクラス。
         private const string WalletIconImageClass = "item-shop__wallet-icon--image";
         // 所持金の行頭に置くコイン画像のアドレス（プレイヤー詳細モーダルと同じ絵）。
@@ -121,7 +120,7 @@ namespace Main.Item
 
         /// <summary>
         /// タイトル下の所持金表示を <paramref name="budget"/> で書き換える（開くたびに呼ぶので、
-        /// 買った後に開き直せば支払い後の額になる）。マイナス（借金）は赤字にする。
+        /// 買った後に開き直せば支払い後の額になる）。所持金は 0 より下がらない（<see cref="Money.MoneyModel.MinMoney"/>）。
         /// 上限なし（<see cref="int.MaxValue"/>＝所持金モデルが無い場合の呼び出し側のフォールバック）のときは
         /// 意味のある額ではないので行ごと隠す。
         /// </summary>
@@ -137,7 +136,6 @@ namespace Main.Item
                 return;
             }
             _walletValue.text = $"{budget:N0} G";
-            _walletValue.EnableInClassList(WalletNegativeClass, budget < 0);
         }
 
         /// <summary>

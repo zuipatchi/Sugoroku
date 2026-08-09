@@ -230,7 +230,6 @@ namespace Main.Board
                 _moneySubscription = _money.Money(player).Subscribe(value =>
                 {
                     _moneyValue.text = value.ToString("N0");
-                    _moneyValue.EnableInClassList("player-detail__stat-value--negative", value < 0);
                 });
             }
 

@@ -2389,10 +2389,19 @@ namespace Main.Board
             GameAction landing = await WaitForActionAsync(GameActionType.MoneyLanding, ct);
             int delta = landing.MoneyDelta;
 
-            _money.Add(landing.Seat, delta);
+            // 所持金は 0 より下がらない（MoneyModel.MinMoney）ので、見せるのは決まった額ではなく
+            // 実際に動いた額にそろえる（所持金 200 で −500 のマスに止まったら「− $200」）。
+            int applied = _money.Add(landing.Seat, delta);
+            if (applied == 0)
+            {
+                // 所持金 0 で減らせなかったとき。浮遊テキストも音も出さず、画像・文言は他のマスと同じ長さ
+                // 見せてから消したいので「まだ消していない」を返して呼び出し側の共通処理に任せる。
+                return false;
+            }
+
             _soundPlayer.PlaySafe(_soundStore?.MoneySE);
             // 増減額（+n / -n）をポップ画像の底から上へ浮かび上がらせる。画像も浮遊テキストと同時に消す。
-            await _landing.ShowMoneyFloatAsync(delta, popupShown, floatSeconds, ct);
+            await _landing.ShowMoneyFloatAsync(applied, popupShown, floatSeconds, ct);
             return popupShown;
         }
 
@@ -2832,11 +2841,16 @@ namespace Main.Board
                 {
                     continue;
                 }
-                _money.Add(seat, -amount);
-                total += amount;
+                // 実際に減った額だけを奪う（所持金は 0 より下がらないので、決めた額より少ないことがある）。
+                int lost = -_money.Add(seat, -amount);
+                if (lost <= 0)
+                {
+                    continue;
+                }
+                total += lost;
                 if (seat == _humanPlayer)
                 {
-                    myLoss = amount;
+                    myLoss = lost;
                 }
             }
 

@@ -1177,11 +1177,6 @@
     color: rgb(255, 215, 96);
 }
 
-/* マイナス（借金）は赤字。 */
-.item-shop__wallet-value--negative {
-    color: rgb(232, 120, 110);
-}
-
 /* ショップのカルーセル一式（カルーセル本体＋ページドット）を縦に積むコンテナ。中身は ItemShopPresenter が生成する。 */
 .item-shop__list {
     width: 100%;
@@ -1816,15 +1811,11 @@
     color: rgb(196, 208, 236);
 }
 
-/* 所持金の金額（3 桁区切り）。マイナス（借金）時は赤字にする。 */
+/* 所持金の金額（3 桁区切り）。 */
 .player-detail__stat-value {
     font-size: 18px;
     color: rgb(255, 226, 140);
     -unity-text-align: middle-right;
-}
-
-.player-detail__stat-value--negative {
-    color: rgb(240, 130, 130);
 }
 
 /* 占領地の「占拠数 / 勝利に必要な数」。 */
