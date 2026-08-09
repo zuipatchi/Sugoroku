@@ -425,6 +425,7 @@ SpinDecision decision = await decided;
 - **効果をランダム化したら、その値は配る側へ移す**。進む/戻るのマス数はもともと `Amount`（盤面データ）だったので配らずに済んでいたが、着地のたびのランダム（`MoveCellRule`）にした時点で全クライアントで一致しなくなり、`GameAction.MoveLanding` が必要になった。**あわせて「演出で見せた値」と「実際に適用する値」を同じ 1 つの値にする**（受信値を覚えておいて連鎖に使う＝`BoardPresenter.TryGetChainedSteps`）。盤面データから引き直すと、浮遊テキストは「+3 マス」なのに 5 マス動く、といった食い違いになる
 - **効果がコマを動かすなら連鎖の上限を決める**。進む／戻るは `AdvanceAsync` が「移動 → 着地 → また移動」を繰り返し、`MaxChainedMoves`（8 回）で打ち切る。上限は定数なので全クライアントで一致し、打ち切っても結果はずれない
 - 演出は使い回す。「+ n マス」の浮遊テキストはお金の増減額と同じ `ShowFloatTextAsync`（[BoardLandingPresentation.cs](../Assets/Scripts/Main/Board/BoardLandingPresentation.cs)）で、文言と色分けの元になる値だけを差し替えている
+- **順に見せる必要がない演出は `UniTask.WhenAll` で並走させる**。着地は 1 マスごとに待つので、演出を直列に足すたびに手番が延びる（陣地マスは「文言 2 秒 → 旗演出 1.85 秒」で 4 秒近くあった）。並走させるときは**画面中央の取り合いを配置で避ける**：陣地マスの旗ポップは中央 200px を占めるので、文言は `.cell-message-row--alone`（中央寄せ）を掛けず、画像ありの着地と同じ「中央の少し下」（`.cell-message-row`）に置く＝`ShowCellMessageAsync(message, centered: false, ct)`。**片方だけ位置を変えたいときは USS クラスの付け外しを引数で選べるようにする**（`BoardLandingPresentation` の `centerWhenAlone`）ので、既存の呼び出し側の見た目は変わらない
 
 ---
 
