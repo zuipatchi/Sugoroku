@@ -39,6 +39,14 @@
         <ui:VisualElement name="CellMessageRow" class="cell-message-row" picking-mode="Ignore">
             <ui:Label text="" name="CellMessage" class="cell-message" picking-mode="Ignore" />
         </ui:VisualElement>
+        <!-- ミニゲームマスに止まったときの「はじめる」ボタン。どのミニゲームを遊ぶかを見せている間だけ出し、
+             参加者全員が押したら起動する（オンラインは各自が自分のぶんを押す）。既定は非表示（USS）で、
+             BoardPresenter が表示・有効・準備状況の文言を切り替える。
+             コンテナは picking-mode=Ignore で盤面タップを通し、ボタンだけ反応する -->
+        <ui:VisualElement name="MiniGameStart" class="minigame-start" picking-mode="Ignore">
+            <ui:Button text="はじめる" name="MiniGameStartButton" class="minigame-start__button" />
+            <ui:Label text="" name="MiniGameStartStatus" class="minigame-start__status" picking-mode="Ignore" />
+        </ui:VisualElement>
         <!-- 陣地マス占拠時に、そのコマのキャラの旗を中央に表示→縮小しながらマスへ重ねる演出。BoardPresenter が制御する -->
         <ui:VisualElement name="FlagPopup" class="flag-popup" picking-mode="Ignore" />
         <!-- お金マスに止まったときに増減額（+n / -n）を上へ浮かび上がらせる演出。BoardPresenter が制御する -->

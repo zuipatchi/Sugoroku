@@ -573,6 +573,81 @@
     scale: 1 1;
 }
 
+/* ミニゲームマスに止まったときの「はじめる」ボタンの置き場所。マス画像（中央 ±110px）と
+   その下の文言（.cell-message-row＝中央 +132px から最大 2 行）を避けて、さらに下へ置く。
+   既定は非表示で、BoardPresenter が --visible で開ける。 */
+.minigame-start {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    translate: 0 228px;
+    align-items: center;
+}
+
+.minigame-start--visible {
+    display: flex;
+}
+
+/* 「はじめる」ボタン。決着後の「ホームに戻る」と同じ金アクセントでそろえる。 */
+.minigame-start__button {
+    padding-left: 32px;
+    padding-right: 32px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    font-size: 22px;
+    background-color: rgb(235, 200, 90);
+    color: rgb(24, 22, 16);
+    transition-property: background-color, scale;
+    transition-duration: 0.1s;
+}
+
+.minigame-start__button:hover {
+    background-color: rgb(255, 225, 120);
+}
+
+.minigame-start__button:focus {
+    background-color: rgb(255, 225, 120);
+}
+
+.minigame-start__button:active {
+    background-color: rgb(255, 225, 120);
+    scale: 0.96 0.96;
+}
+
+/* 押した後の無効表示。押せないことは分かるが、何のボタンだったかは読めるだけの薄さに留める。 */
+.minigame-start__button:disabled {
+    opacity: 0.55;
+}
+
+/* 準備状況（「1/3人が準備完了」）。オンラインで誰を待っているのか分かるように出す
+   （一人用は自分が押せば全員そろうので出さない＝BoardPresenter が空文字にする）。 */
+.minigame-start__status {
+    margin-top: 8px;
+    padding-top: 6px;
+    padding-right: 14px;
+    padding-bottom: 6px;
+    padding-left: 14px;
+    background-color: rgba(0, 0, 0, 0.82);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    font-size: 16px;
+    color: rgb(255, 235, 150);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
 /* 陣地マス占拠時に表示するキャラの旗。中央に出したあと対象マスへ縮小移動する演出のカード。
    left/top/scale/opacity は BoardPresenter が毎フレーム駆動する（表示中だけ display:flex）。
    基準サイズ 200px の箱を translate:-50% -50% で left/top の点に中心合わせする。 */

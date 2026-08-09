@@ -176,6 +176,14 @@ namespace Main.Online
             return new GameAction(GameActionType.MiniGameLanding, seat, new[] { seed });
         }
 
+        /// <summary>
+        /// ミニゲームの「はじめる」を押した合図。全席ぶんが揃った時点で全クライアントが同時に起動する。
+        /// </summary>
+        public static GameAction MiniGameReady(int seat)
+        {
+            return new GameAction(GameActionType.MiniGameReady, seat, EmptyArgs);
+        }
+
         /// <summary>ミニゲームの自分の結果値（<paramref name="value"/> の意味はゲームごと）。</summary>
         public static GameAction MiniGameScore(int seat, int value)
         {

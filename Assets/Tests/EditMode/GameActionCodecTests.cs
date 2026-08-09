@@ -103,6 +103,18 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void MiniGameReadyは引数なしで往復する()
+        {
+            // 「はじめる」を押した合図。席だけが手がかりで、全席ぶん揃った時点で全員が起動する。
+            string json = GameActionCodec.Encode(GameAction.MiniGameReady(3));
+
+            Assert.IsTrue(GameActionCodec.TryDecode(json, out GameAction decoded));
+            Assert.AreEqual(GameActionType.MiniGameReady, decoded.Type);
+            Assert.AreEqual(3, decoded.Seat);
+            Assert.AreEqual(0, decoded.ArgCount);
+        }
+
+        [Test]
         public void MiniGameScoreは生の結果値が往復する()
         {
             // 結果値はゲームごとに意味が違う（連打数・ゴールタイム・選んだカード index）。

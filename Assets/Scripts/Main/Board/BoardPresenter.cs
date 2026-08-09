@@ -151,6 +151,14 @@ namespace Main.Board
         // 勝敗確定後に出す「ホームに戻る」ボタンとその帯（既定は USS で非表示）。
         private VisualElement _gameOverActions;
         private Button _homeReturnButton;
+        // ミニゲームの告知中に出す「はじめる」ボタンとその置き場所・準備状況（既定は USS で非表示）。
+        private VisualElement _miniGameStart;
+        private Button _miniGameStartButton;
+        private Label _miniGameStartStatus;
+        // 「はじめる」の押下を受け付けている間だけ true（押したら false にして二重発行を防ぐ）。
+        private bool _miniGameStartArmed;
+        // 「はじめる」の置き場所を出す USS クラス（既定は display:none）。
+        private const string MiniGameStartVisibleClass = "minigame-start--visible";
         // ホームへの遷移を二重に起動しないためのガード。
         private bool _returningHome;
         // 取得したアイテムを並べる右下の手札コンテナ。
@@ -522,6 +530,16 @@ namespace Main.Board
             if (_homeReturnButton != null)
             {
                 _homeReturnButton.clicked += OnHomeReturnClicked;
+            }
+            // ミニゲームの告知中に出す「はじめる」ボタン。既定は USS で非表示で、
+            // 押下を受け付けているとき（_miniGameStartArmed）だけ効く。
+            // ShowGameOverActions が引っ込めにくるので、そちらより先に取っておく。
+            _miniGameStart = root.Q<VisualElement>("MiniGameStart");
+            _miniGameStartButton = root.Q<Button>("MiniGameStartButton");
+            _miniGameStartStatus = root.Q<Label>("MiniGameStartStatus");
+            if (_miniGameStartButton != null)
+            {
+                _miniGameStartButton.clicked += OnMiniGameStartClicked;
             }
             // BuildCells より先に勝者が確定していた場合に備えて、確定済みなら即座に出す。
             if (_model.IsFinished)
@@ -928,6 +946,12 @@ namespace Main.Board
         }
 
         /// <summary>
+        /// アナウンス帯（<c>TurnBanner</c>）を出しておく時間（秒）。
+        /// 帯を読ませてから次へ進みたい演出（<see cref="ShowMiniGameAnnounceAsync"/>）もこの長さを待つ。
+        /// </summary>
+        private const float TurnBannerSeconds = 1.4f;
+
+        /// <summary>
         /// アナウンス帯に <paramref name="text"/> を出して少し見せてから隠す。
         /// 手番の告知のほか、ミニゲームの勝者発表のような一時的な知らせにも使う。
         /// </summary>
@@ -952,7 +976,7 @@ namespace Main.Board
             try
             {
                 _turnBanner.AddToClassList("turn-banner--visible");
-                await UniTask.Delay(TimeSpan.FromSeconds(1.4), cancellationToken: ct);
+                await UniTask.Delay(TimeSpan.FromSeconds(TurnBannerSeconds), cancellationToken: ct);
                 _turnBanner.RemoveFromClassList("turn-banner--visible");
             }
             catch (OperationCanceledException)
@@ -1219,6 +1243,9 @@ namespace Main.Board
         // 勝敗確定後に「ホームに戻る」ボタンの帯を表示する。
         private void ShowGameOverActions()
         {
+            // 決着・退出でここへ来たら進行はもう再開しないので、待ち続けている「はじめる」は引っ込める
+            // （押しても誰も集計しないボタンを残さない）。
+            HideMiniGameStart();
             _gameOverActions?.AddToClassList("board-gameover-actions--visible");
         }
 
@@ -1453,8 +1480,8 @@ namespace Main.Board
         /// <summary>
         /// マスに止まったときの文言（と、出せるマスではマス画像）を中央に見せておく時間（秒）。
         /// **止まったマスの種類に依らず同じ長さ**にそろえてある：お金・進む/戻るマスは浮遊テキストと同時に
-        /// 消すので浮遊テキストの時間をここから逆算し、専用演出へ分岐するマス（アイテム・ミニゲーム）は
-        /// 文言だけをこの長さ見せてから分岐する。陣地マスは旗の占拠演出と同時に見せる（長さは同じ）。
+        /// 消すので浮遊テキストの時間をここから逆算し、アイテムマスは文言だけをこの長さ見せてから
+        /// ショップへ分岐する。陣地マスは旗の占拠演出と、ミニゲームマスはゲーム名の帯と同時に見せる（長さは同じ）。
         /// フェードイン（USS transition 0.18 秒）とフェードアウト（0.2 秒）はこれとは別に前後へ付く。
         /// </summary>
         private const float CellMessageSeconds = 2f;
@@ -1462,8 +1489,8 @@ namespace Main.Board
         /// <summary>
         /// 着地演出を統括する。止まったマスの画像とそのマスの文言を中央に拡大表示し、着地イベントを反映する。
         /// お金マスでは増減額の浮遊テキストと画像を同じタイミングで消し、それ以外は画像を少し見せてから消す。
-        /// アイテム・ミニゲームのマスは専用の演出（ショップ・ゲーム起動）へ分岐するので、その手前で
-        /// 文言だけを見せてから分岐する。陣地マスは文言と旗の占拠演出を同時に走らせる。
+        /// アイテムマスはショップへ分岐するので、その手前で文言だけを見せる。陣地マスは文言と旗の
+        /// 占拠演出を同時に走らせ、ミニゲームマスは文言とサムネイル・ゲーム名の帯を見せてから起動する。
         /// どのマスでも文言を見せる長さは <see cref="CellMessageSeconds"/> にそろえてある。
         /// </summary>
         private async UniTask PlayLandingSequenceAsync(int player, CancellationToken ct)
@@ -1517,12 +1544,14 @@ namespace Main.Board
                 return;
             }
 
-            // ミニゲームマスは、そのマスに設定されたミニゲームを遊んで勝てば所持金報酬をもらう。
+            // ミニゲームマスは、これから遊ぶミニゲームを見せてから起動し、勝てば所持金報酬をもらう。
+            // マスの絵はそのゲームのサムネイルなので、通常のマスと同じく画像＋文言で見せられる。
             if (_boardDef != null && position >= 0 && position < _boardDef.CellCount
                 && _boardDef.Cell(position).Event == BoardCellEvent.MiniGame)
             {
-                await ShowCellMessageOnlyAsync(message, ct);
-                await PlayMiniGameCellSequenceAsync(player, _boardDef.Cell(position).MiniGame, ct);
+                Sprite thumbnail = _cellIcons != null && position < _cellIcons.Length ? _cellIcons[position] : null;
+                await PlayMiniGameCellSequenceAsync(
+                    player, _boardDef.Cell(position).MiniGame, thumbnail, message, ct);
                 return;
             }
 
@@ -1600,11 +1629,14 @@ namespace Main.Board
 
         /// <summary>
         /// ミニゲームマスの演出。そのマスに設定されたミニゲーム（<paramref name="game"/>＝盤面エディタで選ぶ）を
-        /// 着地した本人のクライアントだけが遊び（<see cref="DecideMiniGameCellAsync"/>）、勝敗から決まる報酬額を発行する。
-        /// 適用（所持金への加算と浮遊テキスト）は全クライアントが受信して行うので、オンラインでも所持金が食い違わない。
-        /// ミニゲームアイテムと違って**遊ぶゲームは選べない**（マスごとに決まっている）。
+        /// <see cref="RunMiniGameAsync"/> で遊ぶ（オンラインは全員が同時に・一人用は自分が CPU 相手に）。
+        /// ゲームの内容をそろえる種だけは着地した本人が配り、全員が受信した種で同じ内容を組み立てる。
+        /// ミニゲームアイテムと違って**遊ぶゲームは選べない**（マスごとに決まっている）ので、
+        /// 何が始まるのか分からないまま画面が切り替わらないよう、起動の前に遊ぶゲームを見せて
+        /// 全員の「はじめる」を待つ（<see cref="ShowMiniGameAnnounceAsync"/>）。
         /// </summary>
-        private async UniTask PlayMiniGameCellSequenceAsync(int player, MiniGameId game, CancellationToken ct)
+        private async UniTask PlayMiniGameCellSequenceAsync(
+            int player, MiniGameId game, Sprite thumbnail, string message, CancellationToken ct)
         {
             // ゲームの内容（被っちゃやーよのカード構成など）を全員でそろえるため、着地した人が種を配る。
             // 遊ぶゲームの種類はマスのデータから全員が導けるので配らない。
@@ -1613,8 +1645,122 @@ namespace Main.Board
                 _sync.Publish(GameAction.MiniGameLanding(player, NextMiniGameSeed()));
             }
 
+            // 種を先に受け取ってから告知する。告知は全員が「はじめる」を押すまで続くので、
+            // 待っている間に届く種を告知側の待ち受け（MiniGameReady 待ち）が読み飛ばしてしまわないように。
             GameAction start = await WaitForActionAsync(GameActionType.MiniGameLanding, ct);
+
+            await ShowMiniGameAnnounceAsync(game, thumbnail, message, ct);
             await RunMiniGameAsync(start.Seat, game, start.MiniGameSeed, ct);
+        }
+
+        /// <summary>
+        /// これから遊ぶミニゲームを見せ、**参加者全員が「はじめる」を押すまで待つ**演出。
+        /// マスの絵（＝そのゲームのサムネイル <see cref="MiniGameDefinition.ImageAddress"/>）とマスの文言を
+        /// 中央に出し、「ミニゲーム「〇〇」！」の帯と「はじめる」ボタンを添える。
+        /// 全員そろったら（<see cref="WaitForAllMiniGameReadyAsync"/>）ボタンと絵を消してから起動へ進む。
+        /// </summary>
+        private async UniTask ShowMiniGameAnnounceAsync(
+            MiniGameId game, Sprite thumbnail, string message, CancellationToken ct)
+        {
+            ShowBannerText($"ミニゲーム「{MiniGameCatalog.Find(game).DisplayName}」！");
+
+            bool popupShown = await _landing.ShowCellPopupAsync(thumbnail, message, ct);
+            await WaitForAllMiniGameReadyAsync(ct);
+            HideMiniGameStart();
+            if (popupShown)
+            {
+                await _landing.HideCellPopupAsync(ct);
+            }
+        }
+
+        /// <summary>
+        /// 参加者全員が「はじめる」を押すまで待つ。押した席は <see cref="GameActionType.MiniGameReady"/> で
+        /// 配り、**受信したぶんだけを数える**ので、全クライアントが同じタイミングでミニゲームを開く
+        /// （準備できていない人を置き去りにして始めない）。
+        /// 一人用モードは CPU がボタンを押せないので、自分が押した時点で全席ぶんが配られる
+        /// （<see cref="OnMiniGameStartClicked"/>）。
+        /// </summary>
+        private async UniTask WaitForAllMiniGameReadyAsync(CancellationToken ct)
+        {
+            bool[] ready = new bool[_pieceCount];
+            int done = 0;
+
+            ShowMiniGameStart();
+            while (done < _pieceCount)
+            {
+                GameAction action = await WaitForActionAsync(GameActionType.MiniGameReady, ct);
+                int seat = action.Seat;
+                if (seat < 0 || seat >= _pieceCount || ready[seat])
+                {
+                    continue;
+                }
+                ready[seat] = true;
+                done++;
+                UpdateMiniGameStartStatus(done);
+            }
+        }
+
+        /// <summary>「はじめる」ボタンを押せる状態で出す（準備状況は 0 人からはじめる）。</summary>
+        private void ShowMiniGameStart()
+        {
+            _miniGameStartArmed = true;
+            if (_miniGameStartButton != null)
+            {
+                _miniGameStartButton.SetEnabled(true);
+            }
+            UpdateMiniGameStartStatus(0);
+            _miniGameStart?.AddToClassList(MiniGameStartVisibleClass);
+        }
+
+        /// <summary>「はじめる」ボタンを引っ込めて押下を受け付けなくする。</summary>
+        private void HideMiniGameStart()
+        {
+            _miniGameStartArmed = false;
+            _miniGameStart?.RemoveFromClassList(MiniGameStartVisibleClass);
+        }
+
+        /// <summary>
+        /// 「はじめる」の下に出す準備状況（「1/3人が準備完了」）を書き換える。
+        /// 一人用モードは自分が押せば全員そろうので出さない（数字が一瞬で埋まって意味がない）。
+        /// 出さないときはラベルごと畳む（文字を空にするだけだと地色のピルが残って見えてしまう）。
+        /// </summary>
+        private void UpdateMiniGameStartStatus(int readyCount)
+        {
+            if (_miniGameStartStatus == null)
+            {
+                return;
+            }
+            bool show = _sync.IsOnline;
+            _miniGameStartStatus.text = show ? $"{readyCount}/{_pieceCount}人が準備完了" : string.Empty;
+            _miniGameStartStatus.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        /// <summary>
+        /// 「はじめる」を押したときの発行。自分の席のぶんを配って、あとは受信側の集計
+        /// （<see cref="WaitForAllMiniGameReadyAsync"/>）に任せる。
+        /// 一人用モードは CPU がボタンを押せないので、押した時点で全席ぶんを配る。
+        /// </summary>
+        private void OnMiniGameStartClicked()
+        {
+            if (!_miniGameStartArmed)
+            {
+                return;
+            }
+            // 二重発行を防ぐため、押した時点で受け付けを閉じてボタンも無効にする
+            // （引っ込めるのは全員そろってから＝待っていることが分かるように残す）。
+            _miniGameStartArmed = false;
+            _miniGameStartButton?.SetEnabled(false);
+            _soundPlayer.PlaySafe(_soundStore?.Enter1SE);
+
+            if (_sync.IsOnline)
+            {
+                _sync.Publish(GameAction.MiniGameReady(_humanPlayer));
+                return;
+            }
+            for (int seat = 0; seat < _pieceCount; seat++)
+            {
+                _sync.Publish(GameAction.MiniGameReady(seat));
+            }
         }
 
         /// <summary>
