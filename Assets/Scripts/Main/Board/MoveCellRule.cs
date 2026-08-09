@@ -19,7 +19,7 @@ namespace Main.Board
         public const int MinSteps = 1;
 
         /// <summary>動くマス数の上限（含む）。</summary>
-        public const int MaxSteps = 5;
+        public const int MaxSteps = 3;
 
         /// <summary>
         /// 続けて動くマス数（絶対値）を <see cref="MinSteps"/>〜<see cref="MaxSteps"/> からランダムに返す。
