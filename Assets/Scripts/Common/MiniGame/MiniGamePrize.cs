@@ -38,5 +38,23 @@ namespace Common.MiniGame
         {
             return game != MiniGameId.Overlap;
         }
+
+        /// <summary>
+        /// 順位と賞金を並べた文言（「1位 500 / 2位 300 / 3位 100 / 4位 0」）。
+        /// ミニゲームマスの説明（<c>BoardEventDescription</c>）とミニゲームアイテムの説明（<c>ItemCatalog</c>）が
+        /// 同じ文言を使えるようにここへ置く（賞金額を変えれば説明文も一緒に変わる）。
+        /// 賞金の出る順位に「その次の順位（＝0 円）」まで並べるのは、「それ以下は 0」と書くより
+        /// 4 人対戦の全順位がそのまま並ぶほうが読み取りやすいため。
+        /// </summary>
+        public static string RankPrizeText()
+        {
+            int lastRank = PaidRanks + 1;
+            string[] parts = new string[lastRank];
+            for (int rank = 1; rank <= lastRank; rank++)
+            {
+                parts[rank - 1] = $"{rank}位 {ForRank(rank)}";
+            }
+            return string.Join(" / ", parts);
+        }
     }
 }

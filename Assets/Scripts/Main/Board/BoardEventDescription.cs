@@ -47,20 +47,13 @@ namespace Main.Board
             }
         }
 
-        // ミニゲームの賞金の説明（ルール側＝MiniGamePrize から組み立てる）。
+        // ミニゲームの賞金の説明（ルール側＝MiniGamePrize から組み立てる。順位と額の並びは
+        // ミニゲームアイテムの説明（ItemCatalog）と共通なので MiniGamePrize.RankPrizeText が持つ）。
         // 遊ぶゲームは着地のたびの抽選なので、どのゲームでも共通の「順位別」だけを書く
         // （順位が定義できない被っちゃやーよは勝てば 1 位と同額なので、この説明から外れない）。
         private static string PrizeText()
         {
-            // 賞金の出る順位に「その次の順位（＝0 円）」まで並べる。「それ以下は 0」と書くより、
-            // 4 人対戦の全順位がそのまま並ぶほうが読み取りやすい。
-            int lastRank = MiniGamePrize.PaidRanks + 1;
-            string[] parts = new string[lastRank];
-            for (int rank = 1; rank <= lastRank; rank++)
-            {
-                parts[rank - 1] = $"{rank}位 {MiniGamePrize.ForRank(rank)}";
-            }
-            return $"順位に応じて所持金がもらえる（{string.Join(" / ", parts)}）。";
+            return $"順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。";
         }
 
         // お金マスの増減額の範囲（ルール側の定数から組み立てる）。

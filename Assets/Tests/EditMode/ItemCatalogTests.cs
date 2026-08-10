@@ -1,4 +1,5 @@
 using System;
+using Common.MiniGame;
 using Main.Item;
 using NUnit.Framework;
 
@@ -19,6 +20,24 @@ namespace Tests.EditMode
             {
                 Assert.IsFalse(string.IsNullOrEmpty(ItemCatalog.All[i].Description),
                     $"{ItemCatalog.All[i].Id} の Description が空です");
+            }
+        }
+
+        [Test]
+        public void お金よこどりの説明は奪う相手が全員であることを含む()
+        {
+            // 奪う相手は 1 人ではなく自分以外の全員（実装＝BoardPresenter.DecideMoneySteal）。
+            // 奪う額（MoneyStealRule の割合）はあえて書かないので、そちらは検証しない。
+            StringAssert.Contains("全員", ItemCatalog.Find(ItemId.StealMoney).Description);
+        }
+
+        [Test]
+        public void ミニゲームアイテムの説明は順位別の賞金を含む()
+        {
+            string description = ItemCatalog.Find(ItemId.MiniGame).Description;
+            for (int rank = 1; rank <= MiniGamePrize.PaidRanks; rank++)
+            {
+                StringAssert.Contains(MiniGamePrize.ForRank(rank).ToString(), description);
             }
         }
 

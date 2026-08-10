@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Common.MiniGame;
 
 namespace Main.Item
 {
@@ -36,16 +37,29 @@ namespace Main.Item
     /// 取得できるアイテムの一覧（表示順）。UI 非依存の純粋データで、<see cref="CharacterCatalog"/> と同じく静的に持つ。
     /// アイテム絵は各 Addressable アドレスにアセットを割り当てて用意する。
     /// <see cref="ItemDefinition.Price"/> はアイテムショップでの購入価格（初期所持金 1000 を基準にバランス調整する）。
+    ///
+    /// <see cref="ItemDefinition.Description"/> は**効果の実装と読み比べて食い違わない書き方**にする。
+    /// 数値まで書くものは、その数値をルール側の定数（<see cref="MiniGamePrize"/> など）から組み立てるので、
+    /// ルールを変えれば説明文も一緒に変わる（マスの説明＝<c>BoardEventDescription</c> と同じ方針）。
+    /// 逆に**あえて数値を書かない**ものもある（お金よこどりの奪う額＝使ってからのお楽しみ）。
     /// </summary>
     public static class ItemCatalog
     {
         public static readonly IReadOnlyList<ItemDefinition> All = new[]
         {
-            new ItemDefinition(ItemId.StealTerritory, "陣地獲得", "好きな陣地マスを 1 つ選んで自分のものにする（相手の陣地も奪える）。", "Image/Item/StealTerritory", 800),
-            new ItemDefinition(ItemId.StealMoney, "お金よこどり", "相手の所持金の一部を奪う。", "Image/Item/StealMoney", 500),
-            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", "好きなミニゲームを選んで遊び、順位に応じて所持金がもらえる。", "Image/Item/MiniGame", 300),
+            new ItemDefinition(ItemId.StealTerritory, "陣地獲得", "自分のもの以外の陣地マスを 1 つ選んで占拠する（相手の陣地も奪える）。", "Image/Item/StealTerritory", 800),
+            // 奪う相手は 1 人ではなく自分以外の全員。割合（MoneyStealRule）はあえて書かず「いくらか」に
+            // ぼかしてある＝いくら奪えるかは使ってからのお楽しみ。
+            new ItemDefinition(ItemId.StealMoney, "お金よこどり", "全員からいくらかのお金を適当に奪う。", "Image/Item/StealMoney", 200),
+            new ItemDefinition(ItemId.MiniGame, "ミニゲーム", MiniGameDescription(), "Image/Item/MiniGame", 300),
             new ItemDefinition(ItemId.InstantWin, "勝利", "使った瞬間にゲームに勝利する。", "Image/Item/Victory", 2500),
         };
+
+        // ミニゲームアイテムの説明。順位と賞金の並びはミニゲームマスの説明と共通（MiniGamePrize が持つ）。
+        private static string MiniGameDescription()
+        {
+            return $"好きなミニゲームで遊び、順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。";
+        }
 
         /// <summary>識別子 <paramref name="id"/> に対応するアイテム定義。無ければ null。</summary>
         public static ItemDefinition Find(ItemId id)
