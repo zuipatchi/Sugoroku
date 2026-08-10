@@ -37,7 +37,7 @@ namespace Main.Board
                 case BoardCellEvent.MoneyUp:
                     return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 増える。";
                 case BoardCellEvent.MoneyDown:
-                    return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 減る（0 より下がることはない）。";
+                    return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 減る。";
                 case BoardCellEvent.Territory:
                     return "このマスに止まると、自分の陣地になる。相手の陣地なら上書きして奪う。";
                 case BoardCellEvent.Item:
