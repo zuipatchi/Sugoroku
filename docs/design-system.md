@@ -349,7 +349,8 @@ root.Query<VisualElement>(className: "home-enter").ForEach(e => e.AddToClassList
 
 ```
 Assets/AddressableAssets/Icon/
-  sliders-solid-full.svg   オプション設定アイコン
+  sliders-solid-full.svg          オプション設定アイコン
+  align-justify-solid-full.svg    一覧・メニュー用アイコン
 ```
 
 常に表示するアイコン（オプションボタンなど）は `position: absolute` で配置する。

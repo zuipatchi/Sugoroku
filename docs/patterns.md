@@ -226,7 +226,7 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 
 > **ゲーム内からの起動は 2 経路**：ミニゲームマス（`BoardCellEvent.MiniGame`・**遊ぶゲームは着地のたびの抽選**＝`MiniGameCatalog.RandomGame`）への着地と、ミニゲームアイテム（遊ぶゲームをモーダルで選ぶ）。賞金は**順位が付くゲーム（タップ連打・2Dレース）が順位別の賞金（1位500／2位300／3位100・4位以下は0）**、順位が定義できない被っちゃやーよは勝てば一律 500（`MiniGamePrize`）。
 > **マスへの着地は遊ぶゲームを選べないので、起動の前に告知して全員の「はじめる」を待つ**（`BoardPresenter.ShowMiniGameAnnounceAsync` → `WaitForAllMiniGameReadyAsync`）。アイテム経由は選択モーダルで何を遊ぶか分かっているので待たない。
-> **一人用モードでも、ミニゲームマスに止まったのが CPU のときは自分が CPU 相手に遊ぶ**（`BoardPresenter.RunLocalMiniGameAsync`＝自分が勝てば自分、負ければ着地した CPU が報酬を得る）。報酬の加算と勝者発表の帯はオンラインと共通の `AwardMiniGameAsync`。
+> **一人用モードでも、ミニゲームマスに止まったのが CPU のときは自分が CPU 相手に遊ぶ**（`BoardPresenter.RunLocalMiniGameAsync`）。**賞金はオンラインと同じく順位別**で、自分も CPU もミニゲーム内の順位ぶんもらう（CPU の順位を知っているのはゲーム側だけなので `MiniGameResult.Ranks` で受け取る）。順位が定義できない被っちゃやーよだけは、自分が勝てば自分・負ければ着地した CPU が一律 500 を得る。報酬の加算と勝者発表の帯はオンラインと共通の `AwardMiniGameAsync`。
 
 **オンライン対戦に対応させるとき**（新しいゲームを足したら必ず通す）:
 
@@ -300,6 +300,8 @@ SpinDecision decision = await decided;
 - **作業コピー（`_working` のような編集用のリスト）を持つエディタは `Undo.undoRedoPerformed` を購読する**（`OnEnable` で購読・`OnDisable` で解除し、ハンドラで資産から読み直して UI を組み直す）。Ctrl+Z が巻き戻すのは資産だけなので、購読しないと作業コピーが古いまま残り、**次の編集で古いコピーが資産へ書き戻されて取り消した変更が復活する**（`CellMessageEditorWindow` がこれを踏んだ）。`CreateGUI` より前に呼ばれることがあるので UI 要素の null ガードを入れる。
 - **アセット未割り当てでも壊れないフォールバックを実行時側に持たせる**（`BoardDefinition.CreateRectangular` を `CreateInstance` で生成し、`OnDestroy` で `Destroy` する）。既存シーンは無改変で従来動作、データを割り当てたときだけ差し替わる。ただし**フォールバックは静かに効くので「資産を作って編集したのに割り当て忘れ」に気づけない**（`BoardCellMessageCatalog` がこれで、エディタで編集した文言が一度もゲームに出ていなかった）。資産を新設したら、**消費側の Presenter へインスペクタで割り当ててシーンをコミットするまでがワンセット**。
 - **同種の SO 資産を複数から選ばせるには「カタログ SO ＋ Common に文字列 ID」で分ける**。`CharacterCatalog` のような静的クラスは Addressable アドレス（文字列）しか持てず SO 資産参照を持てないので、資産を並べるカタログ自体も `ScriptableObject` にする（例: [BoardCatalog.cs](../Assets/Scripts/Main/Board/BoardCatalog.cs) が `List<BoardDefinition>` を持ち `All`/`Default`/`Find` を公開）。選択状態をシーンをまたいで持つ Common シングルトン（[BoardSessionModel.cs](../Assets/Scripts/Common/Board/BoardSessionModel.cs)）は、**Common から Main の SO 型（`BoardDefinition`）を参照できない**ため識別子（資産名 `Object.name`）だけを文字列で持ち、消費側（`BoardPresenter`）が `catalog.Find(id)` で実体を解決する。カタログ資産は選択シーンと消費シーンの両方の Presenter にインスペクタで割り当てる。未選択・未割り当て時は単発フォールバック（`_definition`）に落ちる。
+
+---
 
 ## 12. 新しいアイテムを追加する
 

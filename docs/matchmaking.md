@@ -19,7 +19,7 @@ Unity Gaming Services (UGS) の **`com.unity.services.multiplayer`** を使っ�
 
 ## 事前セットアップ（必須）
 
-1. `dashboard.unity3d.com` でプロジェクトを作成し **Lobby** と **Relay** の両サービスをプロジェクトに追加する（Relay が未追加だと `CreateSessionAsync` が `SessionException` で落ちる。ダッシュボードのサービス一覧で Relay が「設定中」に居れば追加済み＝そのまま使える。「アクティブ」の判定は過去 30 日に実際に使ったかどうかなので、初回接続までは「設定中」のままでよい）
+1. `dashboard.unity3d.com` でプロジェクトを作成し **Lobby** と **Relay** の両サービスをプロジェクトに追加する（未追加だと `CreateSessionAsync` が `SessionException` で落ちる。ダッシュボードでの見え方は [networking.md](networking.md)「事前セットアップ」）
 2. **Edit → Project Settings → Services** でプロジェクト ID を紐付け
 3. ⚠️ 動作確認は Windows / Mac ビルドで行う（WebGL は QoS がサポート外で Relay のリージョン選択が既定へフォールバックする。接続自体は WSS で成立するが未検証。プロトコルと `UnityTransport` の整合は `MatchingService.AlignTransportToRelayProtocol` が自動でとる＝[networking.md](networking.md)「Relay 経由の接続」）
 
@@ -85,7 +85,7 @@ Title → Home →（オンラインプレイ）→ Matching → OnlineCharacter
 | `MatchingPresenter` | UI とマッチング状態のバインド（`IStartable` 実装）。入力を `MatchingFlow` へ転送する |
 | `MatchingFlow` | フロー制御（認証・2秒ごとの自動ルーム更新ループ・ルーム作成〔定員2〜4＋選んだマップを `BoardSessionModel` に保持〕/参加・相手待ち〔参加人数を Model に通知〕・ゲーム開始〔`StartGameAsync`。ホストだけ `HostStartDelayDuration`＝3秒待ってからキャラ選択ロビーへ遷移する〕） |
 | `MatchingService` | UGS Session API 呼び出し |
-| `MatchingStateExtensions` | `IsLoading()` / `IsWaiting()` 拡張メソッドで状態グループ判定を一元化 |
+| `MatchingStateExtensions` | `IsLoading()` / `IsWaiting()` 拡張メソッドで状態グループ判定を一元化（`MatchingState.cs` に同居） |
 | `MatchingLifetimeScope` | Matching シーン固有 DI 登録 |
 | `GameSessionModel` | `ISession` を Common シーン跨ぎで保持（Singleton） |
 
@@ -140,25 +140,7 @@ Unity の `Start()` が先に呼ばれる。VContainer の `IStartable.Start()` 
 
 ## WaitForPlayerAsync の実装メモ
 
-`WaitForPlayerAsync` は `CancellationTokenSource(timeout)` と外部 `ct` をリンクし、**`AvailableSlots == 0`（＝定員が全員埋まる）になるまで** `AvailableSlots` を 500ms 間隔でポーリングして待機する。併せて `session.PlayerCount` を `onPlayerCount` で通知し、呼び出し側が「◯/◯人」の待機表示を更新する。
-
-```csharp
-onPlayerCount?.Invoke(session.PlayerCount);
-if (session.AvailableSlots == 0) { return true; }   // 既に満室
-
-using CancellationTokenSource timeoutCts = new(timeout);
-using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, ct);
-
-while (true)
-{
-    linked.Token.ThrowIfCancellationRequested();
-    onPlayerCount?.Invoke(session.PlayerCount);
-    if (session.AvailableSlots == 0) { return true; }   // 満室＝全員参加で成立
-    await UniTask.Delay(TimeSpan.FromMilliseconds(500), cancellationToken: linked.Token);
-}
-```
-
-**完了条件は「満室（`AvailableSlots == 0`）」だけにする**。`PlayerJoined` は 1 人参加するたびに発火するため、これを完了トリガーにすると 3〜4 人部屋でも 1 人目の参加で開始してしまう（過去バグ）。`AvailableSlots` のポーリングだけなら人数に依らず「全員そろってから」開始できる（最大 500ms の検知遅延は許容）。
+`WaitForPlayerAsync` は `CancellationTokenSource(timeout)` と外部 `ct` をリンクし、**`AvailableSlots == 0`（＝定員が全員埋まる）になるまで** `AvailableSlots` を 500ms 間隔でポーリングして待機する。併せて `session.PlayerCount` を `onPlayerCount` で通知し、呼び出し側が「◯/◯人」の待機表示を更新する。コードと「`PlayerJoined` を完了トリガーにしてはいけない理由」は [networking.md](networking.md)「6. 相手待ちは `PlayerJoined` ではなく `AvailableSlots` のポーリングで判定する」にまとめてある。
 
 **注意: タイムアウト起因のキャンセルはスレッドプールスレッドで継続され得る**
 
@@ -189,6 +171,7 @@ Assets/Scripts/
       MatchingLifetimeScope.cs
     View/
       Matching.uxml
+      Matching.uss
     LobbyInfo.cs                # ルーム情報の値型
     MatchingFlow.cs             # フロー制御（認証・自動更新・マッチ・待機）
     MatchingModel.cs
@@ -210,7 +193,7 @@ Assets/Scenes/
 
 ---
 
-## 未決事項
+## 当初の未決事項（すべて実装済み）
 
 - [x] Main シーン側の NGO 同期実装（NetworkSessionStartup / NgoMessenger）
 - [x] ゲーム進行（手番・出目・コマ移動・お金・アイテム・勝敗）の同期＝`OnlineGameSync` のアクションストリーム → [networking.md](networking.md)「ゲーム進行の同期」

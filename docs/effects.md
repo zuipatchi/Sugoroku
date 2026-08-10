@@ -59,7 +59,7 @@ camObj.transform.SetPositionAndRotation(mainCam.transform.position, mainCam.tran
 GameObject canvasObj = new GameObject("EffectCanvas");
 Canvas canvas = canvasObj.AddComponent<Canvas>();
 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-canvas.sortingOrder = 200; // UI Toolkit より上（PanelSettings の sortingOrder は最大 100）
+canvas.sortingOrder = 200; // UI Toolkit（Board=0 / Roulette=10・モーダル表示中は 100）より上
 
 // 5. RawImage で RT を表示（加算ブレンドのカスタムシェーダー必須・下記2参照）
 // ※ Shader.Find はビルドに含まれないため [SerializeField] で参照を保持すること

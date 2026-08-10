@@ -529,26 +529,3 @@ transport.UseWebSockets = false;  // RelayProtocol.Default == DTLS
 ### 参加側は何も足さなくてよい
 
 `WithRelayNetwork()` は**作成側の `SessionOptions` にだけ**付ける。ゲストはセッションのネットワークメタデータ（join code）を読んで自動で Relay に参加するので、`JoinSessionByIdAsync` はそのままでよい。
-
----
-
-## デッキ交換プロトコルの設計メモ
-
-> **注**: このセクションは別プロジェクト（カードゲーム）由来の一般例。本プロジェクト（すごろく）にデッキ交換はないが、「ホスト⇔クライアントの初期ハンドシェイク設計」の参考として残している。
-
-NGS_ClientReady ハンドシェイクを入れた理由は「ホストがリクエストを送るタイミングをクライアントのハンドラ登録完了に同期させるため」。
-
-```
-ホスト                              クライアント
-  ├─ k_ClientReady 登録             ├─ k_RequestDeck 登録
-  ├─ k_DeckSubmit  登録             ├─ k_InitialState 登録
-  └─ 待機                           └─ NGS_ClientReady をリトライ送信
-                                          ↓（200ms ごと）
-  ← NGS_ClientReady 受信
-  ├─ NGS_RequestDeck 送信 ─────────→ 受信・送信ループ停止
-  ←──────────── NGS_DeckSubmit 受信
-  ├─ シャッフル・手札決定
-  └─ NGS_InitialState 送信 ────────→ 受信・ゲーム開始
-```
-
-メッセージは `JsonUtility` + `FastBufferWriter.WriteValueSafe(string)` で送受信する。JSON サイズを過小見積もりするとバッファ不足になるため、`json.Length * 2 + 8` でバッファを確保する（Unicode 文字の最大バイト数を考慮）。
