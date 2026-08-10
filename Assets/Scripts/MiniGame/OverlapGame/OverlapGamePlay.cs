@@ -178,10 +178,25 @@ namespace MiniGame.OverlapGame
 
             await _closeSource.Task.AttachExternalCancellation(ct);
             _model.Finish();
-            // 結果値は選んだカードの index（未選択は NoChoice）。オンラインでは誰とも被らなければ勝ち。
+            // 結果値は選んだアイテムの ItemId（未選択は NoChoice）。オンラインでは誰とも被らなければ勝ち。
             // 「誰とも被らなければ勝ち」は複数人が同時に勝ちうるので順位が定義できない＝順位は返さない
             // （賞金は勝った人へ一律＝MiniGamePrize.Win）。
-            return new MiniGameOutcome(IsLocalWin ? 1 : 0, _model.PlayerChoiceIndex);
+            return new MiniGameOutcome(IsLocalWin ? 1 : 0, ChosenItemValue());
+        }
+
+        /// <summary>
+        /// 盤面へ返す結果値＝自分が選んだアイテムの <see cref="ItemId"/>（未選択・範囲外は
+        /// <see cref="MiniGameRanking.NoChoice"/>）。提示アイテムは全クライアントで同じなので
+        /// 被り判定（値の一致）はカード index でも ItemId でも変わらないが、**ItemId で返すと
+        /// 盤面側が「何を獲得したか」を名前で出せる**（結果の帯）。
+        /// </summary>
+        private int ChosenItemValue()
+        {
+            int index = _model.PlayerChoiceIndex;
+            IReadOnlyList<ItemId> offered = _model.OfferedItems;
+            return index >= 0 && index < offered.Count
+                ? (int)offered[index]
+                : MiniGameRanking.NoChoice;
         }
 
         // 制限時間 ChoiceSeconds の間だけプレイヤーの選択を待つ。クリックで Model が Revealed へ進むとループを抜ける。

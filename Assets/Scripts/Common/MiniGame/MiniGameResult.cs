@@ -6,7 +6,7 @@ namespace Common.MiniGame
     /// <summary>
     /// ミニゲーム 1 回分の結果。
     /// <see cref="Score"/> は勝敗（勝ち=1／負け=0）で、一人用モードの勝敗判定に使う。
-    /// <see cref="Value"/> は生の結果値（連打数・ゴールタイム・選んだカード index）で、
+    /// <see cref="Value"/> は生の結果値（連打数・ゴールタイム・選んだアイテムの <c>ItemId</c>）で、
     /// オンライン対戦では全員ぶんを集めて <see cref="MiniGameRanking.Resolve"/> にかけ、勝者を決める。
     /// <see cref="Ranks"/> は参加者ごとの順位で、一人用モードの順位別の賞金に使う。
     /// </summary>

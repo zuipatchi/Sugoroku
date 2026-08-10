@@ -955,7 +955,7 @@ namespace Main.Board
 
         /// <summary>
         /// アナウンス帯に <paramref name="text"/> を出して少し見せてから隠す。
-        /// 手番の告知のほか、ミニゲームの勝者発表のような一時的な知らせにも使う。
+        /// 手番の告知のほか、ミニゲームの結果発表のような一時的な知らせにも使う。
         /// </summary>
         private void ShowBannerText(string text)
         {
@@ -1869,6 +1869,7 @@ namespace Main.Board
         {
             int[] order = MiniGameSeatOrder();
             bool iWon;
+            int myValue = MiniGameRanking.WorstValue(game);
             IReadOnlyList<int> ranks = Array.Empty<int>();
             if (_launcher != null)
             {
@@ -1877,6 +1878,7 @@ namespace Main.Board
                 MiniGameResult result = await _launcher.PlayAsync(
                     game, ct, order.Length, MiniGameCharacters(order));
                 iWon = DetermineMiniGameWin(result);
+                myValue = result.Value;
                 ranks = result.Ranks;
             }
             else
@@ -1893,8 +1895,8 @@ namespace Main.Board
                 {
                     prizeBySeat[order[i]] = MiniGamePrize.ForRank(ranks[i]);
                 }
-                // 帯に出す勝者は 1 位（同着なら全員）。
-                await AwardMiniGameAsync(prizeBySeat, SeatsWithTopRank(order, ranks), ct);
+                // 帯に出すのは自分の順位（order[0]＝自分＝人間プレイヤー）。
+                await AwardMiniGameAsync(prizeBySeat, MiniGameRankText(ranks[0]), ct);
                 return;
             }
 
@@ -1902,30 +1904,15 @@ namespace Main.Board
             // 自分が着地して負けたときだけ勝者なし（誰も受け取らない）。
             int winner = iWon ? _humanPlayer : starter;
             bool noWinner = !iWon && starter == _humanPlayer;
-            List<int> winners = new();
             if (!noWinner)
             {
-                winners.Add(winner);
                 prizeBySeat[winner] = MiniGamePrize.Win;
             }
-            await AwardMiniGameAsync(prizeBySeat, winners, ct);
-        }
-
-        /// <summary>
-        /// 参加者の並び <paramref name="order"/> のうち 1 位の席を集める（同着なら全員）。
-        /// 順位が付かなかった参加者（0＝圏外）は含めない。
-        /// </summary>
-        private static List<int> SeatsWithTopRank(IReadOnlyList<int> order, IReadOnlyList<int> ranks)
-        {
-            List<int> seats = new();
-            for (int i = 0; i < ranks.Count && i < order.Count; i++)
-            {
-                if (ranks[i] == 1)
-                {
-                    seats.Add(order[i]);
-                }
-            }
-            return seats;
+            // 順位が付くゲームでランチャーが無かったときは順位が分からないので最下位扱いで出す。
+            await AwardMiniGameAsync(
+                prizeBySeat,
+                MiniGamePrize.HasRanking(game) ? MiniGameRankText(0) : MiniGameOverlapText(iWon, myValue),
+                ct);
         }
 
         /// <summary>
@@ -2010,7 +1997,7 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 集めた結果値から賞金を決めて配り、誰が勝ったかを帯で知らせる（オンライン）。
+        /// 集めた結果値から賞金を決めて配り、自分の結果（順位／獲得したアイテム）を帯で知らせる（オンライン）。
         /// 順位付けも勝敗も純粋関数（<see cref="MiniGameRanking"/>）なので全クライアントで同じ結果になる。
         /// **順位が付くゲーム（タップ連打・2Dレース）は順位別の賞金**、
         /// 順位が定義できない被っちゃやーよは勝った人へ一律（<see cref="MiniGamePrize"/>）。
@@ -2030,33 +2017,28 @@ namespace Main.Board
                     : (wins[i] ? MiniGamePrize.Win : 0);
             }
 
-            return AwardMiniGameAsync(prizeBySeat, SeatsWhere(order, wins), ct);
-        }
-
-        /// <summary>
-        /// 参加者の並び <paramref name="order"/> のうち <paramref name="flags"/> が立っている席を集める
-        /// （勝者の帯に出す名前の材料）。
-        /// </summary>
-        private static List<int> SeatsWhere(IReadOnlyList<int> order, IReadOnlyList<bool> flags)
-        {
-            List<int> seats = new();
-            for (int i = 0; i < flags.Count && i < order.Count; i++)
-            {
-                if (flags[i])
-                {
-                    seats.Add(order[i]);
-                }
-            }
-            return seats;
+            // 帯に出すのは画面の持ち主から見た結果（順位／獲得したアイテム）。
+            int me = ParticipantOf(order, _humanPlayer);
+            int myRank = me >= 0 && me < ranks.Length ? ranks[me] : 0;
+            bool iWon = me >= 0 && me < wins.Length && wins[me];
+            int myValue = me >= 0 && me < values.Count ? values[me] : MiniGameRanking.NoChoice;
+            return AwardMiniGameAsync(
+                prizeBySeat,
+                ranked ? MiniGameRankText(myRank) : MiniGameOverlapText(iWon, myValue),
+                ct);
         }
 
         /// <summary>
         /// ミニゲームの賞金 <paramref name="prizeBySeat"/>（index＝席・0 なら払わない）を配り、
-        /// 勝者 <paramref name="winnerSeats"/>（＝1 位／被っちゃやーよは獲得した人）を帯で知らせる
-        /// （オンライン・一人用の共通処理）。自分がもらえたときだけ増額の浮遊テキストも出す。
+        /// 結果 <paramref name="resultText"/> を帯で知らせる（オンライン・一人用の共通処理）。
+        /// 自分がもらえたときだけ賞金音と増額の浮遊テキストも出す。
+        ///
+        /// **帯に出すのは勝った人の名前ではなく画面の持ち主から見た自分の結果**（順位・獲得したアイテム）なので、
+        /// 文言は結果を持っている呼び出し側が組み立てる
+        /// （<see cref="MiniGameRankText"/> / <see cref="MiniGameOverlapText"/>）。
         /// </summary>
         private async UniTask AwardMiniGameAsync(
-            IReadOnlyList<int> prizeBySeat, IReadOnlyList<int> winnerSeats, CancellationToken ct)
+            IReadOnlyList<int> prizeBySeat, string resultText, CancellationToken ct)
         {
             int myPrize = 0;
             for (int seat = 0; seat < prizeBySeat.Count; seat++)
@@ -2073,23 +2055,46 @@ namespace Main.Board
                 }
             }
 
-            List<string> winnerNames = new(winnerSeats.Count);
-            for (int i = 0; i < winnerSeats.Count; i++)
-            {
-                winnerNames.Add(CharacterNameOf(winnerSeats[i]));
-            }
-            ShowBannerText(winnerNames.Count == 0
-                ? "ミニゲーム 勝者なし"
-                : $"ミニゲーム {string.Join("・", winnerNames)} の勝ち！");
+            ShowBannerText(resultText);
 
-            if (winnerNames.Count > 0)
-            {
-                _soundPlayer.PlaySafe(_soundStore?.MoneySE);
-            }
+            // 賞金音と浮遊テキストは自分がもらえたときだけ（帯と同じく画面の持ち主から見た結果を出す）。
             if (myPrize > 0)
             {
+                _soundPlayer.PlaySafe(_soundStore?.MoneySE);
                 await ShowItemMoneyFloatAsync(myPrize, ct);
             }
+        }
+
+        /// <summary>
+        /// 順位が付くゲーム（タップ連打・2Dレース）の結果を知らせる帯の文言＝**自分の順位**
+        /// （勝った人の名前より「自分が何位だったか」の方が知りたい情報なので、画面の持ち主から見た結果にする）。
+        /// 順位が付かなかったとき（<paramref name="myRank"/> が 0＝2D レースの未ゴール）は
+        /// **参加者数＝最下位**として出す（「順位なし」より何位だったかが伝わる）。
+        /// </summary>
+        private string MiniGameRankText(int myRank)
+        {
+            int rank = myRank >= 1 ? myRank : _pieceCount;
+            return $"{rank}位！";
+        }
+
+        /// <summary>
+        /// 被っちゃやーよの結果を知らせる帯の文言。順位が定義できないゲームなので、自分が獲得したか
+        /// （<paramref name="iWon"/>）と選んだアイテム（<paramref name="myValue"/>＝<see cref="ItemId"/>・
+        /// 未選択は <see cref="MiniGameRanking.NoChoice"/>）で出し分ける。
+        /// </summary>
+        private static string MiniGameOverlapText(bool iWon, int myValue)
+        {
+            ItemDefinition item = myValue == MiniGameRanking.NoChoice
+                ? null
+                : ItemCatalog.Find((ItemId)myValue);
+            if (item == null)
+            {
+                // 制限時間内に選べなかった（無効票）。被ってはいないので「被ってしまった」とは言わない。
+                return "選べなかった";
+            }
+            return iWon
+                ? $"「{item.DisplayName}」を獲得！"
+                : "被ってしまった";
         }
 
         /// <summary>ミニゲームの内容を組み立てる種を引く（0 は「種なし」の意味なので避ける）。</summary>

@@ -22,7 +22,7 @@ namespace Common.MiniGame
         public int Score { get; }
 
         /// <summary>
-        /// 自分の生の結果値（連打数・ゴールタイム ms・選んだカード index）。
+        /// 自分の生の結果値（連打数・ゴールタイム ms・選んだアイテムの <c>ItemId</c>）。
         /// オンライン対戦では全員ぶんを持ち寄って <see cref="MiniGameRanking"/> にかける。
         /// </summary>
         public int Value { get; }
