@@ -145,7 +145,15 @@
     scale: 0.96 0.96;
 }
 
-/* 「クレジット」＝三次アクション。副ボタンと同じ暗いガラス地＋金枠だが、
+/* 三次アクション（ルール説明・クレジット）の並び。モード選択の 2 つより 1 段下に見せるため、
+   小さいピルを横に並べて 1 行にまとめる。 */
+.home-sub-buttons {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 「ルール説明」「クレジット」＝三次アクション。副ボタンと同じ暗いガラス地＋金枠だが、
    幅を文字ぶんに詰めた小さいピルにして、モード選択の 2 つと同格に見えないようにする
    （文字だけだと押せるものに見えないので、枠と地は持たせる）。 */
 .home-credit-button {
@@ -193,6 +201,12 @@
     scale: 0.96 0.96;
 }
 
+/* 横並びのぶんの間隔。.home-credit-button が左右マージンを 0 にしているので、それより後に定義する。 */
+.home-sub-button {
+    margin-right: 6px;
+    margin-left: 6px;
+}
+
 /* 入場演出 -------------------------------------------------------------------- */
 
 /* 初期は少し下・透明。HomePresenter が背景のロード後に home-enter--visible を付けると、
@@ -224,11 +238,11 @@
     translate: 0 0;
 }
 
-/* クレジットモーダル ----------------------------------------------------- */
+/* モーダル共通（クレジット・ルール説明） --------------------------------- */
 
 /* 全画面オーバーレイ（暗幕）。既定は非表示・透明で、コードから display と
-   credit-overlay--visible を切り替えてフェードさせる。 */
-.credit-overlay {
+   home-overlay--visible を切り替えてフェードさせる（HomeModal）。 */
+.home-overlay {
     position: absolute;
     left: 0;
     top: 0;
@@ -243,15 +257,13 @@
     transition-duration: 0.18s;
 }
 
-.credit-overlay--visible {
+.home-overlay--visible {
     opacity: 1;
 }
 
 /* モーダルカード（design-system.md のカード準拠）。上辺に金のアクセントを載せて
-   盤面のモーダル（.player-detail__card）と揃える。 */
-.credit-card {
-    width: 80%;
-    max-width: 420px;
+   盤面のモーダル（.player-detail__card）と揃える。幅は用途ごとのクラスで足す。 */
+.home-modal-card {
     background-color: rgb(22, 22, 35);
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
@@ -275,15 +287,31 @@
     transition-timing-function: ease-out-back;
 }
 
-.credit-overlay--visible .credit-card {
+.home-overlay--visible .home-modal-card {
     scale: 1 1;
 }
 
-.credit-title {
+/* タイトル・区切り線・閉じるボタンは縮めない（中身が高いルール説明で潰れないように）。 */
+.home-modal-title {
     font-size: 20px;
     color: rgb(255, 225, 120);
     -unity-text-align: middle-center;
     margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+/* 閉じるボタン。.home-button--secondary の見た目のままカード幅いっぱいに広げる。 */
+.home-modal-close {
+    width: 100%;
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+/* クレジットモーダル ----------------------------------------------------- */
+
+.credit-card {
+    width: 80%;
+    max-width: 420px;
 }
 
 /* 区切り線（design-system.md 準拠） */
@@ -291,6 +319,7 @@
     height: 1px;
     background-color: rgba(255, 255, 255, 0.1);
     margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 /* 項目行（キー＝項目名、バリュー＝内容）。縦並びにして長い内容も折り返す。 */
@@ -318,8 +347,87 @@
     margin-bottom: 24px;
 }
 
-/* 閉じるボタン。.home-button--secondary の見た目のままカード幅いっぱいに広げる。 */
-.credit-close-button {
-    width: 100%;
-    margin-bottom: 0;
+/* ルール説明モーダル ----------------------------------------------------- */
+
+/* クレジットより中身が多いので、画面の高さいっぱいまで使ってスクロールさせる。 */
+.rule-card {
+    width: 88%;
+    max-width: 460px;
+    max-height: 82%;
+}
+
+/* 本文のスクロール領域。カードの残りの高さをすべて使う（下の閉じるボタンは常に見える）。 */
+.rule-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-bottom: 20px;
+}
+
+/* 1 節（見出し＋文章＋箇条書き）。 */
+.rule-section {
+    margin-bottom: 18px;
+}
+
+.rule-section__title {
+    font-size: 15px;
+    color: rgb(255, 225, 120);
+    margin-bottom: 6px;
+}
+
+.rule-section__body {
+    font-size: 13px;
+    color: rgb(230, 230, 245);
+    white-space: normal;
+}
+
+/* 箇条書きの 1 項目。色ドット（マスの種類だけ）＋本文の横並び。 */
+.rule-entry {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-top: 10px;
+}
+
+/* 盤面と同じイベント色のドット。色はコードから入れる。 */
+.rule-entry__dot {
+    width: 10px;
+    height: 10px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    margin-top: 4px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.rule-entry__text {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+/* 項目名の行。名前を左、補足（アイテムの価格など）を右端に置く。 */
+.rule-entry__head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.rule-entry__name {
+    font-size: 13px;
+    color: rgb(230, 230, 245);
+    flex-shrink: 1;
+}
+
+.rule-entry__note {
+    font-size: 12px;
+    color: rgb(255, 225, 120);
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.rule-entry__desc {
+    font-size: 12px;
+    color: rgb(180, 180, 210);
+    white-space: normal;
+    margin-top: 2px;
 }

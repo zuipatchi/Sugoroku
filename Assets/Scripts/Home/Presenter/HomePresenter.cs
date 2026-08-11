@@ -11,9 +11,9 @@ using VContainer;
 
 namespace Home.Presenter
 {
-    // 2つのモードボタン（一人用/オンライン）とクレジットボタンを表示する。
+    // 2つのモードボタン（一人用/オンライン）とルール説明・クレジットボタンを表示する。
     // 「一人で遊ぶ」（一人用モード）は CharacterSelect（キャラ選択）へ、「オンラインプレイ」は Matching へ遷移し、
-    // 「クレジット」はクレジットモーダルを開く。
+    // 「ルール説明」は遊び方のモーダル（中身は RuleBook が組み立てる）を、「クレジット」はクレジットモーダルを開く。
     // 背景には固定画像 Image/HomeBackGround を全画面に表示する
     // （前面 UI が読めるよう上に幕を重ねる。未配置は色面プレースホルダ）。
     // 表示前に画像のロードを終えるため ISceneReady を実装する。
@@ -30,9 +30,17 @@ namespace Home.Presenter
         private const string EnterClass = "home-enter";
         private const string EnterVisibleClass = "home-enter--visible";
 
-        // クレジットモーダルのフェード。Home.uss の .credit-overlay の transition-duration と揃える。
-        private const string CreditVisibleClass = "credit-overlay--visible";
-        private const long CreditFadeMilliseconds = 180;
+        // ルール説明モーダルの中身（Home.uss の .rule-* に対応）。
+        private const string RuleSectionClass = "rule-section";
+        private const string RuleSectionTitleClass = "rule-section__title";
+        private const string RuleSectionBodyClass = "rule-section__body";
+        private const string RuleEntryClass = "rule-entry";
+        private const string RuleEntryDotClass = "rule-entry__dot";
+        private const string RuleEntryTextClass = "rule-entry__text";
+        private const string RuleEntryHeadClass = "rule-entry__head";
+        private const string RuleEntryNameClass = "rule-entry__name";
+        private const string RuleEntryNoteClass = "rule-entry__note";
+        private const string RuleEntryDescClass = "rule-entry__desc";
 
         private SceneTransitioner _sceneTransitioner;
         private SoundStore _soundStore;
@@ -45,9 +53,13 @@ namespace Home.Presenter
         private Button _onlineButton;
         private Button _creditButton;
         private Button _creditCloseButton;
-        private VisualElement _creditOverlay;
+        private Button _ruleButton;
+        private Button _ruleCloseButton;
+        private ScrollView _ruleBody;
+        private HomeModal _creditModal;
+        private HomeModal _ruleModal;
         private bool _transiting;
-        private bool _creditOpen;
+        private bool _ruleBodyBuilt;
 
         private readonly AddressableSpriteLoader _spriteLoader = new();
         private UniTask _backgroundInitTask;
@@ -84,18 +96,28 @@ namespace Home.Presenter
             _onlineButton = _root.Q<Button>("OnlineButton");
             _creditButton = _root.Q<Button>("CreditButton");
             _creditCloseButton = _root.Q<Button>("CreditCloseButton");
-            _creditOverlay = _root.Q<VisualElement>("CreditOverlay");
+            _ruleButton = _root.Q<Button>("RuleButton");
+            _ruleCloseButton = _root.Q<Button>("RuleCloseButton");
+            VisualElement creditOverlay = _root.Q<VisualElement>("CreditOverlay");
+            VisualElement ruleOverlay = _root.Q<VisualElement>("RuleOverlay");
+            _ruleBody = _root.Q<ScrollView>("RuleBody");
             if (_singlePlayerButton == null || _onlineButton == null
-                || _creditButton == null || _creditCloseButton == null || _creditOverlay == null)
+                || _creditButton == null || _creditCloseButton == null || creditOverlay == null
+                || _ruleButton == null || _ruleCloseButton == null || ruleOverlay == null || _ruleBody == null)
             {
-                Debug.LogError("Home のボタン・クレジットモーダルが見つかりませんでした。");
+                Debug.LogError("Home のボタン・モーダル（クレジット／ルール説明）が見つかりませんでした。");
                 return;
             }
+
+            _creditModal = new HomeModal(creditOverlay);
+            _ruleModal = new HomeModal(ruleOverlay);
 
             _singlePlayerButton.clicked += OnSinglePlayerClicked;
             _onlineButton.clicked += OnOnlineClicked;
             _creditButton.clicked += OnCreditClicked;
             _creditCloseButton.clicked += OnCreditCloseClicked;
+            _ruleButton.clicked += OnRuleClicked;
+            _ruleCloseButton.clicked += OnRuleCloseClicked;
         }
 
         // 直接起動でも背景を出せるよう Start でも初期化を起動する（ReadyAsync は完了を待つだけ）。
@@ -208,37 +230,106 @@ namespace Home.Presenter
         {
             if (_transiting) return;
             _soundPlayer.PlaySE(_soundStore.Enter2SE);
-            _creditOpen = true;
-            _creditOverlay.style.display = DisplayStyle.Flex;
-            // display を出したフレームでクラスを足しても補間されないので 1 フレーム置く。
-            _creditOverlay.schedule.Execute(ShowCreditIfOpen);
+            _creditModal.Open();
         }
 
         private void OnCreditCloseClicked()
         {
             _soundPlayer.PlaySE(_soundStore.Cancel1SE);
-            _creditOpen = false;
-            _creditOverlay.RemoveFromClassList(CreditVisibleClass);
-            // フェードアウトが終わってから隠す（その間に開き直されたら _creditOpen で弾く）。
-            _creditOverlay.schedule.Execute(HideCreditIfClosed).ExecuteLater(CreditFadeMilliseconds);
+            _creditModal.Close();
         }
 
-        private void ShowCreditIfOpen()
+        private void OnRuleClicked()
         {
-            if (!_creditOpen || _creditOverlay == null)
+            if (_transiting) return;
+            _soundPlayer.PlaySE(_soundStore.Enter2SE);
+            // 中身はカタログから毎回同じものが組み上がるので、初回だけ作って使い回す。
+            BuildRuleBodyIfNeeded();
+            _ruleModal.Open();
+        }
+
+        private void OnRuleCloseClicked()
+        {
+            _soundPlayer.PlaySE(_soundStore.Cancel1SE);
+            _ruleModal.Close();
+        }
+
+        // ルール説明の中身（節・文章・箇条書き）を RuleBook から組み立てて ScrollView へ並べる。
+        // 文言と数値はゲーム側のカタログ・ルール定数が持つので、ここでは並べ方だけを決める。
+        private void BuildRuleBodyIfNeeded()
+        {
+            if (_ruleBodyBuilt || _ruleBody == null)
             {
                 return;
             }
-            _creditOverlay.AddToClassList(CreditVisibleClass);
+            _ruleBodyBuilt = true;
+            // 無効化→再有効化で作り直すことがあるので、積み増さないよう一度空にする。
+            _ruleBody.Clear();
+
+            foreach (RuleSection section in RuleBook.Sections())
+            {
+                VisualElement sectionElement = new();
+                sectionElement.AddToClassList(RuleSectionClass);
+
+                Label title = new(section.Title);
+                title.AddToClassList(RuleSectionTitleClass);
+                sectionElement.Add(title);
+
+                if (!string.IsNullOrEmpty(section.Body))
+                {
+                    Label body = new(section.Body);
+                    body.AddToClassList(RuleSectionBodyClass);
+                    sectionElement.Add(body);
+                }
+
+                if (section.Entries != null)
+                {
+                    foreach (RuleEntry entry in section.Entries)
+                    {
+                        sectionElement.Add(BuildRuleEntry(entry));
+                    }
+                }
+
+                _ruleBody.Add(sectionElement);
+            }
         }
 
-        private void HideCreditIfClosed()
+        // 箇条書きの 1 項目。色ドット（マスの種類だけが持つ）＋「名前／補足」の行＋説明。
+        private static VisualElement BuildRuleEntry(RuleEntry entry)
         {
-            if (_creditOpen || _creditOverlay == null)
+            VisualElement row = new();
+            row.AddToClassList(RuleEntryClass);
+
+            if (entry.Accent.HasValue)
             {
-                return;
+                VisualElement dot = new();
+                dot.AddToClassList(RuleEntryDotClass);
+                dot.style.backgroundColor = entry.Accent.Value;
+                row.Add(dot);
             }
-            _creditOverlay.style.display = DisplayStyle.None;
+
+            VisualElement text = new();
+            text.AddToClassList(RuleEntryTextClass);
+
+            VisualElement head = new();
+            head.AddToClassList(RuleEntryHeadClass);
+            Label nameLabel = new(entry.Name);
+            nameLabel.AddToClassList(RuleEntryNameClass);
+            head.Add(nameLabel);
+            if (!string.IsNullOrEmpty(entry.Note))
+            {
+                Label note = new(entry.Note);
+                note.AddToClassList(RuleEntryNoteClass);
+                head.Add(note);
+            }
+            text.Add(head);
+
+            Label description = new(entry.Description);
+            description.AddToClassList(RuleEntryDescClass);
+            text.Add(description);
+
+            row.Add(text);
+            return row;
         }
 
         private void OnDisable()
@@ -247,11 +338,18 @@ namespace Home.Presenter
             if (_onlineButton != null) _onlineButton.clicked -= OnOnlineClicked;
             if (_creditButton != null) _creditButton.clicked -= OnCreditClicked;
             if (_creditCloseButton != null) _creditCloseButton.clicked -= OnCreditCloseClicked;
+            if (_ruleButton != null) _ruleButton.clicked -= OnRuleClicked;
+            if (_ruleCloseButton != null) _ruleCloseButton.clicked -= OnRuleCloseClicked;
             _singlePlayerButton = null;
             _onlineButton = null;
             _creditButton = null;
             _creditCloseButton = null;
-            _creditOverlay = null;
+            _ruleButton = null;
+            _ruleCloseButton = null;
+            _ruleBody = null;
+            _ruleBodyBuilt = false;
+            _creditModal = null;
+            _ruleModal = null;
             _root = null;
         }
 

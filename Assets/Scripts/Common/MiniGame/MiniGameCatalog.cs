@@ -7,18 +7,26 @@ namespace Common.MiniGame
     /// </summary>
     public sealed class MiniGameDefinition
     {
-        public MiniGameDefinition(MiniGameId id, string displayName, string uxmlAddress, string imageAddress)
+        public MiniGameDefinition(
+            MiniGameId id, string displayName, string uxmlAddress, string imageAddress, string description = null)
         {
             Id = id;
             DisplayName = displayName;
             UxmlAddress = uxmlAddress;
             ImageAddress = imageAddress ?? string.Empty;
+            Description = description ?? string.Empty;
         }
 
         public MiniGameId Id { get; }
 
         /// <summary>テストシーン等に出す表示名。</summary>
         public string DisplayName { get; }
+
+        /// <summary>
+        /// 遊び方の 1 行説明（Home のルール説明に出す単一の情報源）。
+        /// ゲームごとの細かい数値（制限時間など）は各ゲームの Config が持つので、ここには書かない。
+        /// </summary>
+        public string Description { get; }
 
         /// <summary>中身の UI（UXML）の Addressable アドレス。<see cref="MiniGameHostPresenter"/> がロードに使う。</summary>
         public string UxmlAddress { get; }
@@ -39,9 +47,15 @@ namespace Common.MiniGame
     {
         public static readonly IReadOnlyList<MiniGameDefinition> All = new[]
         {
-            new MiniGameDefinition(MiniGameId.Tap, "タップ連打", "MiniGame/TapGame", "Image/MiniGame/Renda"),
-            new MiniGameDefinition(MiniGameId.Race, "2Dレース", "MiniGame/RaceGame", "Image/MiniGame/Lace"),
-            new MiniGameDefinition(MiniGameId.Overlap, "被っちゃやーよ", "MiniGame/OverlapGame", "Image/MiniGame/kaburi"),
+            new MiniGameDefinition(
+                MiniGameId.Tap, "タップ連打", "MiniGame/TapGame", "Image/MiniGame/Renda",
+                "制限時間のあいだサンドバッグを連打し、叩いた回数の多い人が勝ち。"),
+            new MiniGameDefinition(
+                MiniGameId.Race, "2Dレース", "MiniGame/RaceGame", "Image/MiniGame/Lace",
+                "往復するメーターをタップして走者を前へ進め、ゴールした人が勝ち。"),
+            new MiniGameDefinition(
+                MiniGameId.Overlap, "被っちゃやーよ", "MiniGame/OverlapGame", "Image/MiniGame/kaburi",
+                "並んだアイテムから 1 枚を選び、ほかの誰とも被らなければゲットできる。"),
         };
 
         public static MiniGameDefinition Find(MiniGameId id)

@@ -9,8 +9,12 @@ namespace Main.Board
     /// </summary>
     public static class BoardEventTally
     {
-        // 内訳に出すイベントと並び順（勝敗を左右する陣地を先頭に、以降は影響の大きい順）。
-        private static readonly BoardCellEvent[] DisplayOrder =
+        /// <summary>
+        /// 内訳に出すイベントと並び順（勝敗を左右する陣地を先頭に、以降は影響の大きい順）。
+        /// マップ選択の内訳だけでなく、Home のルール説明でマスの種類を並べるのにも使う
+        /// （どちらも同じ順で読めるよう、並びはここ 1 か所に置く）。
+        /// </summary>
+        public static readonly IReadOnlyList<BoardCellEvent> DisplayOrder = new[]
         {
             BoardCellEvent.Territory,
             BoardCellEvent.Item,
