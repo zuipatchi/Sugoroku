@@ -29,9 +29,6 @@ namespace Main.Board
         // ルーレット(10)・ミニゲームトリガ(20)より上、Common のオプションオーバーレイ(1000+)より下。
         private const float RaisedSortingOrder = 100f;
         private const string AvatarEmptyClass = "player-detail__avatar--empty";
-        // 所持金・占領地の行頭に置くアイコン画像の Addressable アドレス。未配置なら USS 描画の下地バッジにフォールバックする。
-        private const string CoinIconAddress = "Image/Icon/CoinIcon";
-        private const string TerritoryIconAddress = "Image/Icon/TeritoryIcon";
         // アイコン画像を貼ったバッジに付けて USS 描画の下地（色・枠）を消すクラス。
         private const string BadgeImageClass = "player-detail__badge--image";
 
@@ -102,8 +99,10 @@ namespace Main.Board
             _territoryValue = overlay.Q<Label>("PlayerDetailTerritory");
             _itemList = overlay.Q<VisualElement>("PlayerDetailItems");
 
-            LoadBadgeAsync(CoinIconAddress, overlay.Q<VisualElement>("PlayerDetailMoneyIcon")).Forget();
-            LoadBadgeAsync(TerritoryIconAddress, overlay.Q<VisualElement>("PlayerDetailTerritoryIcon")).Forget();
+            // 行頭のアイコン画像（アドレスはネームプレートと共通＝PlayerStatIcons）。
+            // 未配置なら USS 描画の下地バッジのままにする。
+            LoadBadgeAsync(PlayerStatIcons.CoinAddress, overlay.Q<VisualElement>("PlayerDetailMoneyIcon")).Forget();
+            LoadBadgeAsync(PlayerStatIcons.TerritoryAddress, overlay.Q<VisualElement>("PlayerDetailTerritoryIcon")).Forget();
 
             Button closeButton = overlay.Q<Button>("PlayerDetailCloseButton");
             if (closeButton != null)

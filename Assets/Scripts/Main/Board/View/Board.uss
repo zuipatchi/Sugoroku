@@ -348,14 +348,15 @@
 }
 
 /* 各プレイヤーのネームプレート。暗いカードに上辺の金アクセント（自分のコマ --p0 と同色）を載せる。
-   縦型レイアウト：上に丸アイコン、下にキャラ名だけを置いて 4 人ぶんを 1 行に収める。
-   所持金・占領地・所持アイテムはクリックで開く詳細モーダル（PlayerDetailPresenter）に出す。
+   縦型レイアウト：上から丸アイコン・キャラ名・所持金・占領地を置いて 4 人ぶんを 1 行に収める。
+   所持アイテムのような細かい情報はクリックで開く詳細モーダル（PlayerDetailPresenter）に出す。
    クリックできるよう Button で作るので、テーマ既定の余白は明示的に上書きする。 */
 .board-nameplate {
     width: 104px;
     /* 「（あなた）」の無いプレートと高さを揃えるための下限。固定（height）にすると
-       フォントの行高しだいで「（あなた）」の行が overflow で切られるため min-height にする。 */
-    min-height: 94px;
+       フォントの行高しだいで「（あなた）」の行が overflow で切られるため min-height にする。
+       所持金・占領地の 2 行ぶんを含めた高さ。 */
+    min-height: 130px;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
@@ -473,6 +474,95 @@
     font-size: 10px;
     color: rgb(255, 225, 120);
     -unity-text-align: middle-center;
+}
+
+/* キャラ名の下に置く所持金・占領地。プレート幅（104px）に収めるため見出しは置かず、
+   行頭アイコンと数値だけを並べる（見出し付きの一覧は詳細モーダルにある）。 */
+.board-nameplate__stats {
+    margin-top: 4px;
+    align-items: center;
+}
+
+/* 1 行（行頭アイコン＋数値）。行の中身は中央寄せにして 2 行の見た目をそろえる。 */
+.board-nameplate__stat {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 2px;
+}
+
+/* 行頭アイコン。画像が未配置のときは下の --coin / --flag が USS で下地を描く。 */
+.board-nameplate__stat-icon {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+}
+
+/* コイン風の金色バッジ（詳細モーダルの行頭バッジと同じ描き分け＝丸）。 */
+.board-nameplate__stat-icon--coin {
+    background-color: rgb(240, 200, 70);
+    border-left-color: rgb(180, 140, 30);
+    border-right-color: rgb(180, 140, 30);
+    border-top-color: rgb(180, 140, 30);
+    border-bottom-color: rgb(180, 140, 30);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* 旗風の四角バッジ（円のコインと形で区別する）。 */
+.board-nameplate__stat-icon--flag {
+    background-color: rgb(120, 205, 140);
+    border-left-color: rgb(60, 130, 80);
+    border-right-color: rgb(60, 130, 80);
+    border-top-color: rgb(60, 130, 80);
+    border-bottom-color: rgb(60, 130, 80);
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    border-bottom-left-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
+/* Image/Icon のアイコン画像を貼った行頭アイコン。USS 描画の下地（色・枠）を消して画像だけを見せる。
+   PlayerNameplateView が読み込み成功時に付ける。 */
+.board-nameplate__stat-icon--image {
+    width: 14px;
+    height: 14px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* 数値。プレート幅を守るため、長くなってもはみ出さないよう省略記号でクリップする。 */
+.board-nameplate__stat-value {
+    margin-left: 3px;
+    font-size: 11px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 74px;
+    -unity-text-align: middle-left;
+}
+
+/* 所持金（3 桁区切り）。詳細モーダルと同じ金色。 */
+.board-nameplate__stat-value--money {
+    color: rgb(255, 226, 140);
+}
+
+/* 占領地の「占拠数/勝利に必要な数」。詳細モーダルと同じ緑。 */
+.board-nameplate__stat-value--territory {
+    color: rgb(200, 240, 205);
 }
 
 /* コマが止まったマスの画像を画面中央に一瞬表示する演出のカード。

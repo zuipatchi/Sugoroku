@@ -286,16 +286,20 @@ namespace Main.Board
                 }
             }
 
-            // ネームプレートは「アイコン＋名前」だけを出し、所持金・占領地・所持アイテムはクリックで開く
-            // 詳細モーダル（_playerDetail）に出す。モーダルは UI 要素がそろう BuildCells で生成するため、
-            // ここでは遅延解決するラムダを渡す（Construct と OnEnable の順序に依存しない）。
+            // ネームプレートは「アイコン＋名前＋所持金＋占領地」を出し、所持アイテムのような細かい情報は
+            // クリックで開く詳細モーダル（_playerDetail）に出す。モーダルは UI 要素がそろう BuildCells で
+            // 生成するため、ここでは遅延解決するラムダを渡す（Construct と OnEnable の順序に依存しない）。
+            // 所持金・占領地の購読はプレートと同じ寿命なので、破棄は _disposables に任せる。
             _nameplateView = new PlayerNameplateView(
                 participants,
                 _characterPicker,
                 _iconLoader,
+                _money,
+                _territory,
                 _humanPlayer,
                 destroyCancellationToken,
                 player => _playerDetail?.Open(player));
+            _disposables.Add(_nameplateView);
 
             // アイテム取得を購読し、人間プレイヤーのぶんだけ右下の手札にサムネイルを足す。
             _disposables.Add(_items.Gained.Subscribe(gain =>
@@ -858,7 +862,8 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 上部ヘッダーに全プレイヤーのネームプレート（横 1 行・アイコンとキャラ名だけ。クリックで詳細モーダル）を表示する。
+        /// 上部ヘッダーに全プレイヤーのネームプレート（横 1 行・アイコン／キャラ名／所持金／占領地。
+        /// クリックで詳細モーダル）を表示する。
         /// 構築の本体は <see cref="PlayerNameplateView"/> が担う。
         /// マス（BuildCells）と injection（Construct）の両方がそろってから 1 度だけ構築する。
         /// </summary>
