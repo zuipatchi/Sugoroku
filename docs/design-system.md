@@ -360,6 +360,22 @@ Assets/AddressableAssets/Icon/
 <ui:Image style="position: absolute; right: 0; top: 0; width: 5%; height: 5%;"/>
 ```
 
+### アイテム絵は正方形の枠に切り抜いて出す
+
+アイテム絵（`Image/Item/*`）は縦長（848x1264）だが、**出す場所はすべて正方形の枠にして
+`-unity-background-scale-mode: scale-and-crop` で上下を切る**。`scale-to-fit` だと枠の中で
+letterbox になり、置き場所ごとに絵の大きさが変わって同じアイテムに見えなくなるため。対象は
+手札（`.item-hand__card`）・アイテム詳細モーダル（`.item-modal__image`）・アイテムショップの商品カード
+（`.item-shop-card__image`）・プレイヤー詳細の所持アイテム（`.player-detail__item-icon`）・
+被っちゃやーよの選択カード（`.overlap-card__image`）・購入/使用の中央ポップ（`.cell-popup`）。
+
+**切り抜くのはアイテム絵だけ**で、キャラの丸アイコン・旗・マスの枠のように「全体が見えないと困る絵」は
+`scale-to-fit` のままにする。中央ポップ（`.cell-popup`）はマスの絵とミニゲームのサムネイルも出すが、
+どちらもほぼ正方形（626x632 / 1024x1024）なので切り抜いても見た目は変わらない。
+
+正方形の枠に置けるので、**正方形の絵ならマスの絵をアイテム絵として使い回せる**
+（「お金アップ」のカードはお金アップのマスと同じ `Board/MoneyUp`）。
+
 ---
 
 ## UIDocument の設定

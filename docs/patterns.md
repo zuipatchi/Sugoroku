@@ -314,8 +314,19 @@ SpinDecision decision = await decided;
 アイテム取得マス（`BoardCellEvent.Item`）でもらえるアイテムは、ミニゲームと同じ「enum ＋ 静的カタログ」方式で増やす。
 
 1. [ItemId.cs](../Assets/Scripts/Main/Item/ItemId.cs) に種別を 1 つ足す
-2. アイテム絵を `Assets/AddressableAssets/Image/Item/` に置き、**Addressable アドレスを `Image/Item/<名前>`** に設定する（未配置でも動く。その場合は手札にアイテム名の文字が出る）
-3. [ItemCatalog.cs](../Assets/Scripts/Main/Item/ItemCatalog.cs) の `All` に 1 行足す（`ItemId` → 表示名・**効果説明文（`Description`・アイテムモーダル/ショップの本文に出る）**・画像アドレス・**購入価格（`Price`）**）。ラインナップ抽選（`RandomLineup`）はカタログ全体から選ぶので分岐追加は不要
+2. アイテム絵を `Assets/AddressableAssets/Image/Item/` に置き、**Addressable アドレスを `Image/Item/<名前>`** に設定する（未配置でも動く。その場合は手札にアイテム名の文字が出る）。**アイテム絵はどこでも正方形の枠に切り抜いて出す**（[design-system.md](design-system.md)「アイテム絵は正方形の枠に切り抜いて出す」）ので、**正方形の絵なら既存の絵を流用してもよい**（お金アップはお金アップのマスと同じ `Board/MoneyUp`）
+3. [ItemCatalog.cs](../Assets/Scripts/Main/Item/ItemCatalog.cs) の `All` に 1 行足す（`ItemId` → 表示名・**効果説明文（`Description`・アイテムモーダル/ショップの本文に出る）**・画像アドレス・**購入価格（`Price`）**）。ショップのラインナップ抽選（`RandomLineup`）は `Purchasable` から選ぶので分岐追加は不要
+
+**どこにどれだけ出すか**は 2 つの指定で決める（独立しているので「買えないがカードには出る」もできる）。抽選の入口が分かれているので、出す側に分岐は要らない。
+
+| 出す先 | 抽選の入口 | 指定 |
+|---|---|---|
+| アイテムショップ | `ItemCatalog.RandomLineup`（`Purchasable` から） | `purchasable`（既定 true） |
+| 被っちゃやーよの選択カード | `ItemCatalog.RandomCards`（`All` から重み付き） | `cardWeight`（既定 1） |
+
+- **ショップに並べない**なら `purchasable: false`（価格は 0）。手札に入ることが無いので効果も実装しない（`MoneyUp`＝お金アップ）。
+- **カードに出にくくする**なら `cardWeight` を下げる（`InstantWin`＝勝利は 0.5＝他の半分）。`RandomCards` は重みに比例した確率で 1 枚ずつ引いては候補から外すので、1 枚だけ引くときは重みの比がそのまま出やすさの比になる。0 にすれば実質出ない。
+- カードは**種類が参加者数より多いほど毎回の顔ぶれが変わって選択の駆け引きが生まれる**（並ぶのは参加者数ぶんだけなので、種類＝人数だと毎回全部出てしまう）。
 
 **説明文（`Description`）は効果の実装と読み比べて書く**。実装より狭く読める書き方をしない（「相手の所持金の一部を奪う」は 1 人から奪うように読めるが、実際は自分以外の全員が対象＝「全員からいくらかのお金を適当に奪う」）。**数値まで書くならルール側の定数から組み立てる**（ミニゲームの順位別の賞金＝`MiniGamePrize.RankPrizeText()`。マスの説明〔`BoardEventDescription`〕と同じ方針で、賞金の並びはそちらと共用する）ので、ルールを変えれば説明文も一緒に変わる。**あえて数値を書かない**選択もある（お金よこどりの奪う割合はぼかす＝使ってからのお楽しみ）。書いた内容は EditMode テストで押さえる（`ItemCatalogTests`）。
 
