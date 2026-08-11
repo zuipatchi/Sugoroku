@@ -87,12 +87,14 @@
     background-color: rgb(64, 34, 40);
 }
 
+/* 選択カードのアイテム絵。正方形の枠に上下を切って収める
+   （縦長のアイテム絵をどこでも同じ正方形で見せるため＝盤面側の手札・ショップと同じ扱い）。 */
 .overlap-card__image {
     width: 128px;
     height: 128px;
     border-radius: 12px;
     background-color: rgba(0, 0, 0, 0);
-    -unity-background-scale-mode: scale-to-fit;
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 .overlap-card__name {

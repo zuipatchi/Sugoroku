@@ -18,6 +18,13 @@ namespace Main.Item
         MiniGame = 2,
 
         /// <summary>使った瞬間にゲームに勝利するアイテム（一発逆転）。</summary>
-        InstantWin = 3
+        InstantWin = 3,
+
+        /// <summary>
+        /// 所持金が増えることを表すアイテム。**ミニゲーム「被っちゃやーよ」で選ぶカード専用**で、
+        /// アイテムショップには並ばない（<see cref="ItemCatalog.Purchasable"/> から外してある）＝
+        /// 手札に入ることが無いので効果の実装も持たない。カードの種類を増やして選択の駆け引きを作るために足した。
+        /// </summary>
+        MoneyUp = 4
     }
 }

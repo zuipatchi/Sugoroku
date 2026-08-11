@@ -46,7 +46,7 @@ namespace MiniGame.OverlapGame
 
         /// <summary>
         /// 提示アイテムと CPU の選択を用意する。提示枚数は <paramref name="playerCount"/> と
-        /// アイテムカタログ総数の小さい方（重複なしで配れる上限）にクランプする。
+        /// アイテムカタログ総数（重複なしで配れる上限）の小さい方にクランプする。
         /// </summary>
         public void Setup(int playerCount, int seed)
         {
@@ -154,29 +154,14 @@ namespace MiniGame.OverlapGame
             _phase.Dispose();
         }
 
-        // カタログをシャッフルして先頭から offeredCount 枚を重複なしで採る。
+        // 提示するアイテムを重複なしで抽選する。抽選そのものは ItemCatalog が持つ
+        // （出やすさがアイテムごとに違う＝ItemDefinition.CardWeight。勝利は他の半分しか並ばない）。
         private void BuildOfferedItems(int offeredCount, System.Random random)
         {
             _offered.Clear();
-            IReadOnlyList<ItemDefinition> all = ItemCatalog.All;
-            if (all.Count == 0)
+            foreach (ItemDefinition definition in ItemCatalog.RandomCards(random, offeredCount))
             {
-                return;
-            }
-
-            List<ItemId> pool = new(all.Count);
-            for (int i = 0; i < all.Count; i++)
-            {
-                pool.Add(all[i].Id);
-            }
-
-            // Fisher-Yates で先頭 offeredCount 枚だけ確定させる。
-            int take = Mathf.Min(offeredCount, pool.Count);
-            for (int i = 0; i < take; i++)
-            {
-                int j = i + random.Next(pool.Count - i);
-                (pool[i], pool[j]) = (pool[j], pool[i]);
-                _offered.Add(pool[i]);
+                _offered.Add(definition.Id);
             }
         }
     }

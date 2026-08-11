@@ -591,7 +591,9 @@
     border-top-right-radius: 20px;
     border-bottom-left-radius: 20px;
     border-bottom-right-radius: 20px;
-    -unity-background-scale-mode: scale-to-fit;
+    /* 正方形のカードに絵を敷き詰める。マスの絵はほぼ正方形なので見た目は変わらず、
+       縦長のアイテム絵（購入・使用の中央ポップ）は上下を切って枠いっぱいに出る。 */
+    -unity-background-scale-mode: scale-and-crop;
     transition-property: opacity, scale;
     transition-duration: 0.18s, 0.18s;
     transition-timing-function: ease-out, ease-out;
@@ -903,10 +905,12 @@
     max-width: 60%;
 }
 
-/* 手札の 1 つ。アイテム絵を背景に敷き、金の細枠で縁取る。左隣との間隔を少し空ける。 */
+/* 手札の 1 つ。アイテム絵を背景に敷き、金の細枠で縁取る。左隣との間隔を少し空ける。
+   枠は正方形で、縦長のアイテム絵（848x1264）は上下を切って埋める＝scale-and-crop
+   （アイテム絵を出すところはすべて正方形＋切り抜きでそろえてある）。 */
 .item-hand__card {
-    width: 58px;
-    height: 82px;
+    width: 62px;
+    height: 62px;
     margin-left: 6px;
     align-items: center;
     justify-content: center;
@@ -923,7 +927,7 @@
     border-top-right-radius: 8px;
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
-    -unity-background-scale-mode: scale-to-fit;
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 /* 手札カード右下の枚数バッジ。同じアイテムを 2 枚以上持つときだけ「x2」のように表示する。 */
@@ -1021,11 +1025,12 @@
     border-bottom-right-radius: 12px;
 }
 
-/* モーダル内のアイテム絵。未ロード時は --empty で隠して名前と説明だけ出す。 */
+/* モーダル内のアイテム絵。正方形の枠に上下を切って収める（アイテム絵はどこも正方形＋切り抜き）。
+   未ロード時は --empty で隠して名前と説明だけ出す。 */
 .item-modal__image {
-    width: 140px;
-    height: 200px;
-    -unity-background-scale-mode: scale-to-fit;
+    width: 180px;
+    height: 180px;
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 .item-modal__image--empty {
@@ -1425,7 +1430,7 @@
     scale: 1 1;
 }
 
-/* アイテム絵。正方形の枠に収める。未配置時は --empty で暗い座面のまま。 */
+/* アイテム絵。正方形の枠に上下を切って収める。未配置時は --empty で暗い座面のまま。 */
 .item-shop-card__image {
     width: 96px;
     height: 96px;
@@ -1434,7 +1439,7 @@
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
     background-color: rgba(255, 255, 255, 0.06);
-    -unity-background-scale-mode: scale-to-fit;
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 .item-shop-card__image--empty {
@@ -1941,11 +1946,12 @@
     border-bottom-right-radius: 8px;
 }
 
+/* 所持アイテムの行頭に置くアイテム絵。正方形の枠に上下を切って収める。 */
 .player-detail__item-icon {
     width: 34px;
     height: 34px;
     flex-shrink: 0;
-    -unity-background-scale-mode: scale-to-fit;
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 .player-detail__item-name {
