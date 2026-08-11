@@ -184,6 +184,12 @@ private void OnDestroy() => _disposables.Dispose();
 インスタンスメソッドは拡張メソッドより優先される。`SoundPlayer` と同じ方式。実例は
 [RoulettePresenter.cs](../Assets/Scripts/Main/Roulette/RoulettePresenter.cs)。
 
+**Presenter が `new` する協調クラスが Model を購読するときは、そのクラス自身を `IDisposable` にして
+Presenter の `CompositeDisposable` に載せる**（協調クラスは MonoBehaviour ではないので `OnDestroy` が無く、
+購読を自分で畳めない）。内部に自前の `CompositeDisposable` を持ち、`Dispose` で落とすだけでよい。
+実例は [PlayerNameplateView.cs](../Assets/Scripts/Main/Board/PlayerNameplateView.cs)（プレートと同じ寿命の購読）と
+[PlayerDetailPresenter.cs](../Assets/Scripts/Main/Board/PlayerDetailPresenter.cs)（開いている間だけの購読）。
+
 ---
 
 ## 6. `RegisterComponentInHierarchy<T>` はシーン内に有効な GameObject が必須
