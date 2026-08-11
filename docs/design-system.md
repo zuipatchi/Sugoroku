@@ -338,7 +338,7 @@ await UniTask.NextFrame(ct);
 root.Query<VisualElement>(className: "home-enter").ForEach(e => e.AddToClassList("home-enter--visible"));
 ```
 
-- **`display` の切り替えと同じフレームでクラスを足しても補間されない。** モーダルのフェードインは `display: Flex` にした次のフレームで `--visible` を足す（`element.schedule.Execute(...)`）。閉じるときは逆順で、`--visible` を外して `ExecuteLater(フェード時間)` で `display: None` にする（その間に開き直された場合に備えてフラグで弾く）。実装例は `HomePresenter` のクレジットモーダル
+- **`display` の切り替えと同じフレームでクラスを足しても補間されない。** モーダルのフェードインは `display: Flex` にした次のフレームで `--visible` を足す（`element.schedule.Execute(...)`）。閉じるときは逆順で、`--visible` を外して `ExecuteLater(フェード時間)` で `display: None` にする（その間に開き直された場合に備えてフラグで弾く）。実装例は Home のモーダル（ルール説明・クレジット）が共有する `HomeModal`
 - **`ISceneReady` を持つシーンでは、演出の開始を `ReadyAsync` の完了後に置く**と暗幕が開くのと同時に動き出す（`ReadyAsync` に演出を待たせない）。直接起動でも動くよう、起動箇所は `Start` から始まる初期化の後ろに繋ぐ（[patterns.md](patterns.md) 4）
 
 ---

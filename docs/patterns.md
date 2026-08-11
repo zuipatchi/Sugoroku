@@ -224,7 +224,7 @@ UI Toolkit のポインタイベントは **Sorting Order が最も高いパネ�
 
 1. [MiniGameId.cs](../Assets/Scripts/Common/MiniGame/MiniGameId.cs) に種別を追加する（最大5種類想定）
 2. その種別の UI を `Assets/AddressableAssets/MiniGame/` に `.uxml` / `.uss` で作り、**Addressable アドレスを `MiniGame/<名前>`** に設定する
-3. [MiniGameCatalog.cs](../Assets/Scripts/Common/MiniGame/MiniGameCatalog.cs) の `All` に 1 行足す（`MiniGameId` → 表示名・UXML アドレス・**選択カードのサムネイル画像アドレス** `Image/MiniGame/<名前>`。画像は Addressables に登録し、未配置なら名前のみのプレースホルダになる）。**ゲーム内で使う絵も同じ `Image/MiniGame/` に置く**〔2Dレースのコース＝`Image/MiniGame/Track`・タップ連打のサンドバッグ＝`Image/MiniGame/SandBag`。カタログに載るのは選択カードのサムネイルだけで、ゲーム内の絵は各 GamePlay がアドレス定数を持って自分でロードする。画面全体に敷く背景の絵だけは `Image/` 直下に置く＝下の「背景画像を貼るときは…」参照〕`MiniGameHostPresenter.AddressFor` はカタログ引きなので分岐追加は不要で、**動作確認用の `MiniGameTest` シーンにもボタンが自動で並ぶ**
+3. [MiniGameCatalog.cs](../Assets/Scripts/Common/MiniGame/MiniGameCatalog.cs) の `All` に 1 行足す（`MiniGameId` → 表示名・UXML アドレス・**選択カードのサムネイル画像アドレス** `Image/MiniGame/<名前>`・**遊び方の 1 行説明（`Description`）**。画像は Addressables に登録し、未配置なら名前のみのプレースホルダになる。`Description` は Home のルール説明（[#17](#17-ルール説明はゲーム側のカタログから組み立てる)）に出る唯一の情報源なので、空のままだと EditMode テストが落ちる）。**ゲーム内で使う絵も同じ `Image/MiniGame/` に置く**〔2Dレースのコース＝`Image/MiniGame/Track`・タップ連打のサンドバッグ＝`Image/MiniGame/SandBag`。カタログに載るのは選択カードのサムネイルだけで、ゲーム内の絵は各 GamePlay がアドレス定数を持って自分でロードする。画面全体に敷く背景の絵だけは `Image/` 直下に置く＝下の「背景画像を貼るときは…」参照〕`MiniGameHostPresenter.AddressFor` はカタログ引きなので分岐追加は不要で、**動作確認用の `MiniGameTest` シーンにもボタンが自動で並ぶ**
 4. 進行ロジックを実装する。状態は純粋ロジックの Model（[TapGameModel.cs](../Assets/Scripts/MiniGame/TapGame/TapGameModel.cs) / [RaceGameModel.cs](../Assets/Scripts/MiniGame/RaceGame/RaceGameModel.cs) に倣う）に分け、EditMode テストを書く。[MiniGameHostPresenter.cs](../Assets/Scripts/MiniGame/MiniGameHostPresenter.cs) は `CurrentGame` で分岐するディスパッチャなので、UI が異なるゲームは**専用の `<名前>GamePlay` クラス**（プレーンクラス。[RaceGamePlay.cs](../Assets/Scripts/MiniGame/RaceGame/RaceGamePlay.cs) 参照。`BuildAsync`＝表示前ロード／`RunAsync`＝入力待ち・進行してスコアを返す）に切り出し、ホストの `ReadyAsync` に 1 分岐足して委譲する（タップ連打も [TapGamePlay.cs](../Assets/Scripts/MiniGame/TapGame/TapGamePlay.cs) に切り出して同じ構造にしている）
 5. Play クラスと Model を [MiniGameLifetimeScope.cs](../Assets/Scripts/MiniGame/Injector/MiniGameLifetimeScope.cs) に `Lifetime.Scoped` で登録する（DI が生成・破棄する。Addressables ハンドルの解放は各クラスの `Dispose` に書く）
 6. 起動は `MiniGameLauncher.PlayAsync(MiniGameId.<種別>, ct)`（参加者数に依存するゲームは第3引数 `playerCount` も渡す＝省略時は `MiniGameLauncher.DefaultPlayerCount`＝2。本番の盤面ミニゲームは参加者全員ぶんを明示的に渡す）。結果は `MiniGameResult.Score` で受け取る（意味はゲームごと。**勝敗系は勝ち1/負け0で報告し `DetermineMiniGameWin` が `Score==1` で判定**する。タップ連打＝連打数1位で1、2Dレース＝先着で1、被っちゃやーよ＝獲得で1）。動作確認は `MiniGameTest` シーン（[MiniGameTestPresenter.cs](../Assets/Scripts/MiniGame/Test/MiniGameTestPresenter.cs)）をエディタで直接開いて Play する（人数ステッパーで参加者数を選べる）
@@ -328,7 +328,7 @@ SpinDecision decision = await decided;
 - **カードに出にくくする**なら `cardWeight` を下げる（`InstantWin`＝勝利は 0.5＝他の半分）。`RandomCards` は重みに比例した確率で 1 枚ずつ引いては候補から外すので、1 枚だけ引くときは重みの比がそのまま出やすさの比になる。0 にすれば実質出ない。
 - カードは**種類が参加者数より多いほど毎回の顔ぶれが変わって選択の駆け引きが生まれる**（並ぶのは参加者数ぶんだけなので、種類＝人数だと毎回全部出てしまう）。
 
-**説明文（`Description`）は効果の実装と読み比べて書く**。実装より狭く読める書き方をしない（「相手の所持金の一部を奪う」は 1 人から奪うように読めるが、実際は自分以外の全員が対象＝「全員からいくらかのお金を適当に奪う」）。**数値まで書くならルール側の定数から組み立てる**（ミニゲームの順位別の賞金＝`MiniGamePrize.RankPrizeText()`。マスの説明〔`BoardEventDescription`〕と同じ方針で、賞金の並びはそちらと共用する）ので、ルールを変えれば説明文も一緒に変わる。**あえて数値を書かない**選択もある（お金よこどりの奪う割合はぼかす＝使ってからのお楽しみ）。書いた内容は EditMode テストで押さえる（`ItemCatalogTests`）。
+**説明文（`Description`）は効果の実装と読み比べて書く**。実装より狭く読める書き方をしない（「相手の所持金の一部を奪う」は 1 人から奪うように読めるが、実際は自分以外の全員が対象＝「全員からいくらかのお金を適当に奪う」）。**数値まで書くならルール側の定数から組み立てる**（ミニゲームの順位別の賞金＝`MiniGamePrize.RankPrizeText()`。マスの説明〔`BoardEventDescription`〕と同じ方針で、賞金の並びはそちらと共用する）ので、ルールを変えれば説明文も一緒に変わる。**あえて数値を書かない**選択もある（お金よこどりの奪う割合はぼかす＝使ってからのお楽しみ）。書いた内容は EditMode テストで押さえる（`ItemCatalogTests`）。**説明文と価格は Home のルール説明にもそのまま出る**（[#17](#17-ルール説明はゲーム側のカタログから組み立てる)）ので、カタログに足せば説明を書く場所は増えない。
 
 - **アイテムは着地時に開くアイテムショップで購入する**。アイテム取得マスに止まると `BoardPresenter.PlayItemShopSequenceAsync` が動く。**買い物は「決定」と「適用」に分かれている**（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）：着地した本人のクライアントだけが `DecidePurchaseAsync` で `ItemCatalog.RandomLineup(_itemRng, 2, 4)`（ランダムな枚数・重複なし）を抽選し、人間は `ItemShopPresenter.SelectAsync(lineup, budget, ct)`（一度に 2 枚のカルーセル・買えないカードは無効・「買わずに閉じる」でスキップ）、CPU は `PickCpuPurchase` で買える範囲からランダムに 1 つ選ぶ。結果を `GameAction.ShopResult` で発行し、**全クライアントが `ApplyShopResult` で代金の支払い（`MoneyModel.Add(player, -price)`）と `ItemModel.Add`（購入音＝`MoneySE`）を行う**。カルーセルは `flex-shrink:0` のカードを `overflow:hidden` のビューポートに収め、`ShowPage` で `PageWidthPx`（カード142px×2）ぶん translate する（ビューポート幅・`CardSlotWidthPx` は USS と一致させる）。
 - 取得の保持は [ItemModel.cs](../Assets/Scripts/Main/Item/ItemModel.cs)（`MoneyModel`／`TerritoryModel` と同じ Scoped DI・参加者ごと）。右下手札への反映は `ItemModel.Gained` 購読→`BoardPresenter.AppendItemToHand`（同じアイテムはカードを増やさず「x2」の枚数バッジで表示をまとめる。`ItemModel` 側の手札リストは重複を保持）。
@@ -432,7 +432,7 @@ SpinDecision decision = await decided;
 3. [BoardEventLabel.cs](../Assets/Scripts/Main/Board/BoardEventLabel.cs) に日本語名を足す（凡例・内訳チップ・マス説明モーダルの見出し）
 4. [BoardEventDescription.cs](../Assets/Scripts/Main/Board/BoardEventDescription.cs) に説明文を足す（マスをタップしたときの説明モーダル本文）。**金額やマス数のような「ルール側で決まっている数値」は各ルールの定数から組み立てる**（お金マスは `MoneyCellRule.Unit`/`MinN`/`MaxN`、進む/戻るマスは `MoveCellRule.MinSteps`/`MaxSteps`、ミニゲームマスは `MiniGamePrize`）ので、ルールを変えれば説明も一緒に変わる。**文章は「このマスに止まると、〜」で始めて他のマスとそろえる**。足し忘れると通常マスと同じ文言のままになる（EditMode テストが検出する）
 5. [BoardCellMessageDefaults.cs](../Assets/Scripts/Main/Board/BoardCellMessageDefaults.cs) に着地時の既定文言プールを足す（止まったときにマス画像の下へ出すフレーバーテキスト。**1 種別につき 10 件並べて着地のたびに 1 つ抽選する**ので、単数形の「説明文」ではなく配列で用意する。書き方の決まりはファイル冒頭のコメントにある＝**文末に「。」は使わない**〔言い切り・「！」・「…」・「？」で終える。EditMode テストが検出する〕・**全角 14 文字以内なら 1 行に収まる**〔`.cell-message` の `max-width: 94%` ／ `font-size: 28px` ／ `-unity-text-outline-width: 2px` から決まる＝縁取りは字送りに効くので全角 1 文字は 32px 占める。超えても折り返して出せるが 2 行になる。Cell Message Editor が行ごとに文字数を出す〕）。足し忘れると通常マスの文言が出る（EditMode テストが検出する）。**実際に使う文言は `BoardCellMessageCatalog` 資産**（`Window > Sugoroku > Cell Message Editor`）なので、既存の資産にはウィンドウで足した種別の欄が空で現れる＝そこにも文言を入れる（空のままだとそのマスでは文言が出ない）
-6. [BoardEventTally.cs](../Assets/Scripts/Main/Board/BoardEventTally.cs) の `DisplayOrder` に足す（マップ選択の内訳に出す順。入れないと内訳に出ない）
+6. [BoardEventTally.cs](../Assets/Scripts/Main/Board/BoardEventTally.cs) の `DisplayOrder` に足す（マップ選択の内訳と **Home のルール説明の「マスの種類」**に出す順。入れないとどちらにも出ない＝EditMode テストが検出する）
 7. マス画像を使うなら [BoardEventArtCatalog.cs](../Assets/Scripts/Main/Board/BoardEventArtCatalog.cs) の `Address` にアドレスを足し、画像を `Assets/AddressableAssets/Image/Board/` に置いて **Addressable アドレスを `Board/<イベント名>`**（＝enum 名。通常マス〔`None`〕だけは素材名のままの `Image/Board/Glass`＝`NoneAddress` という例外）に設定する。画像を用意しないイベントは空文字のままで、`BoardPresenter.EventMarker` の記号表示にフォールバックする。**マスごとのデータで絵を変えたいときは `AddressFor` に分岐を足す**（いまは分岐なし＝どのイベントも種別ごとの共通画像。ミニゲームマスはかつてマスに設定したゲームのサムネイルを使っていたが、遊ぶゲームを抽選にした時点で「マスの絵で特定のゲームを指せない」＝共通画像に戻した）
 8. マスごとに設定する値が要るなら [BoardCellInspector.cs](../Assets/Scripts/Main/Editor/BoardCellInspector.cs) に入力欄を足す。**ただし今は入力欄が「イベント種別」と「色」しかない**：数値パラメータ `Amount` も遊ぶミニゲーム `MiniGame` も、着地のたびのランダムに移行して誰も読まなくなった（フィールドは保存済みアセットとの互換で残してある）。増やす前に「本当にマスごとに固定したいのか、着地のたびの抽選でよくないか」を確かめる
 
@@ -459,6 +459,24 @@ SpinDecision decision = await decided;
 - **アドレスは `<識別子>/<系統名>`（キャラなら `Character/Character<N>/Run`）に統一する**。素材のファイル名をアドレスに出さないので、行内の 5 つが同じ `Character<N>` を指しているか目視で照合できる
 - キャラを 1 人足すときは、画像 5 枚を `Assets/AddressableAssets/Image/Character/` 配下に置いて Addressables のアドレスをこの規約で付け、[CharacterId.cs](../Assets/Scripts/Common/Character/CharacterId.cs) に enum 値を 1 つ、`CharacterCatalog.All` に 1 行足すだけでよい（表示順＝席順ごとの初期キャラ `DefaultFor(seat)` にもそのまま効く）
 - **アセットの実体名とアドレスがズレる規約は避ける**。Addressables のアドレスはリネームしてもファイルの GUID を保つので、後からでも揃え直せる（アセット参照は切れない）
+
+---
+
+## 17. ルール説明はゲーム側のカタログから組み立てる
+
+Home の「ルール説明」モーダル（[RuleBook.cs](../Assets/Scripts/Home/Presenter/RuleBook.cs)）は、遊び方の文章を**自分では持たない**。マス・アイテム・ミニゲームの名前や効果は、ゲーム内の説明モーダルが使っているのと同じ情報源から引く。
+
+| 出すもの | 引く先 |
+|---|---|
+| マスの名前・色・効果・並び順 | `BoardEventLabel` / `BoardEventColors` / `BoardEventDescription` / `BoardEventTally.DisplayOrder` |
+| アイテムの名前・効果・価格 | `ItemCatalog.Purchasable`（`ItemDefinition.Description` / `Price`） |
+| ミニゲームの名前・遊び方 | `MiniGameCatalog.All`（`MiniGameDefinition.Description`） |
+| 賞金・初期所持金・プレイ人数 | `MiniGamePrize.RankPrizeText()` / `MoneyModel.InitialMoney` / `PlayerCountSessionModel.Min`・`Max` |
+
+- **ルールを変えたらルール説明も一緒に変わる**。賞金額や進むマス数を書き写さないので、「ゲーム内の説明は直したがルール説明が古いまま」が起きない。`RuleBook` に直接書くのは、**どのクラスも単独では持っていない「遊びの流れ」だけ**（勝ち方・手番とルーレット・画面の見かた）
+- **カタログに足したものは自動で並ぶ**。マスイベント（[#15](#15-新しいマスイベントを追加する)）・アイテム（[#12](#12-新しいアイテムを追加する)）・ミニゲーム（[#8](#8-新しいミニゲームを追加する)）を足すと、それぞれの追加手順を踏むだけでルール説明にも載る。**書き忘れは `RuleBookTests` が検出する**（説明が空・`DisplayOrder` への追加漏れ・買えないアイテムが並んでいる）
+- Home アセンブリはこの参照のため **Main を参照する**（Matching が `BoardCatalog` / `MapPickerView` のために参照しているのと同じ。`Main` は Home を参照しないので循環しない）
+- **モーダルの開閉は [HomeModal.cs](../Assets/Scripts/Home/Presenter/HomeModal.cs) が持つ**（ルール説明・クレジットで共有）。`display` とフェードクラスの順序は [design-system.md](design-system.md)「アニメーション」の定石そのままで、Home にモーダルを増やすときは `.home-overlay` / `.home-modal-card` を付けて `HomeModal` を 1 つ作るだけでよい
 
 ---
 
