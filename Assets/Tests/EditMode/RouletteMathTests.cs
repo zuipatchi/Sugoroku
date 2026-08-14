@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Main.Roulette;
 using NUnit.Framework;
 
@@ -77,33 +78,70 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void StepsForSectorは各参加者に同じ数字セットを1枚ずつ与える()
+        public void GenerateSectorNumbersは各参加者に重複なしのK個を配る()
         {
-            // 2 人・K=4（8 セクター）：各参加者が 1,2,3,4 を 1 枚ずつ持つ。
-            // セクター i → 参加者 i%2・数字 (i/2)+1。
-            Assert.AreEqual(1, RouletteMath.StepsForSector(0, 2)); // p0
-            Assert.AreEqual(1, RouletteMath.StepsForSector(1, 2)); // p1
-            Assert.AreEqual(2, RouletteMath.StepsForSector(2, 2)); // p0
-            Assert.AreEqual(2, RouletteMath.StepsForSector(3, 2)); // p1
-            Assert.AreEqual(4, RouletteMath.StepsForSector(6, 2)); // p0
-            Assert.AreEqual(4, RouletteMath.StepsForSector(7, 2)); // p1
-
-            // 参加者ごとに集めた数字セットが完全に一致する（数字も全キャラ同じ）。
-            System.Collections.Generic.List<int> p0Numbers = new();
-            System.Collections.Generic.List<int> p1Numbers = new();
-            for (int i = 0; i < 8; i++)
+            // 同じキャラが同じ数字を 2 枚持つことはない（別のキャラと同じ数字になるのは可）。
+            const int min = 1;
+            const int max = 6;
+            const int perParticipant = 3;
+            for (int participants = 2; participants <= 4; participants++)
             {
-                if (RouletteMath.ParticipantForSector(i, 2) == 0)
+                for (int seed = 0; seed < 50; seed++)
                 {
-                    p0Numbers.Add(RouletteMath.StepsForSector(i, 2));
-                }
-                else
-                {
-                    p1Numbers.Add(RouletteMath.StepsForSector(i, 2));
+                    int[] steps = RouletteMath.GenerateSectorNumbers(
+                        participants, perParticipant, min, max, new Random(seed));
+                    Assert.AreEqual(participants * perParticipant, steps.Length, $"人数 {participants}");
+
+                    for (int participant = 0; participant < participants; participant++)
+                    {
+                        List<int> numbers = NumbersOf(steps, participants, participant);
+                        Assert.AreEqual(perParticipant, numbers.Count);
+                        CollectionAssert.AllItemsAreUnique(
+                            numbers, $"人数 {participants} / seed {seed} / 参加者 {participant}");
+                        foreach (int number in numbers)
+                        {
+                            Assert.GreaterOrEqual(number, min);
+                            Assert.LessOrEqual(number, max);
+                        }
+                    }
                 }
             }
-            Assert.AreEqual(new[] { 1, 2, 3, 4 }, p0Numbers);
-            Assert.AreEqual(new[] { 1, 2, 3, 4 }, p1Numbers);
+        }
+
+        [Test]
+        public void GenerateSectorNumbersは参加者をまたぐ重複は許す()
+        {
+            // 数字の種類（3）が全体の枚数（2 人 × 3 枚）に足りなくても配れる＝キャラをまたぐ重複は許される。
+            int[] steps = RouletteMath.GenerateSectorNumbers(2, 3, 1, 3, new Random(1));
+            Assert.AreEqual(6, steps.Length);
+            CollectionAssert.AreEquivalent(new[] { 1, 2, 3 }, NumbersOf(steps, 2, 0));
+            CollectionAssert.AreEquivalent(new[] { 1, 2, 3 }, NumbersOf(steps, 2, 1));
+        }
+
+        [Test]
+        public void GenerateSectorNumbersはKを数字の種類数までにクランプする()
+        {
+            // 1〜6 なら 1 人 6 枚が上限（重複なしで配れる枚数を超えられない）。
+            int[] steps = RouletteMath.GenerateSectorNumbers(2, 10, 1, 6, new Random(0));
+            Assert.AreEqual(12, steps.Length);
+            CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6 }, NumbersOf(steps, 2, 0));
+        }
+
+        [Test]
+        public void GenerateSectorNumbersは同じ種なら同じ表になる()
+        {
+            // オンラインは抽選結果を配らず、全員が同じ種で引いて同じ表を組む（RouletteNumberLayout）。
+            int[] a = RouletteMath.GenerateSectorNumbers(3, 3, 1, 6, new Random(12345));
+            int[] b = RouletteMath.GenerateSectorNumbers(3, 3, 1, 6, new Random(12345));
+            Assert.AreEqual(a, b);
+        }
+
+        [Test]
+        public void GenerateSectorNumbersはrngがnullなら最小値から順に配る()
+        {
+            // 決定的フォールバック（MoneyCellRule と同じ規約）。全参加者が 1,2,3 を 1 枚ずつ持つ。
+            int[] steps = RouletteMath.GenerateSectorNumbers(2, 3, 1, 6, null);
+            Assert.AreEqual(new[] { 1, 1, 2, 2, 3, 3 }, steps);
         }
 
         [Test]
@@ -114,16 +152,60 @@ namespace Tests.EditMode
             const int numbersPerParticipant = 3;
             for (int participants = 2; participants <= 4; participants++)
             {
-                int sectorCount = RouletteMath.SectorCount(participants, numbersPerParticipant);
-                bool[,] seen = new bool[participants, numbersPerParticipant];
-                for (int sector = 0; sector < sectorCount; sector++)
+                int[] steps = RouletteMath.GenerateSectorNumbers(
+                    participants, numbersPerParticipant, 1, 6, new Random(participants));
+                HashSet<(int, int)> seen = new();
+                for (int sector = 0; sector < steps.Length; sector++)
                 {
                     int player = RouletteMath.ParticipantForSector(sector, participants);
-                    int steps = RouletteMath.StepsForSector(sector, participants);
-                    Assert.IsFalse(seen[player, steps - 1], $"participants {participants} / sector {sector}");
-                    seen[player, steps - 1] = true;
+                    Assert.IsTrue(
+                        seen.Add((player, steps[sector])), $"participants {participants} / sector {sector}");
                 }
             }
+        }
+
+        [Test]
+        public void StableHashは同じ文字列なら同じ非負の値を返す()
+        {
+            // 実行やクライアントをまたいで同じ値になることが前提（string.GetHashCode は使えない）。
+            Assert.AreEqual(
+                RouletteNumberLayout.StableHash("session-abc"), RouletteNumberLayout.StableHash("session-abc"));
+            Assert.AreNotEqual(
+                RouletteNumberLayout.StableHash("session-abc"), RouletteNumberLayout.StableHash("session-abd"));
+            string[] ids = { string.Empty, "a", "session-abc", "01234567-89ab-cdef-0123-456789abcdef" };
+            foreach (string id in ids)
+            {
+                Assert.GreaterOrEqual(RouletteNumberLayout.StableHash(id), 0, id);
+            }
+        }
+
+        [Test]
+        public void MixSeedはスピン回数ごとに違う種を返す()
+        {
+            // スピンのたびに引き直す種。同じ (基準種, 回数) なら全クライアントで同じ値になる必要があり、
+            // 回数が 1 違うだけで別の並びになってほしいので、隣り合う回数でも種が衝突しないことを見る。
+            Assert.AreEqual(RouletteNumberLayout.MixSeed(1234, 5), RouletteNumberLayout.MixSeed(1234, 5));
+            Assert.AreNotEqual(RouletteNumberLayout.MixSeed(1234, 5), RouletteNumberLayout.MixSeed(1234, 6));
+            Assert.AreNotEqual(RouletteNumberLayout.MixSeed(1234, 5), RouletteNumberLayout.MixSeed(1235, 5));
+
+            HashSet<int> seeds = new();
+            for (int spin = 0; spin < 200; spin++)
+            {
+                int seed = RouletteNumberLayout.MixSeed(-42, spin);
+                Assert.GreaterOrEqual(seed, 0, $"spin {spin}");
+                Assert.IsTrue(seeds.Add(seed), $"spin {spin}");
+            }
+        }
+
+        // 参加者 participant のセクターに並んだ数字（セクター j × 人数 + participant）。
+        private static List<int> NumbersOf(int[] steps, int participants, int participant)
+        {
+            List<int> numbers = new();
+            for (int sector = participant; sector < steps.Length; sector += participants)
+            {
+                numbers.Add(steps[sector]);
+            }
+            return numbers;
         }
 
         [Test]

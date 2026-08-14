@@ -4,6 +4,7 @@ using Common.MiniGame;
 using Main.Board;
 using Main.Item;
 using Main.Money;
+using Main.Roulette;
 using UnityEngine;
 
 namespace Home.Presenter
@@ -84,13 +85,16 @@ namespace Home.Presenter
             return "陣地マスに止まると、そのマスは自分の陣地になる。相手の陣地でも、止まれば上書きして奪える。一定数陣地を獲得すると勝利。";
         }
 
-        // 手番とルーレット。円盤の数字の枚数は RoulettePresenter の設定なので、数を書かず仕組みだけ説明する。
+        // 手番とルーレット。円盤の数字の枚数は RoulettePresenter の設定なので枚数は書かず、
+        // 数字の範囲だけ抽選側の情報源（RouletteNumberLayout）から引く。
         private static string FlowBody()
         {
             return $"プレイ人数は {PlayerCountSessionModel.Min}〜{PlayerCountSessionModel.Max} 人。\n"
                 + "手番が回ってきたらルーレットを長押しして円盤を回し、指を離すと減速して止まる。\n"
-                + "円盤には参加者全員が同じ数字ぶんずつ並んでいて、止まったセクターのキャラが"
-                + "そこに書かれた数だけ進む。回した人が進むとは限らない。";
+                + "円盤には参加者全員のコインが同じ枚数ずつ並んでいて、止まったセクターのキャラが"
+                + "そこに書かれた数だけ進む。回した人が進むとは限らない。\n"
+                + $"コインの数字は {RouletteNumberLayout.MinNumber}〜{RouletteNumberLayout.MaxNumber} から"
+                + "回すたびに抽選され、同じキャラに同じ数字は並ばない（別のキャラと同じ数字になることはある）。";
         }
 
         // マスの種類。並び順・名前・説明・色はすべて盤面側の情報源から引く

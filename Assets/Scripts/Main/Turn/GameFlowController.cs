@@ -36,6 +36,8 @@ namespace Main.Turn
         private readonly BoardModel _board;
         private readonly RouletteModel _rouletteModel;
         private readonly RoulettePresenter _roulette;
+        // セクター → 出目の割り当て（ゲーム開始時の抽選）。円盤の見た目と同じ表を見て復元する。
+        private readonly RouletteNumberLayout _numberLayout;
         private readonly BoardPresenter _boardPresenter;
         private readonly NetworkModel _network;
         private readonly OnlineGameSync _sync;
@@ -46,6 +48,7 @@ namespace Main.Turn
             BoardModel board,
             RouletteModel rouletteModel,
             RoulettePresenter roulette,
+            RouletteNumberLayout numberLayout,
             BoardPresenter boardPresenter,
             NetworkModel network,
             OnlineGameSync sync)
@@ -55,6 +58,7 @@ namespace Main.Turn
             _board = board;
             _rouletteModel = rouletteModel;
             _roulette = roulette;
+            _numberLayout = numberLayout;
             _boardPresenter = boardPresenter;
             _network = network;
             _sync = sync;
@@ -73,6 +77,9 @@ namespace Main.Turn
                     int spinner = _turn.CurrentPlayer.CurrentValue;
                     // 手番開始時にルーレットを Idle へ戻し、前手番の Stopped を待ち受け対象から外す。
                     _rouletteModel.Reset();
+                    // 出目はスピンのたびに引き直す。**全クライアントがこのループを同じ回数だけ回る**ので、
+                    // 抽選結果もスピンごとの種も配らずに同じ表がそろう（RouletteNumberLayout 参照）。
+                    _numberLayout.Reroll();
 
                     // 決めるのは手番の人だけ。他のクライアントは回せないようにして結果を待つ。
                     bool decidedHere = _sync.IsLocalDecider(spinner);
@@ -95,7 +102,7 @@ namespace Main.Turn
 
                     GameAction spin = spinAction.Value;
                     int advancing = RouletteMath.ParticipantForSector(spin.Sector, _participants.Count);
-                    int steps = RouletteMath.StepsForSector(spin.Sector, _participants.Count);
+                    int steps = _numberLayout.StepsForSector(spin.Sector);
 
                     // 自分で回した側の円盤は既に同じセクターへ向けて減速している。受信側だけ
                     // 同じセクター・同じ減速時間で止めて見せる（SpinStart で既に回っているならそのまま減速へ）。

@@ -28,6 +28,9 @@ namespace Main.Injector
             builder.RegisterEntryPoint<GameFlowController>();
 
             builder.Register<RouletteModel>(Lifetime.Scoped);
+            // セクターごとの出目（スピンのたびに引き直す）。円盤の数字表示（RoulettePresenter）と
+            // 停止セクターからの復元（GameFlowController）で同じ表を使うため共有する。
+            builder.Register<RouletteNumberLayout>(Lifetime.Scoped);
             builder.RegisterComponentInHierarchy<RoulettePresenter>().AsSelf();
 
             // コマ・ネームプレート・ルーレットで CPU のキャラ割り当てを一致させるため共有（Board と Roulette が注入）。

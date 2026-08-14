@@ -15,10 +15,12 @@ namespace Main.Roulette
     /// 割り当ての規約（「止まったキャラが進む」方式）:
     /// - 円盤は参加者を均等に並べる。セクター総数 = 参加者数 × K（K = 1 キャラあたりの数字枚数）。
     /// - セクター i の参加者は <see cref="ParticipantForSector"/> ＝ i を参加者数で巡回（ラウンドロビン）。
-    /// - セクター i の出目（進むマス数）は <see cref="StepsForSector"/> ＝ (i ÷ 参加者数) + 1。
-    ///   これにより各参加者はちょうど同じ数字セット 1〜K を 1 枚ずつ持つ（数字も全キャラ同じ）。
+    /// - セクター i の出目（進むマス数）は <see cref="GenerateSectorNumbers"/> がスピンのたびに抽選する。
+    ///   各参加者は数字の範囲から**重複なし**で K 個を引く（同じキャラが 1 を 2 枚持つことはないが、
+    ///   別のキャラがそれぞれ 1 を持つのはあり）。抽選結果の保持は <see cref="RouletteNumberLayout"/>。
     /// - この割り当ては「セクター ↔ (進む人, 出目)」が 1 対 1 なので、オンラインでは
-    ///   **停止セクターの整数 1 つ**を配れば全員が同じ結果を復元できる。
+    ///   **停止セクターの整数 1 つ**を配れば全員が同じ結果を復元できる
+    ///   （前提として、全クライアントが同じ抽選結果を持っていること＝<see cref="RouletteNumberLayout"/>）。
     /// </summary>
     public static class RouletteMath
     {
@@ -70,14 +72,49 @@ namespace Main.Roulette
         }
 
         /// <summary>
-        /// セクター <paramref name="sectorIndex"/>（0 始まり）の出目（進むマス数）。
-        /// 参加者ごとに同じ数字セット 1〜K を持つよう、(sectorIndex ÷ 参加者数) + 1 を返す。
+        /// 「セクター index → 出目（進むマス数）」の対応表を抽選して返す純粋関数。
+        /// 参加者ごとに <paramref name="minNumber"/>〜<paramref name="maxNumber"/> から
+        /// <paramref name="numbersPerParticipant"/> 個を**重複なし**で引き、引いた順にその参加者のセクターへ並べる
+        /// （セクター i の参加者は <see cref="ParticipantForSector"/> なので、参加者 p の j 枚目はセクター
+        /// j × 参加者数 + p）。数字は参加者をまたぐぶんには重複してよい
+        /// （同じキャラが 1 を 2 枚持つのは不可・別のキャラがそれぞれ 1 を持つのは可）。
+        ///
+        /// 引ける個数は数字の種類数を超えられないのでクランプする。乱数源は呼び出し側が渡す
+        /// （テストで seed 固定可・オンラインは全員が同じ種で引いて同じ表を得る＝<see cref="RouletteNumberLayout"/>）。
+        /// <paramref name="rng"/> が null なら抽選せず <paramref name="minNumber"/> から順に配る
+        /// （<c>MoneyCellRule</c> と同じ規約の決定的フォールバック）。
         /// </summary>
-        public static int StepsForSector(int sectorIndex, int participantCount)
+        public static int[] GenerateSectorNumbers(
+            int participantCount, int numbersPerParticipant, int minNumber, int maxNumber, Random rng)
         {
             int participants = participantCount < 1 ? 1 : participantCount;
-            int wrapped = sectorIndex < 0 ? 0 : sectorIndex;
-            return (wrapped / participants) + 1;
+            int low = Math.Min(minNumber, maxNumber);
+            int high = Math.Max(minNumber, maxNumber);
+            int range = high - low + 1;
+            int perParticipant = Math.Clamp(numbersPerParticipant, 1, range);
+
+            int[] pool = new int[range];
+            for (int i = 0; i < range; i++)
+            {
+                pool[i] = low + i;
+            }
+
+            int[] steps = new int[SectorCount(participants, perParticipant)];
+            for (int participant = 0; participant < participants; participant++)
+            {
+                // 部分 Fisher–Yates。先頭から perParticipant 個を引き当て、引いた順にそのままセクターへ並べる
+                // （並び順も混ざるので、円盤上で同じ数字が同じ位置に固まらない）。
+                for (int drawn = 0; drawn < perParticipant; drawn++)
+                {
+                    if (rng != null)
+                    {
+                        int pick = drawn + rng.Next(range - drawn);
+                        (pool[drawn], pool[pick]) = (pool[pick], pool[drawn]);
+                    }
+                    steps[(drawn * participants) + participant] = pool[drawn];
+                }
+            }
+            return steps;
         }
 
         /// <summary>

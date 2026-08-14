@@ -29,7 +29,7 @@ namespace Main.Roulette
         // スピンボタンに貼る画像の Addressable アドレス。未配置なら文字（「長押しで回す」）のまま。
         private const string SpinButtonImageAddress = "Image/Roulette";
 
-        [Tooltip("1 キャラあたりの数字枚数（K）。各参加者が数字 1〜K を 1 枚ずつ持つ。セクター総数 = 参加者数 × K。")]
+        [Tooltip("1 キャラあたりの数字枚数（K）。各参加者が 1〜6 から重複なしで K 個の数字を持つ（RouletteNumberLayout が抽選）。セクター総数 = 参加者数 × K。")]
         [SerializeField] private int _numbersPerCharacter = 3;
         [Tooltip("押し始めの初速（度/秒）。一瞬のタップでも最低これだけ回る。")]
         [SerializeField] private float _minSpinSpeed = 360f;
@@ -49,6 +49,8 @@ namespace Main.Roulette
         // 「自分の席」の判定に使う（オンラインは全席が Human なので参加者種別では自分を見分けられない）。
         private OnlineGameSync _sync;
         private CpuCharacterPicker _characterPicker;
+        // セクターごとの出目（スピンのたびに引き直す）。盤面の進行（GameFlowController）と共有する。
+        private RouletteNumberLayout _numberLayout;
         private SoundStore _soundStore;
         private SoundPlayer _soundPlayer;
         // 参加者数とセクター総数（＝参加者数 × K）。注入後に確定する。均等配置・出目の割り当てに使う。
@@ -71,6 +73,8 @@ namespace Main.Roulette
         private readonly ReactiveProperty<bool> _visible = new(false);
         // 各セクターに貼るキャラアイコン（コイン）。円盤の子として一緒に周回し、逆回転で正立を保つ。数字は各アイコンの子バッジ。
         private readonly List<VisualElement> _characterIcons = new();
+        // セクターごとの数字バッジ（アイコンの子）。スピンのたびに引き直されるので貼り替える。
+        private readonly List<Label> _numberLabels = new();
         private readonly RouletteIconLoader _iconLoader = new();
         private readonly CompositeDisposable _disposables = new();
 
@@ -99,6 +103,7 @@ namespace Main.Roulette
             GameParticipants participants,
             OnlineGameSync sync,
             CpuCharacterPicker characterPicker,
+            RouletteNumberLayout numberLayout,
             SoundStore soundStore,
             SoundPlayer soundPlayer)
         {
@@ -106,12 +111,15 @@ namespace Main.Roulette
             _board = board;
             _sync = sync;
             _characterPicker = characterPicker;
+            _numberLayout = numberLayout;
             _soundStore = soundStore;
             _soundPlayer = soundPlayer;
 
-            // 参加者数からセクター総数を確定する（参加者を均等に並べ、各キャラが数字 1〜K を 1 枚ずつ持つ）。
+            // 参加者数と K からセクター総数を確定する（参加者を均等に並べ、各キャラが重複なしの K 個の数字を持つ）。
+            // 最初の数字もここで引く（以降はスピンのたびに引き直す・盤面の進行と同じ表を見る）。
             _participantCount = participants.Count;
-            _sectorCount = RouletteMath.SectorCount(_participantCount, _numbersPerCharacter);
+            _numberLayout.Initialize(_numbersPerCharacter);
+            _sectorCount = _numberLayout.SectorCount;
             // UI 構築（OnEnable）が済んでいれば円盤を組む。まだなら OnEnable 側から組む（順不同ガード）。
             TryBuildWheel();
 
@@ -123,6 +131,9 @@ namespace Main.Roulette
             // 回している間だけ円盤を見せる。回転開始（Spinning）で表示、停止（Stopped）で少し待って隠し、
             // 手番リセット（Idle）で即座に隠す。人間・CPU どちらも BeginSpin を通るので同じ経路で表示される。
             _disposables.Add(_model.State.Subscribe(OnRouletteStateChanged));
+            // 出目はスピンのたびに引き直されるので、そのつど数字バッジを貼り替える
+            // （円盤を組む前＝バッジがまだ無いときは何もしない。組むときに現在の数字で貼る）。
+            _disposables.Add(_numberLayout.Version.Subscribe(_ => RefreshNumberLabels()));
             _disposables.Add(_visible);
         }
 
@@ -239,6 +250,7 @@ namespace Main.Roulette
             // セクターごとに割り当てる参加者のキャラ（画像ロードに渡す）。
             List<CharacterId> sectorCharacters = new(_sectorCount);
             _characterIcons.Clear();
+            _numberLabels.Clear();
             for (int i = 0; i < _sectorCount; i++)
             {
                 int participant = RouletteMath.ParticipantForSector(i, _participantCount);
@@ -252,12 +264,13 @@ namespace Main.Roulette
                 _characterIcons.Add(icon);
 
                 // 出目の数字はアイコンの子にして、アイコンの正立・周回にそのまま追従させる。
-                // 各参加者が数字 1〜K を 1 枚ずつ持つよう StepsForSector で番号を振る。
+                // 数字はスピンのたびの抽選（RouletteNumberLayout）で決まり、引き直しのたびに貼り替える。
                 // USS で下部中央のバッジとして配置する（コード側の位置・逆回転は不要）。
-                Label label = new() { text = RouletteMath.StepsForSector(i, _participantCount).ToString() };
+                Label label = new() { text = _numberLayout.StepsForSector(i).ToString() };
                 label.AddToClassList("roulette-number");
                 label.pickingMode = PickingMode.Ignore;
                 icon.Add(label);
+                _numberLabels.Add(label);
             }
 
             // レイアウト確定後にアイコン（コイン）を配置する。数字は子バッジなので一緒に付いてくる。
@@ -266,6 +279,15 @@ namespace Main.Roulette
             _iconLoader.LoadCharacterIconsAsync(_characterIcons, sectorCharacters, destroyCancellationToken).Forget();
             // スピンボタンの文字を Roulette.png に差し替える（未配置なら文字のまま）。
             _iconLoader.LoadSpinButtonAsync(_spinButton, SpinButtonImageAddress, destroyCancellationToken).Forget();
+        }
+
+        // 引き直した出目を数字バッジへ反映する（円盤を組む前は貼る先が無いので何もしない）。
+        private void RefreshNumberLabels()
+        {
+            for (int i = 0; i < _numberLabels.Count; i++)
+            {
+                _numberLabels[i].text = _numberLayout.StepsForSector(i).ToString();
+            }
         }
 
         // キャラアイコン（コイン）をセクター中心線上に配置し、セクター数に応じたサイズに整える。
@@ -432,7 +454,7 @@ namespace Main.Roulette
             _spinPhysics.Halt();
             // 止まったセクターから「進む参加者」と「出目（マス数）」を確定する（止まったキャラが進む方式）。
             int sectorIndex = RouletteMath.ResultFromRotation(_spinPhysics.CurrentRotation, _sectorCount);
-            int steps = RouletteMath.StepsForSector(sectorIndex, _participantCount);
+            int steps = _numberLayout.StepsForSector(sectorIndex);
             int player = RouletteMath.ParticipantForSector(sectorIndex, _participantCount);
             _model.CompleteSpin(steps, player);
             _soundPlayer.PlaySafe(_soundStore?.DecisionSE);

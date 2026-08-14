@@ -6,7 +6,7 @@ namespace Main.Roulette
     ///
     /// オンラインではこれを回り終わる前に配ることで、他プレイヤーの円盤も同じタイミングで減速に入り、
     /// 結果がほぼ同時に出る。進む参加者と出目は <see cref="Sector"/> から
-    /// （<see cref="RouletteMath.ParticipantForSector"/>／<see cref="RouletteMath.StepsForSector"/> で）導ける。
+    /// （<see cref="RouletteMath.ParticipantForSector"/>／<see cref="RouletteNumberLayout.StepsForSector"/> で）導ける。
     /// </summary>
     public readonly struct SpinDecision
     {
