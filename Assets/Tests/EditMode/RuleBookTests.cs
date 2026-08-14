@@ -4,6 +4,7 @@ using Common.MiniGame;
 using Home.Presenter;
 using Main.Board;
 using Main.Item;
+using Main.Roulette;
 using NUnit.Framework;
 
 namespace Tests.EditMode
@@ -132,6 +133,15 @@ namespace Tests.EditMode
             Assert.IsTrue(
                 AnyBodyContains(MiniGamePrize.RankPrizeText()),
                 "順位別の賞金がルール説明に出ていません。");
+        }
+
+        [Test]
+        public void ルーレットの数字の範囲はルール側の定数をそのまま使う()
+        {
+            // 範囲を変えたらルール説明も一緒に変わる（RouletteNumberLayout が単一の情報源）。
+            Assert.IsTrue(
+                AnyBodyContains($"{RouletteNumberLayout.MinNumber}〜{RouletteNumberLayout.MaxNumber}"),
+                "ルーレットの数字の範囲がルール説明に出ていません。");
         }
 
         // 名前が name の項目のうち、predicate を満たすものがあるか。
