@@ -422,7 +422,7 @@ Main シーンの盤面進行を全クライアントで一致させる仕組み
 
 ミニゲームの勝者はホストが決めない。各自が自分の結果値（連打数・ゴールタイム・選んだアイテムの `ItemId`）を `MiniGameScore` で出し、全員ぶんが揃ったら純粋関数 `MiniGameRanking.Resolve` にかける。入力が同じなら出力も同じなので、**判定役を置かなくても全クライアントが同じ勝者に至る**（EditMode テストで固められるのも利点）。
 
-**賞金も同じ値から出す**。順位が付くゲーム（タップ連打・2Dレース）は `MiniGameRanking.RanksOf` で参加者ごとの順位を出し、`MiniGamePrize.ForRank`（1位500／2位300／3位100・それ以下は0）を全員へ配る。順位が定義できない被っちゃやーよだけは勝った人へ一律（`MiniGamePrize.Win`）。**一人用モードだけは順位の出どころが違う**（相手がゲーム内の CPU で結果値が集まらないので、ゲーム側が結果パネルの順位表を組むときに算出したものを `MiniGameOutcome.Ranks` で返す）。**同点の扱いは両方で揃える**必要があるので、片方を変えるときは `RanksOf` と `ScoreRanking.Order`／`RaceRanking.Order` の両方を直す。
+**報酬も同じ値から出す**。順位が付くゲーム（タップ連打・2Dレース）は `MiniGameRanking.RanksOf` で参加者ごとの順位を出し、`MiniGamePrize.ForRank`（1位500／2位300／3位100・それ以下は0）を全員へ配る。順位が定義できない被っちゃやーよは賞金ではなく**勝った人が選んだアイテムそのもの**が報酬で、結果値がその `ItemId` なので配った値だけで「誰が何をもらうか」まで決まる（`BoardPresenter.AwardMiniGameItemsAsync`）。**一人用モードだけは出どころが違う**（相手がゲーム内の CPU で結果値が集まらないので、ゲーム側が算出した順位を `MiniGameOutcome.Ranks`・参加者ごとの結果値を `MiniGameOutcome.Values` で返す）。**同点の扱いは両方で揃える**必要があるので、片方を変えるときは `RanksOf` と `ScoreRanking.Order`／`RaceRanking.Order` の両方を直す。
 
 ゲームを起動できなかった場合でも `MiniGameRanking.WorstValue` を必ず配る。黙って抜けると、結果を待っている他のクライアントが永久に進めなくなる。
 
