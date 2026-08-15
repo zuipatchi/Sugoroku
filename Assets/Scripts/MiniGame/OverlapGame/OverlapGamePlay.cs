@@ -180,8 +180,10 @@ namespace MiniGame.OverlapGame
             _model.Finish();
             // 結果値は選んだアイテムの ItemId（未選択は NoChoice）。オンラインでは誰とも被らなければ勝ち。
             // 「誰とも被らなければ勝ち」は複数人が同時に勝ちうるので順位が定義できない＝順位は返さない
-            // （賞金は勝った人へ一律＝MiniGamePrize.Win）。
-            return new MiniGameOutcome(IsLocalWin ? 1 : 0, ChosenItemValue());
+            // （報酬は勝った人が選んだアイテムそのもの）。**報酬に「誰が何を選んだか」が要る**ので、
+            // 相手をシミュレートする一人用モードのために全参加者ぶんの結果値も返す
+            // （オンラインは各自が自分の値を配り合うので盤面側でそろう）。
+            return new MiniGameOutcome(IsLocalWin ? 1 : 0, ChosenItemValue(), values: ChosenItemValues());
         }
 
         /// <summary>
@@ -192,10 +194,30 @@ namespace MiniGame.OverlapGame
         /// </summary>
         private int ChosenItemValue()
         {
-            int index = _model.PlayerChoiceIndex;
+            return ItemValueOf(_model.PlayerChoiceIndex);
+        }
+
+        /// <summary>
+        /// 参加者ごとの結果値（index＝参加者・0＝自分）。<see cref="ChosenItemValue"/> の全員ぶんで、
+        /// 一人用モードで CPU のぶんも報酬（選んだアイテム）を配れるようにするために返す。
+        /// 届いていない選択（オンラインで取りこぼしたぶん）は <see cref="MiniGameRanking.NoChoice"/>。
+        /// </summary>
+        private int[] ChosenItemValues()
+        {
+            int[] values = new int[_choices.Count];
+            for (int participant = 0; participant < _choices.Count; participant++)
+            {
+                values[participant] = ItemValueOf(_choices[participant]);
+            }
+            return values;
+        }
+
+        // 提示カード index → そのアイテムの ItemId（未選択・未着・範囲外は NoChoice）。
+        private int ItemValueOf(int cardIndex)
+        {
             IReadOnlyList<ItemId> offered = _model.OfferedItems;
-            return index >= 0 && index < offered.Count
-                ? (int)offered[index]
+            return cardIndex >= 0 && cardIndex < offered.Count
+                ? (int)offered[cardIndex]
                 : MiniGameRanking.NoChoice;
         }
 

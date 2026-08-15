@@ -145,13 +145,15 @@ namespace Home.Presenter
             return entries;
         }
 
-        // ミニゲームの入り口と賞金。賞金の並びは MiniGamePrize が持つ（マスの説明と共通の文言）。
+        // ミニゲームの入り口と報酬。賞金の並びも被っちゃやーよの報酬も MiniGamePrize が持つ
+        // （マスの説明と共通の文言）。
         private static string MiniGameBody()
         {
             ItemDefinition item = ItemCatalog.Find(ItemId.MiniGame);
             string itemName = item == null ? "ミニゲーム" : item.DisplayName;
             return $"ミニゲームマスに止まるか、アイテム「{itemName}」を使うと遊べる。\n"
-                + $"順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。";
+                + $"順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。\n"
+                + MiniGamePrize.OverlapRewardText();
         }
 
         private static IReadOnlyList<RuleEntry> MiniGameEntries()

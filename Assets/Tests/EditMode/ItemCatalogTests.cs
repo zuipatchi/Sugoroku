@@ -1,6 +1,7 @@
 using System;
 using Common.MiniGame;
 using Main.Item;
+using Main.Money;
 using NUnit.Framework;
 
 namespace Tests.EditMode
@@ -100,6 +101,15 @@ namespace Tests.EditMode
             Assert.IsFalse(moneyUp.Purchasable);
             CollectionAssert.DoesNotContain(ItemCatalog.Purchasable, moneyUp);
             CollectionAssert.Contains(ItemCatalog.RandomCards(null, ItemCatalog.All.Count), moneyUp);
+        }
+
+        [Test]
+        public void お金アップの説明はマスと同じ増減額の範囲を含む()
+        {
+            // 買えないが被っちゃやーよの報酬として手札に入るので効果を持つ（増える額はお金マスと同じルール）。
+            string description = ItemCatalog.Find(ItemId.MoneyUp).Description;
+            StringAssert.Contains(MoneyCellRule.RangeText(), description);
+            StringAssert.Contains("増える", description);
         }
 
         [Test]

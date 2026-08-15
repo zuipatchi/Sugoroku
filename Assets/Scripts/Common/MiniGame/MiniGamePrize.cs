@@ -3,8 +3,9 @@ namespace Common.MiniGame
     /// <summary>
     /// ミニゲームの賞金を決める純粋ロジック。**順位が付くゲーム（タップ連打・2Dレース）は順位別**で、
     /// 1 位から <see cref="ByRank"/> の並びどおりに配り、それより下の順位は 0（もらえない）。
-    /// **順位が付かないゲーム（被っちゃやーよ）は勝った人へ一律 <see cref="Win"/>**（誰とも被らなければ
-    /// 勝ちで、複数人が同時に勝ちうるので順位が定義できない）。
+    /// **順位が付かないゲーム（被っちゃやーよ）に賞金は無い**（誰とも被らなければ勝ちで、複数人が同時に
+    /// 勝ちうるので順位が定義できない）＝報酬は賞金ではなく**勝った人が選んだアイテムそのもの**で、
+    /// 配るのは <c>BoardPresenter.AwardMiniGameItemsAsync</c>（説明文は <see cref="OverlapRewardText"/>）。
     ///
     /// 実際の残高移動は <c>MoneyModel</c>、順位付けは <see cref="MiniGameRanking.RanksOf"/>（オンライン）と
     /// 各ミニゲームの順位表（一人用）が担う。<c>MoneyCellRule</c> と同じく、
@@ -14,9 +15,6 @@ namespace Common.MiniGame
     {
         /// <summary>1 位から順の賞金。並びの長さより下の順位は 0。</summary>
         private static readonly int[] ByRank = { 500, 300, 100 };
-
-        /// <summary>順位が付かないゲーム（被っちゃやーよ）で勝ったときの賞金。1 位と同額。</summary>
-        public const int Win = 500;
 
         /// <summary>賞金が出る順位の数（＝ここまでの順位ならもらえる）。説明文の組み立てに使う。</summary>
         public static int PaidRanks => ByRank.Length;
@@ -31,12 +29,24 @@ namespace Common.MiniGame
         }
 
         /// <summary>
-        /// <paramref name="game"/> に順位が付くか（＝順位別の賞金を配るか）。
-        /// 被っちゃやーよだけは「誰とも被らなければ勝ち」で順位が定義できないので false。
+        /// <paramref name="game"/> に順位が付くか（＝順位別の賞金を配るか。false なら報酬は賞金ではなく
+        /// 選んだアイテム）。被っちゃやーよだけは「誰とも被らなければ勝ち」で順位が定義できないので false。
         /// </summary>
         public static bool HasRanking(MiniGameId game)
         {
             return game != MiniGameId.Overlap;
+        }
+
+        /// <summary>
+        /// 順位が付かないゲーム（被っちゃやーよ）の報酬の文言。賞金ではなく「選んだアイテムがもらえる」ので、
+        /// 順位別の賞金（<see cref="RankPrizeText"/>）だけでは説明が実装と食い違う。
+        /// マスの説明（<c>BoardEventDescription</c>）・ミニゲームアイテムの説明（<c>ItemCatalog</c>）・
+        /// ルール説明（<c>RuleBook</c>）が同じ文言を使えるようにここへ置く。
+        /// </summary>
+        public static string OverlapRewardText()
+        {
+            string name = MiniGameCatalog.Find(MiniGameId.Overlap).DisplayName;
+            return $"「{name}」だけは順位が付かないので、誰とも被らなければ選んだアイテムがもらえる。";
         }
 
         /// <summary>

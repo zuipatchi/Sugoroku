@@ -12,7 +12,7 @@ namespace Common.MiniGame
     /// </summary>
     public readonly struct MiniGameResult
     {
-        private static readonly int[] NoRanks = Array.Empty<int>();
+        private static readonly int[] Empty = Array.Empty<int>();
 
         public MiniGameId Game { get; }
         public int Score { get; }
@@ -25,17 +25,27 @@ namespace Common.MiniGame
         /// </summary>
         public IReadOnlyList<int> Ranks { get; }
 
+        /// <summary>
+        /// 参加者ごとの生の結果値（index＝参加者・0＝自分／並びは <see cref="Ranks"/> と同じ）。
+        /// 一人用モードで「相手が何を選んだか」まで要る報酬（被っちゃやーよ＝選んだアイテムを配る）に使う
+        /// （<see cref="MiniGameOutcome.Values"/>）。要らないゲームは空。
+        /// </summary>
+        public IReadOnlyList<int> Values { get; }
+
         public MiniGameResult(MiniGameId game, int score)
             : this(game, score, score)
         {
         }
 
-        public MiniGameResult(MiniGameId game, int score, int value, IReadOnlyList<int> ranks = null)
+        public MiniGameResult(
+            MiniGameId game, int score, int value,
+            IReadOnlyList<int> ranks = null, IReadOnlyList<int> values = null)
         {
             Game = game;
             Score = score;
             Value = value;
-            Ranks = ranks ?? NoRanks;
+            Ranks = ranks ?? Empty;
+            Values = values ?? Empty;
         }
     }
 }

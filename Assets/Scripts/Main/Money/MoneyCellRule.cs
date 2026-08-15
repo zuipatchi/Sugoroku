@@ -31,5 +31,15 @@ namespace Main.Money
             int n = rng == null ? MinN : rng.Next(MinN, MaxN + 1);
             return n * Unit;
         }
+
+        /// <summary>
+        /// 増減額の範囲の文言（「100〜500」）。マスの説明（<c>BoardEventDescription</c>）と、
+        /// 同じ額が動くアイテムの説明（<c>ItemCatalog</c> の「お金アップ」）が同じ文言を使えるように
+        /// ここへ置く（額を変えれば説明文も一緒に変わる）。
+        /// </summary>
+        public static string RangeText()
+        {
+            return $"{Unit * MinN}〜{Unit * MaxN}";
+        }
     }
 }

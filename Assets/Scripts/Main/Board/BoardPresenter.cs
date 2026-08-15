@@ -1862,12 +1862,14 @@ namespace Main.Board
         /// 一人用モードのミニゲーム。**着地したのが自分でも CPU でも自分が CPU 相手に遊ぶ**
         /// （オンラインで全員が同時に遊ぶのと同じ体験にするため）。
         ///
-        /// 賞金の配り方はオンラインと同じ:
+        /// 報酬の配り方はオンラインと同じ:
         /// <list type="bullet">
-        /// <item>順位が付くゲーム（タップ連打・2Dレース）→ **自分も CPU も順位別**（<see cref="MiniGamePrize"/>）。
-        /// CPU の順位を知っているのはゲーム側だけなので <see cref="MiniGameResult.Ranks"/> で受け取る</item>
-        /// <item>順位が定義できない被っちゃやーよ → 勝った人へ一律。自分が負けたときは着地した CPU
-        /// （<paramref name="starter"/>）が受け取り、自分が着地して負けたときだけ勝者なし</item>
+        /// <item>順位が付くゲーム（タップ連打・2Dレース）→ **自分も CPU も順位別の賞金**
+        /// （<see cref="MiniGamePrize"/>）。CPU の順位を知っているのはゲーム側だけなので
+        /// <see cref="MiniGameResult.Ranks"/> で受け取る</item>
+        /// <item>順位が定義できない被っちゃやーよ → 賞金ではなく**誰とも被らなかった人が選んだアイテム**。
+        /// CPU が何を選んだかを知っているのもゲーム側だけなので <see cref="MiniGameResult.Values"/> で受け取り、
+        /// 勝敗はオンラインと同じ純粋関数（<see cref="MiniGameRanking.Resolve"/>）で決める</item>
         /// </list>
         /// </summary>
         private async UniTask RunLocalMiniGameAsync(int starter, MiniGameId game, CancellationToken ct)
@@ -1876,6 +1878,7 @@ namespace Main.Board
             bool iWon;
             int myValue = MiniGameRanking.WorstValue(game);
             IReadOnlyList<int> ranks = Array.Empty<int>();
+            IReadOnlyList<int> values = Array.Empty<int>();
             if (_launcher != null)
             {
                 // 相手はゲーム内の CPU が務めるので、参加者ぶんの盤面キャラをそのまま渡して
@@ -1885,12 +1888,21 @@ namespace Main.Board
                 iWon = DetermineMiniGameWin(result);
                 myValue = result.Value;
                 ranks = result.Ranks;
+                values = result.Values;
             }
             else
             {
                 // ランチャーが無い（注入に失敗した）ときは遊ばせるものが無いので勝敗を抽選する
-                // （順位は分からないので、下の「勝った人へ一律」で配る）。
+                // （順位も選んだアイテムも分からないので、下のフォールバックで配る）。
                 iWon = _itemRng.Next(2) == 0;
+            }
+
+            // 被っちゃやーよの報酬は賞金ではなく選んだアイテム（ランチャーが無ければ配るものが無い）。
+            if (!MiniGamePrize.HasRanking(game))
+            {
+                await AwardMiniGameItemsAsync(
+                    OverlapItemBySeat(order, values), MiniGameOverlapText(iWon, myValue), ct);
+                return;
             }
 
             int[] prizeBySeat = new int[_pieceCount];
@@ -1905,19 +1917,14 @@ namespace Main.Board
                 return;
             }
 
-            // 順位が付かないゲーム。負けたときの勝者は着地した CPU で、
-            // 自分が着地して負けたときだけ勝者なし（誰も受け取らない）。
+            // ランチャーが無くて順位が分からないときのフォールバック。勝った人（負けたなら着地した CPU）へ
+            // 1 位ぶんを配り、自分が着地して負けたときだけ勝者なし（誰も受け取らない）。
             int winner = iWon ? _humanPlayer : starter;
-            bool noWinner = !iWon && starter == _humanPlayer;
-            if (!noWinner)
+            if (iWon || starter != _humanPlayer)
             {
-                prizeBySeat[winner] = MiniGamePrize.Win;
+                prizeBySeat[winner] = MiniGamePrize.ForRank(1);
             }
-            // 順位が付くゲームでランチャーが無かったときは順位が分からないので最下位扱いで出す。
-            await AwardMiniGameAsync(
-                prizeBySeat,
-                MiniGamePrize.HasRanking(game) ? MiniGameRankText(0) : MiniGameOverlapText(iWon, myValue),
-                ct);
+            await AwardMiniGameAsync(prizeBySeat, MiniGameRankText(0), ct);
         }
 
         /// <summary>
@@ -2002,35 +2009,66 @@ namespace Main.Board
         }
 
         /// <summary>
-        /// 集めた結果値から賞金を決めて配り、自分の結果（順位／獲得したアイテム）を帯で知らせる（オンライン）。
+        /// 集めた結果値から報酬を決めて配り、自分の結果（順位／獲得したアイテム）を帯で知らせる（オンライン）。
         /// 順位付けも勝敗も純粋関数（<see cref="MiniGameRanking"/>）なので全クライアントで同じ結果になる。
-        /// **順位が付くゲーム（タップ連打・2Dレース）は順位別の賞金**、
-        /// 順位が定義できない被っちゃやーよは勝った人へ一律（<see cref="MiniGamePrize"/>）。
+        /// **順位が付くゲーム（タップ連打・2Dレース）は順位別の賞金**（<see cref="MiniGamePrize"/>）、
+        /// 順位が定義できない被っちゃやーよは賞金ではなく**勝った人が選んだアイテム**。
         /// </summary>
         private UniTask ApplyMiniGameWinnersAsync(
             MiniGameId game, IReadOnlyList<int> order, IReadOnlyList<int> values, CancellationToken ct)
         {
             bool[] wins = MiniGameRanking.Resolve(game, values);
             int[] ranks = MiniGameRanking.RanksOf(game, values);
-            bool ranked = MiniGamePrize.HasRanking(game);
-            int[] prizeBySeat = new int[_pieceCount];
-            for (int i = 0; i < order.Count && i < ranks.Length; i++)
-            {
-                // 順位が付くゲームは順位別、付かないゲーム（被っちゃやーよ）は勝った人へ一律。
-                prizeBySeat[order[i]] = ranked
-                    ? MiniGamePrize.ForRank(ranks[i])
-                    : (wins[i] ? MiniGamePrize.Win : 0);
-            }
 
             // 帯に出すのは画面の持ち主から見た結果（順位／獲得したアイテム）。
             int me = ParticipantOf(order, _humanPlayer);
             int myRank = me >= 0 && me < ranks.Length ? ranks[me] : 0;
             bool iWon = me >= 0 && me < wins.Length && wins[me];
             int myValue = me >= 0 && me < values.Count ? values[me] : MiniGameRanking.NoChoice;
-            return AwardMiniGameAsync(
-                prizeBySeat,
-                ranked ? MiniGameRankText(myRank) : MiniGameOverlapText(iWon, myValue),
-                ct);
+
+            if (!MiniGamePrize.HasRanking(game))
+            {
+                return AwardMiniGameItemsAsync(
+                    OverlapItemBySeat(order, values), MiniGameOverlapText(iWon, myValue), ct);
+            }
+
+            int[] prizeBySeat = new int[_pieceCount];
+            for (int i = 0; i < order.Count && i < ranks.Length; i++)
+            {
+                prizeBySeat[order[i]] = MiniGamePrize.ForRank(ranks[i]);
+            }
+            return AwardMiniGameAsync(prizeBySeat, MiniGameRankText(myRank), ct);
+        }
+
+        /// <summary>
+        /// 被っちゃやーよの報酬＝**誰とも被らなかった人が選んだアイテム**を席ごとに割り出す
+        /// （戻り値の index＝席・-1 は報酬なし）。勝敗はオンライン・一人用のどちらも同じ純粋関数
+        /// （<see cref="MiniGameRanking.Resolve"/>）で決めるので、席ごとの結果値
+        /// <paramref name="values"/>（並びは <paramref name="order"/>）さえそろえば同じ結論になる。
+        /// 結果値が無い（ミニゲームを起動できなかった）ときは誰も受け取らない。
+        /// </summary>
+        private int[] OverlapItemBySeat(IReadOnlyList<int> order, IReadOnlyList<int> values)
+        {
+            int[] itemBySeat = new int[_pieceCount];
+            for (int seat = 0; seat < itemBySeat.Length; seat++)
+            {
+                itemBySeat[seat] = -1;
+            }
+            if (values == null || values.Count == 0)
+            {
+                return itemBySeat;
+            }
+
+            bool[] wins = MiniGameRanking.Resolve(MiniGameId.Overlap, values);
+            for (int i = 0; i < order.Count && i < wins.Length; i++)
+            {
+                // 無効票（選べなかった）は勝てないので、勝ち＝選んだアイテムがあることが保証される。
+                if (wins[i])
+                {
+                    itemBySeat[order[i]] = values[i];
+                }
+            }
+            return itemBySeat;
         }
 
         /// <summary>
@@ -2068,6 +2106,58 @@ namespace Main.Board
                 _soundPlayer.PlaySafe(_soundStore?.MoneySE);
                 await ShowItemMoneyFloatAsync(myPrize, ct);
             }
+        }
+
+        /// <summary>
+        /// ミニゲームの報酬アイテム <paramref name="itemBySeat"/>（index＝席・-1 なら配らない）を手札へ加え、
+        /// 結果 <paramref name="resultText"/> を帯で知らせる（被っちゃやーよ＝賞金ではなく選んだアイテムが報酬）。
+        /// 賞金版（<see cref="AwardMiniGameAsync"/>）と同じく、決めた値は全クライアントで一致するので
+        /// ここは受け取ったぶんを配るだけ。自分がもらえたときだけ取得音とアイテム絵のポップを出す。
+        /// </summary>
+        private async UniTask AwardMiniGameItemsAsync(
+            IReadOnlyList<int> itemBySeat, string resultText, CancellationToken ct)
+        {
+            if (_items == null)
+            {
+                // 手札を持てない（注入に失敗した）ときは配れないので、結果だけ知らせて終わる。
+                ShowBannerText(resultText);
+                return;
+            }
+
+            ItemDefinition mine = null;
+            for (int seat = 0; seat < itemBySeat.Count; seat++)
+            {
+                int itemId = itemBySeat[seat];
+                ItemDefinition item = itemId < 0 ? null : ItemCatalog.Find((ItemId)itemId);
+                if (item == null)
+                {
+                    continue;
+                }
+                // 手札への追加は自分の席のぶんだけ ItemModel.Gained 購読が右下へ並べる（CPU・他プレイヤーの
+                // ぶんは見えないが、ネームプレートの詳細モーダルでは所持アイテムとして見られる）。
+                _items.Add(seat, item.Id);
+                if (seat == _humanPlayer)
+                {
+                    mine = item;
+                }
+            }
+
+            ShowBannerText(resultText);
+
+            if (mine == null)
+            {
+                return;
+            }
+
+            // 何を手に入れたのかが分かるよう、アイテム使用時と同じ長さで絵を中央にポップする。
+            _soundPlayer.PlaySafe(_soundStore?.ItemGetSE);
+            Sprite sprite = await LoadItemSpriteAsync(mine, ct);
+            if (!await _landing.ShowCellPopupAsync(sprite, ct))
+            {
+                return;
+            }
+            await UniTask.Delay(TimeSpan.FromSeconds(ItemUsePopupSeconds), cancellationToken: ct);
+            await _landing.HideCellPopupAsync(ct);
         }
 
         /// <summary>
@@ -2524,6 +2614,9 @@ namespace Main.Board
                 case ItemId.StealMoney:
                     DecideMoneySteal();
                     return;
+                case ItemId.MoneyUp:
+                    DecideMoneyUp();
+                    return;
                 default:
                     // 勝利（InstantWin）のように決めることが無いアイテムは、そのまま発行して適用へ回す。
                     // 発行から適用（受信）までの間に続けて使われないよう、ここでも効果中にしておく。
@@ -2590,6 +2683,9 @@ namespace Main.Board
                         // 同じ内容を同時に遊び、一人用は使用者だけが CPU 相手に遊ぶ。
                         await RunMiniGameAsync(
                             seat, (MiniGameId)action.EffectArgAt(0), action.EffectArgAt(1), ct);
+                        break;
+                    case ItemId.MoneyUp:
+                        await ApplyMoneyUpAsync(seat, action.EffectArgAt(0), ct);
                         break;
                     case ItemId.InstantWin:
                         // 即座に使用者の勝ちを確定する。Winner 購読が勝者表示・「ホームに戻る」・
@@ -2783,6 +2879,39 @@ namespace Main.Board
             // 適用（送金と演出）は受信側が行う。発行できたので、効果の終了は適用側に任せる。
             BeginItemEffect();
             _sync.Publish(GameAction.ItemUse(_humanPlayer, (int)ItemId.StealMoney, amounts));
+        }
+
+        /// <summary>
+        /// お金アップの決定。増える額をお金アップのマスと同じルール（<see cref="MoneyCellRule"/>）で抽選し、
+        /// 効果パラメータとして発行する。選ぶものが無いのでその場で発行して適用へ回す。
+        /// </summary>
+        private void DecideMoneyUp()
+        {
+            BeginItemEffect();
+            _sync.Publish(GameAction.ItemUse(
+                _humanPlayer, (int)ItemId.MoneyUp, MoneyCellRule.Amount(_itemRng)));
+        }
+
+        /// <summary>
+        /// お金アップの適用。決めた額を使用者の所持金に足す。増額の浮遊テキストは**この画面の持ち主から見た
+        /// 増減**だけを出す（適用は全クライアントで走るので、一律に出すと他人の増額が自分の画面にも出てしまう
+        /// ＝お金よこどりと同じ規約）。誰が使ったかは共通の「使った」演出の帯で分かる。
+        /// </summary>
+        private async UniTask ApplyMoneyUpAsync(int player, int amount, CancellationToken ct)
+        {
+            if (_money == null || amount <= 0)
+            {
+                return;
+            }
+
+            int gained = _money.Add(player, amount);
+            if (player != _humanPlayer || gained <= 0)
+            {
+                return;
+            }
+
+            _soundPlayer.PlaySafe(_soundStore?.MoneySE);
+            await ShowItemMoneyFloatAsync(gained, ct);
         }
 
         /// <summary>

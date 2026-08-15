@@ -35,9 +35,9 @@ namespace Main.Board
                 case BoardCellEvent.MiniGame:
                     return "このマスに止まると、ランダムに選ばれたミニゲームに挑戦する。" + PrizeText();
                 case BoardCellEvent.MoneyUp:
-                    return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 増える。";
+                    return $"このマスに止まると、所持金がランダムに {MoneyCellRule.RangeText()} 増える。";
                 case BoardCellEvent.MoneyDown:
-                    return $"このマスに止まると、所持金がランダムに {MoneyRangeText()} 減る。";
+                    return $"このマスに止まると、所持金がランダムに {MoneyCellRule.RangeText()} 減る。";
                 case BoardCellEvent.Territory:
                     return "このマスに止まると、自分の陣地になる。相手の陣地なら上書きして奪う。";
                 case BoardCellEvent.Item:
@@ -47,19 +47,14 @@ namespace Main.Board
             }
         }
 
-        // ミニゲームの賞金の説明（ルール側＝MiniGamePrize から組み立てる。順位と額の並びは
+        // ミニゲームの報酬の説明（ルール側＝MiniGamePrize から組み立てる。順位と額の並びは
         // ミニゲームアイテムの説明（ItemCatalog）と共通なので MiniGamePrize.RankPrizeText が持つ）。
-        // 遊ぶゲームは着地のたびの抽選なので、どのゲームでも共通の「順位別」だけを書く
-        // （順位が定義できない被っちゃやーよは勝てば 1 位と同額なので、この説明から外れない）。
+        // 遊ぶゲームは着地のたびの抽選なので、どのゲームに当たっても外れないよう順位別の賞金に加えて
+        // 被っちゃやーよの報酬（＝賞金ではなく選んだアイテム）も添える。
         private static string PrizeText()
         {
-            return $"順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。";
-        }
-
-        // お金マスの増減額の範囲（ルール側の定数から組み立てる）。
-        private static string MoneyRangeText()
-        {
-            return $"{MoneyCellRule.Unit * MoneyCellRule.MinN}〜{MoneyCellRule.Unit * MoneyCellRule.MaxN}";
+            return $"順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。"
+                + MiniGamePrize.OverlapRewardText();
         }
 
         // 進む／戻るマスで動くマス数の範囲（ルール側の定数から組み立てる）。

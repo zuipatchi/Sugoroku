@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Common.MiniGame;
+using Main.Money;
 
 namespace Main.Item
 {
@@ -37,8 +38,9 @@ namespace Main.Item
         public int Price { get; }
 
         /// <summary>
-        /// アイテムショップに並べるか（<see cref="ItemCatalog.Purchasable"/>）。false のものは手札に入ることが
-        /// 無いので効果も価格も持たない（＝ミニゲーム「被っちゃやーよ」で選ぶカード専用）。
+        /// アイテムショップに並べるか（<see cref="ItemCatalog.Purchasable"/>）。false のものは
+        /// ミニゲーム「被っちゃやーよ」で選ぶカード専用で、**買えないだけで手札には入る**
+        /// （誰とも被らなければ報酬として受け取る）ので効果は持ち、価格だけ使わない（0）。
         /// </summary>
         public bool Purchasable { get; }
 
@@ -56,7 +58,8 @@ namespace Main.Item
     /// <see cref="ItemDefinition.Price"/> はアイテムショップでの購入価格（初期所持金 1000 を基準にバランス調整する）。
     /// **どこに出すかは種類ごとに違う**：買い物の抽選は <see cref="Purchasable"/> から引き（ショップに並ばない
     /// アイテムがあるため）、ミニゲーム「被っちゃやーよ」の選択カードは <see cref="RandomCards"/> が
-    /// <see cref="All"/> から <see cref="ItemDefinition.CardWeight"/> の重み付きで引く。
+    /// <see cref="All"/> から <see cref="ItemDefinition.CardWeight"/> の重み付きで引く
+    /// （**被っちゃやーよの報酬は選んだアイテムそのもの**なので、ショップに並ばないアイテムも手札に入る）。
     ///
     /// <see cref="ItemDefinition.Description"/> は**効果の実装と読み比べて食い違わない書き方**にする。
     /// 数値まで書くものは、その数値をルール側の定数（<see cref="MiniGamePrize"/> など）から組み立てるので、
@@ -74,10 +77,11 @@ namespace Main.Item
             new ItemDefinition(ItemId.MiniGame, "ミニゲーム", MiniGameDescription(), "Image/Item/MiniGame", 300),
             // 「被っちゃやーよ」のカードには他の半分の重みでしか並ばない（当たりが強いので出やすさを抑える）。
             new ItemDefinition(ItemId.InstantWin, "勝利", "使った瞬間にゲームに勝利する。", "Image/Item/Victory", 2500, cardWeight: 0.5f),
-            // ショップには並ばない「被っちゃやーよ」のカード専用（下の Purchasable 参照）。
+            // ショップには並ばない「被っちゃやーよ」のカード専用（下の Purchasable 参照）＝買えないが、
+            // 被らずに選べば報酬として手札に入るので効果は持つ（増える額はお金アップのマスと同じ）。
             // 絵はお金アップのマスと同じものを使い回す（BoardEventArtCatalog の "Board/MoneyUp"）。
             // アイテム絵を出すところはどこも正方形＋切り抜きなので、正方形のマスの絵をそのまま置ける。
-            new ItemDefinition(ItemId.MoneyUp, "お金アップ", "所持金がランダムに増える。", "Board/MoneyUp", 0, purchasable: false),
+            new ItemDefinition(ItemId.MoneyUp, "お金アップ", MoneyUpDescription(), "Board/MoneyUp", 0, purchasable: false),
         };
 
         /// <summary>
@@ -149,10 +153,18 @@ namespace Main.Item
             return null; // pool が空のときだけ（呼び出し側が take でクランプ済み）
         }
 
-        // ミニゲームアイテムの説明。順位と賞金の並びはミニゲームマスの説明と共通（MiniGamePrize が持つ）。
+        // ミニゲームアイテムの説明。順位と賞金の並び・被っちゃやーよの報酬はミニゲームマスの説明と
+        // 共通（MiniGamePrize が持つ）。
         private static string MiniGameDescription()
         {
-            return $"好きなミニゲームで遊び、順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。";
+            return $"好きなミニゲームで遊び、順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。"
+                + MiniGamePrize.OverlapRewardText();
+        }
+
+        // お金アップの説明。増える額はお金アップのマスと同じルール（MoneyCellRule が持つ）。
+        private static string MoneyUpDescription()
+        {
+            return $"所持金がランダムに {MoneyCellRule.RangeText()} 増える。";
         }
 
         /// <summary>識別子 <paramref name="id"/> に対応するアイテム定義。無ければ null。</summary>

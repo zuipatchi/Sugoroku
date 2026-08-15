@@ -9,13 +9,15 @@ namespace Common.MiniGame
     /// </summary>
     public readonly struct MiniGameOutcome
     {
-        private static readonly int[] NoRanks = Array.Empty<int>();
+        private static readonly int[] Empty = Array.Empty<int>();
 
-        public MiniGameOutcome(int score, int value, IReadOnlyList<int> ranks = null)
+        public MiniGameOutcome(
+            int score, int value, IReadOnlyList<int> ranks = null, IReadOnlyList<int> values = null)
         {
             Score = score;
             Value = value;
-            Ranks = ranks ?? NoRanks;
+            Ranks = ranks ?? Empty;
+            Values = values ?? Empty;
         }
 
         /// <summary>自分の勝敗（勝ち=1／負け=0）。一人用モードの勝敗判定に使う。</summary>
@@ -35,5 +37,13 @@ namespace Common.MiniGame
         /// 順位が定義できないゲーム（被っちゃやーよ）は空。
         /// </summary>
         public IReadOnlyList<int> Ranks { get; }
+
+        /// <summary>
+        /// 参加者ごとの生の結果値（index＝参加者・0＝自分・並びは <see cref="Ranks"/> と同じ）。
+        /// **一人用モードで「相手が何を選んだか」まで要る報酬（被っちゃやーよ＝選んだアイテムを配る）に使う**
+        /// （相手はゲーム内の CPU なので、全員ぶんの値を知っているのはゲーム側だけ。オンラインは各自が
+        /// <see cref="Value"/> を配り合うので盤面側がそろえられる）。要らないゲームは空。
+        /// </summary>
+        public IReadOnlyList<int> Values { get; }
     }
 }

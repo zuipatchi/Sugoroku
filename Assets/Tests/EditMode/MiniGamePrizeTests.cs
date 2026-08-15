@@ -32,9 +32,12 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void 一律の賞金は1位と同額()
+        public void 被っちゃやーよの報酬は賞金ではなく選んだアイテムだと説明する()
         {
-            Assert.AreEqual(MiniGamePrize.ForRank(1), MiniGamePrize.Win);
+            // 順位別の賞金だけを説明すると実装と食い違うので、報酬の説明文にアイテムのことが入る。
+            string text = MiniGamePrize.OverlapRewardText();
+            StringAssert.Contains(MiniGameCatalog.Find(MiniGameId.Overlap).DisplayName, text);
+            StringAssert.Contains("アイテム", text);
         }
     }
 }

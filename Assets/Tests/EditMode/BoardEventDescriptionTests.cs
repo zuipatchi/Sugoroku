@@ -60,6 +60,9 @@ namespace Tests.EditMode
             {
                 StringAssert.Contains(MiniGamePrize.ForRank(rank).ToString(), description);
             }
+            // 賞金が出ないゲーム（被っちゃやーよ＝報酬は選んだアイテム）に当たることもあるので、
+            // 順位別の賞金だけで終わらせない。
+            StringAssert.Contains(MiniGamePrize.OverlapRewardText(), description);
         }
 
         [Test]
