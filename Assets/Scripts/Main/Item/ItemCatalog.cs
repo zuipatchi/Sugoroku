@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Common.MiniGame;
 using Main.Money;
 
 namespace Main.Item
@@ -62,9 +61,10 @@ namespace Main.Item
     /// （**被っちゃやーよの報酬は選んだアイテムそのもの**なので、ショップに並ばないアイテムも手札に入る）。
     ///
     /// <see cref="ItemDefinition.Description"/> は**効果の実装と読み比べて食い違わない書き方**にする。
-    /// 数値まで書くものは、その数値をルール側の定数（<see cref="MiniGamePrize"/> など）から組み立てるので、
+    /// 数値まで書くものは、その数値をルール側の定数（<see cref="MoneyCellRule"/> など）から組み立てるので、
     /// ルールを変えれば説明文も一緒に変わる（マスの説明＝<c>BoardEventDescription</c> と同じ方針）。
-    /// 逆に**あえて数値を書かない**ものもある（お金よこどりの奪う額＝使ってからのお楽しみ）。
+    /// 逆に**あえて数値を書かない**ものもある（お金よこどりの奪う額＝使ってからのお楽しみ／
+    /// ミニゲームの報酬＝遊ぶゲームによって賞金とアイテムに分かれるので「賞金やアイテム」とまとめる）。
     /// </summary>
     public static class ItemCatalog
     {
@@ -153,12 +153,12 @@ namespace Main.Item
             return null; // pool が空のときだけ（呼び出し側が take でクランプ済み）
         }
 
-        // ミニゲームアイテムの説明。順位と賞金の並び・被っちゃやーよの報酬はミニゲームマスの説明と
-        // 共通（MiniGamePrize が持つ）。
+        // ミニゲームアイテムの説明。遊ぶゲームは選べるが、報酬はゲームによって賞金（順位別）と
+        // アイテム（被っちゃやーよ）に分かれるので、ミニゲームマスの説明（BoardEventDescription）と
+        // 同じくここでは額を書かずにまとめて言う（順位別の賞金の表を出すのは Home のルール説明＝RuleBook）。
         private static string MiniGameDescription()
         {
-            return $"好きなミニゲームで遊び、順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。"
-                + MiniGamePrize.OverlapRewardText();
+            return "好きなミニゲームで遊び、結果に応じて賞金やアイテムが貰える。";
         }
 
         // お金アップの説明。増える額はお金アップのマスと同じルール（MoneyCellRule が持つ）。

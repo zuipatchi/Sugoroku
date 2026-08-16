@@ -8,8 +8,11 @@ namespace Common.MiniGame
     /// 配るのは <c>BoardPresenter.AwardMiniGameItemsAsync</c>（説明文は <see cref="OverlapRewardText"/>）。
     ///
     /// 実際の残高移動は <c>MoneyModel</c>、順位付けは <see cref="MiniGameRanking.RanksOf"/>（オンライン）と
-    /// 各ミニゲームの順位表（一人用）が担う。<c>MoneyCellRule</c> と同じく、
-    /// ルールの数字はここ 1 か所に置いてマスの説明文（<c>BoardEventDescription</c>）もここから組み立てる。
+    /// 各ミニゲームの順位表（一人用）が担う。<c>MoneyCellRule</c> と同じく、ルールの数字はここ 1 か所に置いて
+    /// 説明文（Home のルール説明＝<c>RuleBook</c>）もここから組み立てる。
+    /// **ゲーム中に出す説明（マス＝<c>BoardEventDescription</c>／ミニゲームアイテム＝<c>ItemCatalog</c>）は
+    /// 額を書かず「結果に応じて賞金やアイテムがもらえる」とまとめて言う**（報酬がゲームによって
+    /// 賞金／アイテムと変わるので、表を出すと長いうえに例外の説明が要る）。
     /// </summary>
     public static class MiniGamePrize
     {
@@ -39,9 +42,8 @@ namespace Common.MiniGame
 
         /// <summary>
         /// 順位が付かないゲーム（被っちゃやーよ）の報酬の文言。賞金ではなく「選んだアイテムがもらえる」ので、
-        /// 順位別の賞金（<see cref="RankPrizeText"/>）だけでは説明が実装と食い違う。
-        /// マスの説明（<c>BoardEventDescription</c>）・ミニゲームアイテムの説明（<c>ItemCatalog</c>）・
-        /// ルール説明（<c>RuleBook</c>）が同じ文言を使えるようにここへ置く。
+        /// 順位別の賞金（<see cref="RankPrizeText"/>）だけを書くと説明が実装と食い違う。
+        /// 額まで説明する Home のルール説明（<c>RuleBook</c>）が使う（賞金の表と対で出す）。
         /// </summary>
         public static string OverlapRewardText()
         {
@@ -51,8 +53,8 @@ namespace Common.MiniGame
 
         /// <summary>
         /// 順位と賞金を並べた文言（「1位 500 / 2位 300 / 3位 100 / 4位 0」）。
-        /// ミニゲームマスの説明（<c>BoardEventDescription</c>）とミニゲームアイテムの説明（<c>ItemCatalog</c>）が
-        /// 同じ文言を使えるようにここへ置く（賞金額を変えれば説明文も一緒に変わる）。
+        /// 額まで説明する Home のルール説明（<c>RuleBook</c>）が使う
+        /// （賞金額を変えれば説明文も一緒に変わる）。
         /// 賞金の出る順位に「その次の順位（＝0 円）」まで並べるのは、「それ以下は 0」と書くより
         /// 4 人対戦の全順位がそのまま並ぶほうが読み取りやすいため。
         /// </summary>

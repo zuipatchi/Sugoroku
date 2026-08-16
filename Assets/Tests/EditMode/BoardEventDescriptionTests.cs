@@ -1,5 +1,4 @@
 using System;
-using Common.MiniGame;
 using Main.Board;
 using Main.Money;
 using NUnit.Framework;
@@ -51,18 +50,16 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void ミニゲームマスはランダムであることと順位別の賞金を説明に含む()
+        public void ミニゲームマスはランダムであることと報酬の種類を説明に含む()
         {
-            // 遊ぶゲームは着地のたびの抽選なので、説明にゲーム名は出せない（賞金の表だけ書く）。
+            // 遊ぶゲームは着地のたびの抽選なので説明にゲーム名は出せず、報酬もゲームによって
+            // 賞金（順位別）とアイテム（被っちゃやーよ）に分かれる。どれに当たっても外れないよう、
+            // 額は書かずに「賞金やアイテム」とまとめて言う（順位別の賞金の表を出すのは
+            // 遊ぶゲームを選べるミニゲームアイテムの説明＝ItemCatalog とルール説明＝RuleBook の役目）。
             string description = BoardEventDescription.Of(BoardCellEvent.MiniGame);
             StringAssert.Contains("ランダム", description);
-            for (int rank = 1; rank <= MiniGamePrize.PaidRanks; rank++)
-            {
-                StringAssert.Contains(MiniGamePrize.ForRank(rank).ToString(), description);
-            }
-            // 賞金が出ないゲーム（被っちゃやーよ＝報酬は選んだアイテム）に当たることもあるので、
-            // 順位別の賞金だけで終わらせない。
-            StringAssert.Contains(MiniGamePrize.OverlapRewardText(), description);
+            StringAssert.Contains("賞金", description);
+            StringAssert.Contains("アイテム", description);
         }
 
         [Test]

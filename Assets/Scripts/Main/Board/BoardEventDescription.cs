@@ -1,4 +1,3 @@
-using Common.MiniGame;
 using Main.Money;
 
 namespace Main.Board
@@ -20,9 +19,12 @@ namespace Main.Board
 
         /// <summary>
         /// マスの説明文。**文章はどれも「このマスに止まると、〜」で始める**。
-        /// 進む／戻るマス数・お金の増減額・ミニゲームの賞金はマスごとの設定ではなくルール側の定数
-        /// （<see cref="MoveCellRule"/> / <see cref="MoneyCellRule"/> / <see cref="MiniGamePrize"/>）から
-        /// 組み立てるので引数に取らない（遊ぶミニゲームも着地のたびの抽選なのでマスからは決まらない）。
+        /// 進む／戻るマス数・お金の増減額はマスごとの設定ではなくルール側の定数
+        /// （<see cref="MoveCellRule"/> / <see cref="MoneyCellRule"/>）から組み立てるので引数に取らない。
+        /// ミニゲームマスだけは遊ぶゲームが着地のたびの抽選で、報酬もゲームによって賞金／アイテムと
+        /// 変わるため、額を書かず「結果に応じて賞金やアイテムがもらえる」とまとめて言う
+        /// （順位別の賞金の表を出すのは Home のルール説明＝<c>RuleBook</c> だけ。ミニゲームアイテムの説明も
+        /// 同じくまとめて言う＝<c>ItemCatalog</c>）。
         /// </summary>
         public static string Of(BoardCellEvent cellEvent)
         {
@@ -33,7 +35,10 @@ namespace Main.Board
                 case BoardCellEvent.Back:
                     return $"このマスに止まると、ランダムで {MoveRangeText()} マス戻る。";
                 case BoardCellEvent.MiniGame:
-                    return "このマスに止まると、ランダムに選ばれたミニゲームに挑戦する。" + PrizeText();
+                    // 遊ぶゲームは着地のたびの抽選で、報酬もゲームによって賞金だったりアイテムだったり
+                    // する（被っちゃやーよ）。どれに当たっても外れないよう、額は書かずにまとめて言う。
+                    return "このマスに止まると、ランダムに選ばれたミニゲームに挑戦する。"
+                        + "結果に応じて賞金やアイテムがもらえる。";
                 case BoardCellEvent.MoneyUp:
                     return $"このマスに止まると、所持金がランダムに {MoneyCellRule.RangeText()} 増える。";
                 case BoardCellEvent.MoneyDown:
@@ -45,16 +50,6 @@ namespace Main.Board
                 default:
                     return "特に何も起こらないマス。";
             }
-        }
-
-        // ミニゲームの報酬の説明（ルール側＝MiniGamePrize から組み立てる。順位と額の並びは
-        // ミニゲームアイテムの説明（ItemCatalog）と共通なので MiniGamePrize.RankPrizeText が持つ）。
-        // 遊ぶゲームは着地のたびの抽選なので、どのゲームに当たっても外れないよう順位別の賞金に加えて
-        // 被っちゃやーよの報酬（＝賞金ではなく選んだアイテム）も添える。
-        private static string PrizeText()
-        {
-            return $"順位に応じて所持金がもらえる（{MiniGamePrize.RankPrizeText()}）。"
-                + MiniGamePrize.OverlapRewardText();
         }
 
         // 進む／戻るマスで動くマス数の範囲（ルール側の定数から組み立てる）。

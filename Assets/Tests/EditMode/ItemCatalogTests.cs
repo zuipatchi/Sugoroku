@@ -1,5 +1,4 @@
 using System;
-using Common.MiniGame;
 using Main.Item;
 using Main.Money;
 using NUnit.Framework;
@@ -33,13 +32,13 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void ミニゲームアイテムの説明は順位別の賞金を含む()
+        public void ミニゲームアイテムの説明は報酬の種類を含む()
         {
+            // 報酬はゲームによって賞金（順位別）とアイテム（被っちゃやーよ）に分かれるので、
+            // 額は書かずにまとめて言う（順位別の賞金の表を出すのは Home のルール説明＝RuleBook）。
             string description = ItemCatalog.Find(ItemId.MiniGame).Description;
-            for (int rank = 1; rank <= MiniGamePrize.PaidRanks; rank++)
-            {
-                StringAssert.Contains(MiniGamePrize.ForRank(rank).ToString(), description);
-            }
+            StringAssert.Contains("賞金", description);
+            StringAssert.Contains("アイテム", description);
         }
 
         [Test]
