@@ -328,7 +328,7 @@ SpinDecision decision = await decided;
 - **カードに出にくくする**なら `cardWeight` を下げる（`InstantWin`＝勝利は 0.5＝他の半分）。`RandomCards` は重みに比例した確率で 1 枚ずつ引いては候補から外すので、1 枚だけ引くときは重みの比がそのまま出やすさの比になる。0 にすれば実質出ない。
 - カードは**種類が参加者数より多いほど毎回の顔ぶれが変わって選択の駆け引きが生まれる**（並ぶのは参加者数ぶんだけなので、種類＝人数だと毎回全部出てしまう）。
 
-**説明文（`Description`）は効果の実装と読み比べて書く**。実装より狭く読める書き方をしない（「相手の所持金の一部を奪う」は 1 人から奪うように読めるが、実際は自分以外の全員が対象＝「全員からいくらかのお金を適当に奪う」）。**数値まで書くならルール側の定数から組み立てる**（ミニゲームの順位別の賞金＝`MiniGamePrize.RankPrizeText()`。マスの説明〔`BoardEventDescription`〕と同じ方針で、賞金の並びはそちらと共用する）ので、ルールを変えれば説明文も一緒に変わる。**あえて数値を書かない**選択もある（お金よこどりの奪う割合はぼかす＝使ってからのお楽しみ）。書いた内容は EditMode テストで押さえる（`ItemCatalogTests`）。**説明文と価格は Home のルール説明にもそのまま出る**（[#17](#17-ルール説明はゲーム側のカタログから組み立てる)）ので、カタログに足せば説明を書く場所は増えない。
+**説明文（`Description`）は効果の実装と読み比べて書く**。実装より狭く読める書き方をしない（「相手の所持金の一部を奪う」は 1 人から奪うように読めるが、実際は自分以外の全員が対象＝「全員からいくらかのお金を適当に奪う」）。**数値まで書くならルール側の定数から組み立てる**（お金アップの増額＝`MoneyCellRule.RangeText()`。マスの説明〔`BoardEventDescription`〕と同じ方針）ので、ルールを変えれば説明文も一緒に変わる。**あえて数値を書かない**選択もある（お金よこどりの奪う割合はぼかす＝使ってからのお楽しみ／ミニゲームの報酬は遊ぶゲームによって賞金とアイテムに分かれるので「結果に応じて賞金やアイテムが貰える」とまとめる＝額の表を出すのは Home のルール説明だけ）。書いた内容は EditMode テストで押さえる（`ItemCatalogTests`）。**説明文と価格は Home のルール説明にもそのまま出る**（[#17](#17-ルール説明はゲーム側のカタログから組み立てる)）ので、カタログに足せば説明を書く場所は増えない。
 
 - **アイテムは着地時に開くアイテムショップで購入する**。アイテム取得マスに止まると `BoardPresenter.PlayItemShopSequenceAsync` が動く。**買い物は「決定」と「適用」に分かれている**（[#14](#14-オンライン同期は決定と適用を分けてアクションストリームで配る)）：着地した本人のクライアントだけが `DecidePurchaseAsync` で `ItemCatalog.RandomLineup(_itemRng, 2, 4)`（ランダムな枚数・重複なし）を抽選し、人間は `ItemShopPresenter.SelectAsync(lineup, budget, ct)`（一度に 2 枚のカルーセル・買えないカードは無効・「買わずに閉じる」でスキップ）、CPU は `PickCpuPurchase` で買える範囲からランダムに 1 つ選ぶ。結果を `GameAction.ShopResult` で発行し、**全クライアントが `ApplyShopResult` で代金の支払い（`MoneyModel.Add(player, -price)`）と `ItemModel.Add`（購入音＝`MoneySE`）を行う**。カルーセルは `flex-shrink:0` のカードを `overflow:hidden` のビューポートに収め、`ShowPage` で `PageWidthPx`（カード142px×2）ぶん translate する（ビューポート幅・`CardSlotWidthPx` は USS と一致させる）。
 - 取得の保持は [ItemModel.cs](../Assets/Scripts/Main/Item/ItemModel.cs)（`MoneyModel`／`TerritoryModel` と同じ Scoped DI・参加者ごと）。右下手札への反映は `ItemModel.Gained` 購読→`BoardPresenter.AppendItemToHand`（同じアイテムはカードを増やさず「x2」の枚数バッジで表示をまとめる。`ItemModel` 側の手札リストは重複を保持）。
@@ -473,7 +473,7 @@ Home の「ルール説明」モーダル（[RuleBook.cs](../Assets/Scripts/Home
 | マスの名前・色・効果・並び順 | `BoardEventLabel` / `BoardEventColors` / `BoardEventDescription` / `BoardEventTally.DisplayOrder` |
 | アイテムの名前・効果・価格 | `ItemCatalog.Purchasable`（`ItemDefinition.Description` / `Price`） |
 | ミニゲームの名前・遊び方 | `MiniGameCatalog.All`（`MiniGameDefinition.Description`） |
-| ミニゲームの報酬（順位別の賞金・被っちゃやーよの獲得アイテム） | `MiniGamePrize.RankPrizeText()` / `MiniGamePrize.OverlapRewardText()` |
+| ミニゲームの報酬（順位別の賞金・被っちゃやーよの獲得アイテム） | `MiniGamePrize.RankPrizeText()` / `MiniGamePrize.OverlapRewardText()`（**額まで出すのはここだけ**。ゲーム中の説明＝マス・ミニゲームアイテムは「賞金やアイテム」とまとめる） |
 | お金の増減額・初期所持金・プレイ人数 | `MoneyCellRule.RangeText()` / `MoneyModel.InitialMoney` / `PlayerCountSessionModel.Min`・`Max` |
 | ルーレットの数字の範囲 | `RouletteNumberLayout.MinNumber`・`MaxNumber` |
 
